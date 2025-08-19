@@ -35,7 +35,7 @@ Local-first storage management (Btrfs/ZFS*), snapshots, shares, backups, and a m
 ## Quickstart (Dev)
 > Requires: Go 1.22+, Node 20+, npm, make (optional), Docker (for app catalog dev)
 
-```bash
+~~~bash
 # clone
 git clone https://github.com/<you>/<repo>.git
 cd <repo>
@@ -48,3 +48,64 @@ go run ./...
 cd web
 npm install
 npm run dev
+~~~
+
+- Backend default: `http://127.0.0.1:9000`  
+- Web dev server: `http://127.0.0.1:5173` (proxied to the API in dev)
+
+---
+
+## Repository Structure (planned)
+~~~text
+/backend/nosd          # Go API server (REST/gRPC, OpenAPI)
+/agent/nos-agent       # Privileged helper (Unix socket)
+/web                   # React + TypeScript dashboard (shadcn/ui)
+/packaging/deb         # Debian packaging for nosd/agent/web
+/packaging/iso/debian  # Debian live-build profile (installer ISO)
+/scripts               # CI/build/release tools, support bundle
+/docs                  # Architecture notes, ADRs, guides
+~~~
+
+---
+
+## Roadmap (early milestones)
+- [ ] Disk discovery & health (lsblk, smartctl)
+- [ ] Btrfs pool create/import, snapshots, send/receive
+- [ ] SMB/NFS shares with simple ACLs
+- [ ] App catalog (Docker/Compose) with one-click install
+- [ ] Snapshot-before-update & rollback
+- [ ] Installable ISO (Debian base), first-boot wizard
+
+Follow issues & discussions for up-to-date progress.
+
+---
+
+## Contributing
+We welcome issues and PRs! Please read:
+- [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- [`SECURITY.md`](SECURITY.md)
+
+All contributions are made under the **NithronOS Community License (NCL)**; see `LICENSE`.
+
+---
+
+## Licensing & Commercial Use
+- **Source code:** [`LICENSE`](LICENSE) (NithronOS Community License — non-commercial, source-available)  
+- **Commercial & MSP terms:** [`COMMERCIAL.md`](COMMERCIAL.md)  
+- **Official builds (ISOs/packages/updates):** [`BINARIES-EULA.md`](BINARIES-EULA.md)  
+- **Trademarks:** [`TRADEMARK_POLICY.md`](TRADEMARK_POLICY.md)
+
+> TL;DR: you can read/modify/contribute freely; selling, hosting, or redistributing binaries requires a commercial agreement.
+
+---
+
+## Branding
+Colors align with Nithron’s palette (dark UI, electric blue `#2D7FF9`, lime accent `#A4F932`).  
+“Nithron”, “NithronOS”, and “nOS” are trademarks of Nithron — see `TRADEMARK_POLICY.md`.
+
+---
+
+## Contact
+General: **hello@nithron.com**  
+Commercial licensing: **licensing@nithron.com**  
+Security: **security@nithron.com**
