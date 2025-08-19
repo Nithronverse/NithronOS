@@ -1,0 +1,72 @@
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Node / Web
+node_modules/
+dist/
+build/
+.cache/
+.vite/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Go
+bin/
+out/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage/
+*.coverprofile
+
+# Python scripts (if used)
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Packages / Artifacts
+*.iso
+*.img
+*.qcow2
+*.squashfs
+*.deb
+*.tar
+*.tar.gz
+*.zip
+
+# Packaging build dirs
+packaging/**/build/
+packaging/**/work/
+packaging/**/output/
+.packaging-cache/
+
+# Docker (optional)
+docker-data/
+**/.docker-build/
+
+# Env / Secrets
+.env
+.env.*
+!.env.example
+
+# Editors / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.orig
+
+# Misc cache/temp
+tmp/
+.cache/
+logs/
