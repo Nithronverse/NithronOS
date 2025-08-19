@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+systemctl daemon-reload || true
+systemctl enable nosd.service || true
+systemctl restart nosd.service || true
+
+exit 0
+
+

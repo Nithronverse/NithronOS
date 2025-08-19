@@ -1,0 +1,27 @@
+:443 {
+	# Use provided certificates (self-signed by default)
+	tls /etc/nos/tls/cert.pem /etc/nos/tls/key.pem
+
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+	}
+
+	@api path /api/*
+	handle @api {
+		reverse_proxy 127.0.0.1:9000
+	}
+
+	handle {
+		root * /srv/nos-web
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+

@@ -1,0 +1,14 @@
+Source: nithronos
+Section: metapackages
+Priority: optional
+Maintainer: NithronOS <hello@nithron.com>
+Standards-Version: 4.6.2
+Build-Depends: debhelper (>= 12)
+
+Package: nithronos
+Architecture: all
+Depends: nosd, nos-agent, nos-web, caddy, smartmontools, btrfs-progs, ${misc:Depends}
+Description: NithronOS meta package
+ Pulls in core services and dependencies.
+
+

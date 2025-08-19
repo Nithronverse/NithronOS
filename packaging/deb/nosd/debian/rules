@@ -1,0 +1,21 @@
+#!/usr/bin/make -f
+
+export DH_VERBOSE=1
+export DEB_BUILD_MAINT_OPTIONS=hardening=+all
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	GO111MODULE=on CGO_ENABLED=0 go build -o build/nosd ./backend/nosd
+
+override_dh_auto_install:
+	mkdir -p debian/nosd/usr/sbin
+	mkdir -p debian/nosd/etc/systemd/system
+	cp build/nosd debian/nosd/usr/sbin/nosd
+	cp ../../../deploy/systemd/nosd.service debian/nosd/etc/systemd/system/nosd.service
+
+override_dh_systemd_enable:
+	dh_systemd_enable --name=nosd nosd.service
+
+

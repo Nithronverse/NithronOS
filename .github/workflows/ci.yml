@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  go:
+    name: Go build & test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+      - name: Test backend/nosd
+        run: |
+          cd backend/nosd
+          go test -v -coverprofile=coverage.out ./...
+      - name: Upload coverage (nosd)
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-nosd
+          path: backend/nosd/coverage.out
+      - name: Test agent/nos-agent
+        run: |
+          cd agent/nos-agent
+          go test -v -coverprofile=coverage.out ./...
+      - name: Upload coverage (nos-agent)
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-nos-agent
+          path: agent/nos-agent/coverage.out
+
+  web:
+    name: Web build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+      - name: Install deps
+        working-directory: web
+        run: npm ci
+      - name: Generate OpenAPI types
+        working-directory: web
+        run: npm run typegen
+      - name: Build
+        working-directory: web
+        run: npm run build
+      - name: Upload dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
+
+  deb-packages:
+    if: startsWith(github.ref, 'refs/tags/v')
+    name: Build Debian packages
+    runs-on: ubuntu-latest
+    container:
+      image: debian:bookworm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Cache APT packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/cache/apt
+            /var/lib/apt/lists
+          key: ${{ runner.os }}-apt-cache-${{ hashFiles('.github/workflows/ci.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-cache-
+      - name: Install build tooling
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends curl ca-certificates gnupg build-essential dpkg-dev debhelper git
+          # Install Go 1.22
+          GO_VERSION=1.22.7
+          curl -fsSL https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz -o /tmp/go.tgz
+          rm -rf /usr/local/go && tar -C /usr/local -xzf /tmp/go.tgz
+          echo "/usr/local/go/bin" >> $GITHUB_PATH
+          # Install Node.js 20 (NodeSource)
+          curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+          apt-get install -y --no-install-recommends nodejs
+      - name: Build .debs
+        run: |
+          bash packaging/build-all.sh
+      - name: Upload Debian artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: debian-packages
+          path: packaging/output/*.deb
+
+

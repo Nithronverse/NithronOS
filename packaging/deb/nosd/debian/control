@@ -1,0 +1,14 @@
+Source: nosd
+Section: admin
+Priority: optional
+Maintainer: NithronOS <hello@nithron.com>
+Build-Depends: debhelper (>= 12), golang-any
+Standards-Version: 4.6.2
+
+Package: nosd
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: NithronOS API daemon (Go)
+ nOS backend API server.
+
+

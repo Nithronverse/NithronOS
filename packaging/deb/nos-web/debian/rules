@@ -1,0 +1,15 @@
+#!/usr/bin/make -f
+
+export DH_VERBOSE=1
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	cd ../../../web && npm ci && npm run build
+
+override_dh_auto_install:
+	mkdir -p debian/nos-web/srv/nos-web
+	cp -a ../../../web/dist/* debian/nos-web/srv/nos-web/
+
+

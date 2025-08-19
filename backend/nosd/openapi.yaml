@@ -1,0 +1,141 @@
+openapi: 3.0.3
+info:
+  title: NithronOS API
+  version: 0.1.0
+  description: API for nOS backend
+servers:
+  - url: http://127.0.0.1:9000
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+  /api/disks:
+    get:
+      summary: List disks
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lsblk'
+  /api/pools:
+    get:
+      summary: List storage pools
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pool'
+  /api/shares:
+    get:
+      summary: List shares
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Share'
+  /api/apps:
+    get:
+      summary: App catalog
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/App'
+  /api/remote/status:
+    get:
+      summary: Remote access status
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoteStatus'
+components:
+  schemas:
+    Health:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        version:
+          type: string
+      required: [ok, version]
+    Lsblk:
+      type: object
+      properties:
+        blockdevices:
+          type: array
+          items:
+            $ref: '#/components/schemas/Disk'
+      required: [blockdevices]
+    Disk:
+      type: object
+      properties:
+        name:
+          type: string
+        size:
+          type: string
+        type:
+          type: string
+        mountpoint:
+          nullable: true
+        model:
+          type: string
+          nullable: true
+        serial:
+          type: string
+          nullable: true
+      required: [name, size, type]
+    Pool:
+      type: object
+      properties:
+        id:
+          type: string
+    Share:
+      type: object
+      properties:
+        id:
+          type: string
+    App:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [installed, not_installed, updating]
+      required: [id, status]
+    RemoteStatus:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum: [lan-only, tunnel, vpn]
+        https:
+          type: boolean
+      required: [mode, https]
+
+
+

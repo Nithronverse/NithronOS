@@ -1,4 +1,5 @@
 # NithronOS (nOS)
+[![CI](https://github.com/NotTekk/NithronOS/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/NotTekk/NithronOS/actions/workflows/ci.yml)
 
 **Open-source Linux-based OS for NAS & homelabs.**  
 Local-first storage management (Btrfs/ZFS*), snapshots, shares, backups, and a modern web dashboard with an optional app catalog — all without cloud lock-in.
@@ -30,6 +31,8 @@ Local-first storage management (Btrfs/ZFS*), snapshots, shares, backups, and a m
 2) Cloudflare Tunnel — no port-forward, requires 2FA  
 3) Direct port-forward — forces 2FA + rate limits
 
+> WARNING: Remote modes (Tunnel or Direct) MUST enforce strong 2FA on the admin UI and apply rate limits. Exposing the dashboard without 2FA is unsupported and unsafe.
+
 ---
 
 ## Quickstart (Dev)
@@ -40,18 +43,44 @@ Local-first storage management (Btrfs/ZFS*), snapshots, shares, backups, and a m
 git clone https://github.com/<you>/<repo>.git
 cd <repo>
 
-# backend (in one terminal)
-cd backend/nosd
-go run ./...
+# install deps
+cd web && npm install && cd ..
 
-# web (in another terminal)
-cd web
-npm install
-npm run dev
+# backend (in one terminal)
+make api-dev
+
+# agent (optional, separate terminal)
+make agent-dev
+
+# web (separate terminal)
+make web-dev
 ~~~
 
 - Backend default: `http://127.0.0.1:9000`  
-- Web dev server: `http://127.0.0.1:5173` (proxied to the API in dev)
+- Web dev server: `http://127.0.0.1:5173` (Vite)
+
+---
+
+## Local Dev
+
+~~~bash
+# run API with live reload (air/reflex if installed, else plain go)
+make api-dev
+
+# run agent (optional)
+make agent-dev
+
+# run web dev server
+make web-dev
+
+# run both nosd and web concurrently
+bash scripts/dev-up.sh
+
+# package .debs (Debian toolchain required)
+make package
+~~~
+
+> Security: keep `nosd` bound to loopback in dev. For any remote exposure, enforce 2FA and rate limits, and apply the LAN-only firewall by default.
 
 ---
 
@@ -75,10 +104,35 @@ npm run dev
 - [ ] App catalog (Docker/Compose) with one-click install
 - [ ] Snapshot-before-update & rollback
 - [ ] Installable ISO (Debian base), first-boot wizard
+- [ ] Remote Access Wizard & Firewall Toggle — plan → confirm → apply → rollback; modes: **lan-only** (default), **vpn-only**, **tunnel**, **direct**. Require 2FA for non–lan-only, back up current ruleset before apply, and expose controls under **Settings → Remote**.
 
 Follow issues & discussions for up-to-date progress.
 
 ---
+
+## Firewall (LAN-only by default)
+
+NithronOS ships with an **nftables** policy that exposes the web UI (443) only to LAN subnets (RFC1918). To apply it on a fresh Debian install:
+
+~~~bash
+sudo bash deploy/firewall/apply.sh
+sudo systemctl enable --now nftables.service
+~~~
+
+This:
+- Loads `deploy/firewall/nos.nft`
+- Sets **default-deny** on input
+- Allows loopback and established/related
+- Allows TCP **443** (web UI) and **22** (SSH) **from LAN only** (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`)
+
+> **Remote access is opt-in.** When you later enable Internet access (VPN/Tunnel/Direct), use the **Remote** wizard in the UI (coming soon). It will enforce 2FA, add rate limiting, update firewall rules safely, and keep a rollback backup.
+
+To revert the ruleset manually:
+
+~~~bash
+sudo nft flush ruleset
+sudo systemctl restart nftables.service
+~~~
 
 ## Contributing
 We welcome issues and PRs! Please read:

@@ -1,0 +1,21 @@
+{
+  "blockdevices": [
+    {
+      "name": "sda",
+      "kname": "sda",
+      "path": "/dev/sda",
+      "size": 1000204886016,
+      "rota": true,
+      "type": "disk",
+      "tran": "sata",
+      "vendor": "ATA",
+      "model": "MockDisk",
+      "serial": "MOCKA123",
+      "mountpoint": null,
+      "fstype": "",
+      "children": []
+    }
+  ]
+}
+
+

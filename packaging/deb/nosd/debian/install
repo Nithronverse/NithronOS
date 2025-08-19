@@ -1,0 +1,4 @@
+debian/nosd/usr/sbin/nosd usr/sbin/
+debian/nosd/etc/systemd/system/nosd.service etc/systemd/system/
+
+
