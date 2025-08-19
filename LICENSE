@@ -1,0 +1,50 @@
+NithronOS Community License (NCL) v1.0
+Copyright (c) [YEAR] Thiago Benkendorf & Nithron. All rights reserved.
+https://nithron.com
+
+1. Definitions
+“Software” means the source code, build scripts, and documentation in this repository.
+“Official Build Artifacts” means prebuilt ISOs, packages, update repositories, keys, and images released by Nithron.
+“Non-Commercial Use” means use by an individual for personal, educational, research, or open-source contribution purposes, with no direct or indirect monetary compensation, fee, or other consideration and not on behalf of any for-profit entity.
+“Commercial Use” means any use that is not Non-Commercial Use, including use by or on behalf of a for-profit entity, providing services to third parties, hosting, resale, or any monetized distribution.
+“Trademarks” means the names “Nithron”, “NithronOS”, “nOS”, related logos, wordmarks, domain names, and other brand assets.
+
+2. Grant
+Subject to your full compliance with this License:
+2.1 You may copy, use, modify, and create derivative works of the Software for Non-Commercial Use.
+2.2 You may compile the Software for your own Non-Commercial Use. You may not redistribute compiled binaries or images.
+2.3 You may redistribute source code and patches for Non-Commercial Use, provided you include this License and preserve copyright and notice files.
+
+3. Restrictions
+3.1 No Commercial Use. You may not use, host, offer, sell, license, sublicense, monetize, or distribute the Software, derivative works, or compiled artifacts for Commercial Use without a separate commercial agreement with Nithron.
+3.2 No Competing Distribution. You may not publish or distribute prebuilt binaries, ISOs, container images, app catalogs, or update repositories derived from the Software, whether or not for consideration, without a commercial agreement.
+3.3 No Service Offering. You may not offer the Software as a hosted or managed service to third parties, whether paid or unpaid.
+3.4 Trademark Use. This License does not grant any rights to the Trademarks. You may not use the Trademarks, or confusingly similar names (including “NithronOS”, “Nithron OS”, “nOS”, “NOS”, or variations such as “BetterNOS”), except to truthfully describe your fork as “a fork of NithronOS” in plain text. All brand assets and logo files must be removed from forks.
+3.5 No Removal of Notices. You must not remove or alter copyright, license, or attribution notices.
+3.6 No Sublicensing. You may not sublicense rights to the Software.
+
+4. Contributions
+By submitting a contribution, you:
+(a) represent that you have the right to do so and that your contribution does not violate any third-party rights; and
+(b) license your contribution to Nithron under this NCL; and
+(c) grant Nithron a perpetual, worldwide, irrevocable right to relicense your contribution, including under open-source or commercial terms, to ensure project continuity.
+
+5. Official Build Artifacts
+Official Build Artifacts are NOT provided under this License. Their use is governed by Nithron’s Binary/EULA or commercial terms. You must not mirror, repackage, resell, or redistribute Official Build Artifacts.
+
+6. Patent Grant (Non-Commercial)
+For Non-Commercial Use only, each contributor grants you a non-exclusive, worldwide, royalty-free patent license to make, use, and modify the Software. No patent rights are granted for Commercial Use.
+
+7. Termination
+This License terminates automatically if you breach it. Upon termination, you must stop using the Software and destroy or remove all copies. Sections 3–10 survive termination.
+
+8. Warranty Disclaimer
+THE SOFTWARE IS PROVIDED “AS IS” WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. USE AT YOUR OWN RISK.
+
+9. Limitation of Liability
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT WILL NITHRON OR CONTRIBUTORS BE LIABLE FOR ANY DAMAGES ARISING OUT OF OR RELATING TO THIS SOFTWARE OR LICENSE.
+
+10. Governing Law
+This License is governed by the laws of Germany. Exclusive venue is Berlin, Germany.
+
+For Commercial Use rights, contact: licensing@nithron.com
