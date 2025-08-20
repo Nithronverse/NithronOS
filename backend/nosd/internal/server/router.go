@@ -473,7 +473,7 @@ func NewRouter(cfg config.Config) http.Handler {
 						OK                 bool `json:"ok"`
 						ID, Type, Location string
 					}
-					if err := client.PostJSON(r.Context(), "/v1/snapshot/create", map[string]any{"path": p, "mode": "auto", "reason": "pre-update"}, &sresp); err != nil || !sresp.OK {
+					if err := client.PostJSON(r.Context(), "/v1/snapshot/create", map[string]any{"path": p, "mode": "auto", "reason": "pre-update"}, &sresp); err != nil {
 						mark := false
 						now := time.Now().UTC()
 						tx.FinishedAt = &now
