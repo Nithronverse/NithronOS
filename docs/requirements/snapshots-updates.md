@@ -49,3 +49,8 @@ On every system or app update, take point-in-time backups so an admin can quickl
 - After rollback, the associated services are restarted and the system indicates success or error.
 - Index at /var/lib/nos/snapshots/index.json is updated consistently and prunes entries beyond the last 5 per target.
 
+## Optional follow-ups (post-v0)
+- **Rootfs rollback on Btrfs:** integrate with GRUB and maintain `@`/`@home` snapshot pairs; boot entry for previous snapshot.
+- **Per-app hooks:** pre/post update hooks to stop only the affected containers/services, not all docker apps.
+- **Advanced retention:** prune snapshots by age and/or total size caps (in addition to “keep N”).
+

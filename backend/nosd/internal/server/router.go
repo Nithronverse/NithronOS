@@ -186,7 +186,7 @@ func NewRouter(cfg config.Config) http.Handler {
 				httpx.WriteError(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			client := agentclient.New("/run/nos-agent.sock")
+			client := handlers.AgentClientFactory()
 			var planResp map[string]any
 			_ = client.PostJSON(r.Context(), "/v1/btrfs/create", map[string]any{
 				"devices": req.Devices,
@@ -517,7 +517,7 @@ func NewRouter(cfg config.Config) http.Handler {
 			if body.KeepPerTarget <= 0 {
 				body.KeepPerTarget = 5
 			}
-			client := agentclient.New("/run/nos-agent.sock")
+			client := handlers.AgentClientFactory()
 			var resp map[string]any
 			if err := client.PostJSON(r.Context(), "/v1/snapshot/prune", map[string]any{"keep_per_target": body.KeepPerTarget}, &resp); err != nil {
 				httpx.WriteError(w, http.StatusInternalServerError, err.Error())
@@ -542,7 +542,7 @@ func NewRouter(cfg config.Config) http.Handler {
 				httpx.WriteError(w, http.StatusNotFound, "tx not found")
 				return
 			}
-			client := agentclient.New("/run/nos-agent.sock")
+			client := handlers.AgentClientFactory()
 			// start rollback tx record
 			roll := snapdb.UpdateTx{TxID: generateUUID(), StartedAt: time.Now().UTC(), Packages: orig.Packages, Reason: "rollback"}
 			for _, t := range orig.Targets {
