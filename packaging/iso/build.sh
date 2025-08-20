@@ -65,22 +65,19 @@ rm -rf chroot/ cache/* || true
 
 # Configure build (Debian bookworm, amd64, ISO-hybrid)
 DEBIAN_MIRROR="http://deb.debian.org/debian"
-DEBIAN_SECURITY_MIRROR="http://security.debian.org/debian-security"
-lb config \
+
+${SUDO} lb config \
   --mode debian \
   --distribution bookworm \
   --architectures amd64 \
   --binary-images iso-hybrid \
   --apt-recommends true \
-  --updates false \
-  --security false \
   --apt-indices false \
   --debian-installer live \
   --archive-areas "main contrib non-free-firmware" \
   --mirror-bootstrap "$DEBIAN_MIRROR" \
   --mirror-chroot   "$DEBIAN_MIRROR" \
-  --mirror-binary   "$DEBIAN_MIRROR" \
-  
+  --mirror-binary   "$DEBIAN_MIRROR"
 
 # Build ISO (LB assumes non-interactive)
 export DEBIAN_FRONTEND=noninteractive
