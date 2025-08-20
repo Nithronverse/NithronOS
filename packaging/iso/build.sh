@@ -7,6 +7,9 @@ SCRIPT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROFILE_DIR="$SCRIPT_DIR/debian"
 OUT_DIR="$SCRIPT_DIR/../../dist/iso"
 
+# Ensure apt includes directories exist for pinned sources
+mkdir -p "$PROFILE_DIR/config/includes.chroot/etc/apt" "$PROFILE_DIR/config/includes.binary/etc/apt"
+
 echo "[iso] using debs from: $DEB_DIR"
 mkdir -p "$OUT_DIR"
 
