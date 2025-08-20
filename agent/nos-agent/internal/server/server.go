@@ -2,7 +2,6 @@ package server
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -10,17 +9,14 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"syscall"
 )
 
 const SocketPath = "/run/nos-agent.sock"
 
 // Start creates the unix socket listener and serves the HTTP API.
 func Start() error {
-	if runtime.GOOS != "windows" {
-		if os.Geteuid() != 0 {
-			return errors.New("nos-agent must run as root")
-		}
+	if err := mustBeRoot(); err != nil {
+		return err
 	}
 
 	if err := os.MkdirAll(filepath.Dir(SocketPath), 0o755); err != nil {
@@ -168,10 +164,4 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-// Set umask to ensure socket permissions are not masked further when running under certain environments.
-func init() {
-	if runtime.GOOS != "windows" {
-		// 002 -> ensure group can read/write
-		_ = syscall.Umask(0o002)
-	}
-}
+// umask and root checks are handled in OS-specific files

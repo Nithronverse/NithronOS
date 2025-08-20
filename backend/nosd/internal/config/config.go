@@ -8,8 +8,11 @@ import (
 )
 
 type Config struct {
-	Port int
-	LogLevel zerolog.Level
+	Port            int
+	LogLevel        zerolog.Level
+	UsersPath       string
+	SessionHashKey  []byte
+	SessionBlockKey []byte
 }
 
 func FromEnv() Config {
@@ -27,11 +30,25 @@ func FromEnv() Config {
 		}
 	}
 
+	users := os.Getenv("NOS_USERS_PATH")
+	if users == "" {
+		users = "./devdata/users.json"
+	}
+
+	hashKey := []byte(os.Getenv("NOS_SESSION_HASH_KEY"))
+	blockKey := []byte(os.Getenv("NOS_SESSION_BLOCK_KEY"))
+	if len(hashKey) == 0 {
+		hashKey = []byte("dev-hash-key-change-me-32bytes-minxxxx")
+	}
+	if len(blockKey) == 0 {
+		blockKey = []byte("dev-block-key-change-me-32bytes-minxx")
+	}
+
 	return Config{
-		Port:     port,
-		LogLevel: level,
+		Port:            port,
+		LogLevel:        level,
+		UsersPath:       users,
+		SessionHashKey:  hashKey,
+		SessionBlockKey: blockKey,
 	}
 }
-
-
-

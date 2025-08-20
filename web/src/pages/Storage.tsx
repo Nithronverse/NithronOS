@@ -12,7 +12,7 @@ export function Storage() {
 	}, [])
 
 	const sorted = useMemo(() => {
-		const rows = (disks ?? []).slice()
+		const rows = (disks?.disks ?? []).slice()
 		rows.sort((a: any, b: any) => {
 			const va = sortKey === 'size' ? Number(a.size) : String(a.name)
 			const vb = sortKey === 'size' ? Number(b.size) : String(b.name)
@@ -54,7 +54,7 @@ export function Storage() {
 							</thead>
 							<tbody>
 								{sorted.map((d: any) => (
-									<tr key={d.path} className="border-t border-muted/20">
+									<tr key={d.path || d.name} className="border-t border-muted/20">
 										<td className="py-2">{d.name}</td>
 										<td>{d.model || '-'}</td>
 										<td>{d.serial || '-'}</td>

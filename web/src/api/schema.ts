@@ -63,7 +63,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["Lsblk"];
+                        "application/json": {
+                            disks: components["schemas"]["Disk"][];
+                        };
                     };
                 };
             };
@@ -228,16 +230,26 @@ export interface components {
             ok: boolean;
             version: string;
         };
-        Lsblk: {
-            blockdevices: components["schemas"]["Disk"][];
-        };
         Disk: {
             name: string;
-            size: string;
+            kname?: string | null;
+            path?: string | null;
+            /** Format: int64 */
+            size: number;
             type: string;
-            mountpoint?: unknown;
+            rota?: boolean | null;
+            tran?: string | null;
+            vendor?: string | null;
             model?: string | null;
             serial?: string | null;
+            mountpoint?: unknown;
+            fstype?: string | null;
+            smart?: components["schemas"]["SmartSummary"];
+        };
+        SmartSummary: {
+            healthy?: boolean | null;
+            temp_c?: number | null;
+            power_on_hours?: number | null;
         };
         Pool: {
             id?: string;

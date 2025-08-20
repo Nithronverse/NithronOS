@@ -25,7 +25,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Lsblk'
+                type: object
+                properties:
+                  disks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Disk'
+                required: [disks]
   /api/pools:
     get:
       summary: List storage pools
@@ -82,24 +88,30 @@ components:
         version:
           type: string
       required: [ok, version]
-    Lsblk:
-      type: object
-      properties:
-        blockdevices:
-          type: array
-          items:
-            $ref: '#/components/schemas/Disk'
-      required: [blockdevices]
     Disk:
       type: object
       properties:
         name:
           type: string
-        size:
+        kname:
           type: string
+          nullable: true
+        path:
+          type: string
+          nullable: true
+        size:
+          type: integer
+          format: int64
         type:
           type: string
-        mountpoint:
+        rota:
+          type: boolean
+          nullable: true
+        tran:
+          type: string
+          nullable: true
+        vendor:
+          type: string
           nullable: true
         model:
           type: string
@@ -107,7 +119,26 @@ components:
         serial:
           type: string
           nullable: true
+        mountpoint:
+          nullable: true
+        fstype:
+          type: string
+          nullable: true
+        smart:
+          $ref: '#/components/schemas/SmartSummary'
       required: [name, size, type]
+    SmartSummary:
+      type: object
+      properties:
+        healthy:
+          type: boolean
+          nullable: true
+        temp_c:
+          type: integer
+          nullable: true
+        power_on_hours:
+          type: integer
+          nullable: true
     Pool:
       type: object
       properties:
