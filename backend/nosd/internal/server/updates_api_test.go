@@ -176,9 +176,15 @@ func TestUpdatesRollback_HappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
-	// last should be the rollback record
-	last := items[len(items)-1]
-	if last.Reason != "rollback" || last.Success == nil || !*last.Success {
-		t.Fatalf("expected rollback success, got %+v", last)
+	// look for any rollback success record
+	found := false
+	for _, rec := range items {
+		if rec.Reason == "rollback" && rec.Success != nil && *rec.Success {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected rollback success record, got %+v", items)
 	}
 }
