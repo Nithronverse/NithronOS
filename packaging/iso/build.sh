@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# run as root if available; otherwise prefix with sudo
+SUDO_CMD=""
+if [ "${EUID:-$(id -u)}" -ne 0 ]; then
+  SUDO_CMD="sudo"
+fi
+
 DEB_DIR="${1:-packaging/iso/local-debs}"
 
 SCRIPT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -60,13 +66,13 @@ chmod +x "$HOOK"
 pushd "$PROFILE_DIR" >/dev/null
 
 # Clean previous outputs
-lb clean --purge || true
+${SUDO_CMD} lb clean --purge || true
 rm -rf chroot/ cache/* || true
 
 # Configure build (Debian bookworm, amd64, ISO-hybrid)
 DEBIAN_MIRROR="http://deb.debian.org/debian"
 
-${SUDO} lb config \
+${SUDO_CMD} lb config \
   --mode debian \
   --distribution bookworm \
   --architectures amd64 \
@@ -81,7 +87,7 @@ ${SUDO} lb config \
 
 # Build ISO (LB assumes non-interactive)
 export DEBIAN_FRONTEND=noninteractive
-lb build
+${SUDO_CMD} lb build
 
 # Default output path from live-build
 ISO_SRC="live-image-amd64.hybrid.iso"
