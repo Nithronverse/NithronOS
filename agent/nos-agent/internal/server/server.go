@@ -49,6 +49,13 @@ func Start() error {
 	mux.HandleFunc("/v1/fs/mkdir", handleFSMkdir)
 	mux.HandleFunc("/v1/smb/user-create", handleSMBUserCreate)
 	mux.HandleFunc("/v1/smb/users", handleSMBUsersList)
+	mux.HandleFunc("/v1/snapshot/create", handleSnapshotCreate)
+	mux.HandleFunc("/v1/snapshot/list", handleSnapshotList)
+	mux.HandleFunc("/v1/snapshot/rollback", handleSnapshotRollback)
+	mux.HandleFunc("/v1/updates/plan", handleUpdatesPlan)
+	mux.HandleFunc("/v1/updates/apply", handleUpdatesApply)
+	mux.HandleFunc("/v1/snapshot/prune", handleSnapshotPrune)
+	mux.HandleFunc("/v1/updates/plan", handleUpdatesPlan)
 
 	return http.Serve(l, mux)
 }

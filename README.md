@@ -2,6 +2,7 @@
 ![NithronOS](./assets/brand/nithronos-readme-banner.svg)
 
 [![CI](https://github.com/NotTekk/NithronOS/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/NotTekk/NithronOS/actions/workflows/ci.yml)
+[![Snapshots On Update](https://img.shields.io/badge/Snapshots%20On%20Update-Enabled%20by%20default-2D7FF9)](docs/updates.md)
 
 **Open-source Linux-based OS for NAS & homelabs.**  
 Local-first storage management (Btrfs/ZFS*), snapshots, shares, backups, and a modern web dashboard with an optional app catalog — all without cloud lock-in.
@@ -83,6 +84,49 @@ make package
 ~~~
 
 > Security: keep `nosd` bound to loopback in dev. For any remote exposure, enforce 2FA and rate limits, and apply the LAN-only firewall by default.
+
+---
+
+## Snapshot retention
+
+NithronOS keeps a rolling set of the newest snapshots per target.
+
+- Agent provides a prune endpoint that keeps the newest N snapshots (default 5) for each target and removes older ones (Btrfs subvolumes and `.tar.gz` snapshots).
+- A systemd timer (`nos-snapshot-prune.timer`) runs daily and triggers the prune service.
+- You can trigger pruning manually from the API:
+
+```bash
+curl -sS --unix-socket /run/nos-agent.sock -X POST http://localhost/v1/snapshot/prune -H 'Content-Type: application/json' -d '{"keep_per_target":5}'
+```
+
+Future versions will surface retention settings in the UI.
+
+---
+
+## Updates & Rollback
+
+Pre-update snapshots and rollback are built-in and enabled by default.
+
+- Configuration file: `/etc/nos/snapshots.yaml` (dev default: `./devdata/snapshots.yaml`).
+  - Schema (v1):
+    - `version: 1`
+    - `targets[]`: entries with `{ id, path (absolute), type: "btrfs"|"auto"|"tar", stop_services?: [names...] }`
+  - Example defaults in dev: `/etc/nos` (tar), `/opt/nos/apps` (auto), `/srv/apps` (auto if present).
+- What gets snapshotted:
+  - For `type: auto`, the agent detects if the path is on Btrfs; it creates a read-only subvolume snapshot under `path/.snapshots/<ts>-pre-update`. Otherwise a tarball is created under `/var/lib/nos/snapshots/<slug(path)>/<ts>-pre-update.tar.gz`.
+  - Optional `stop_services` can be used to briefly stop services during snapshot (restarted after).
+- Apply updates:
+  - The backend takes pre-update snapshots for configured targets, then applies Debian updates (`apt-get install -y <pkgs>` or `apt-get upgrade -y`).
+  - A transaction record (`tx_id`, packages, targets, result) is appended to `/var/lib/nos/snapshots/index.json`.
+- Rollback behavior:
+  - For each target in the transaction, the agent restores from the corresponding pre-update snapshot:
+    - Btrfs: replaces the current subvolume with a writable clone of the snapshot.
+    - Tar: extracts the tarball over the target path (a safety backup of current content is created first).
+- Retention:
+  - By default, the newest 5 snapshots are kept per target. Older snapshots are pruned daily by `nos-snapshot-prune.timer`.
+  - You can trigger pruning manually via the API (see below) or from the UI (Settings → Updates).
+
+See `docs/updates.md` for CLI examples and troubleshooting.
 
 ---
 

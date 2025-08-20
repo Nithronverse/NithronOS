@@ -27,6 +27,7 @@ import (
 	"nithronos/backend/nosd/pkg/firewall"
 	"nithronos/backend/nosd/pkg/httpx"
 	poolroots "nithronos/backend/nosd/pkg/pools"
+	"nithronos/backend/nosd/pkg/snapdb"
 )
 
 func Logger(cfg config.Config) *zerolog.Logger {
@@ -436,6 +437,180 @@ func NewRouter(cfg config.Config) http.Handler {
 			list, _ := pools.ListSnapshots(r.Context(), id)
 			writeJSON(w, list)
 		})
+
+		// Updates: check
+		pr.Get("/api/updates/check", func(w http.ResponseWriter, r *http.Request) {
+			client := agentclient.New("/run/nos-agent.sock")
+			var planResp map[string]any
+			_ = client.PostJSON(r.Context(), "/v1/updates/plan", map[string]any{}, &planResp)
+			// attach snapshot targets (best-effort)
+			roots, _ := poolroots.AllowedRoots()
+			writeJSON(w, map[string]any{"plan": planResp, "snapshot_roots": roots})
+		})
+
+		// Updates: apply
+		pr.Post("/api/updates/apply", func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				Packages []string `json:"packages"`
+				Snapshot bool     `json:"snapshot"`
+				Confirm  string   `json:"confirm"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if strings.ToLower(body.Confirm) != "yes" {
+				httpx.WriteError(w, http.StatusPreconditionRequired, "confirm\u003dyes required")
+				return
+			}
+			client := agentclient.New("/run/nos-agent.sock")
+			// create tx and persist initial state
+			txID := generateUUID()
+			tx := snapdb.UpdateTx{TxID: txID, StartedAt: time.Now().UTC(), Packages: body.Packages, Reason: "pre-update"}
+			_ = snapdb.Append(tx)
+			// load snapshot targets via pools roots (simplified: allowed roots)
+			roots, _ := poolroots.AllowedRoots()
+			if body.Snapshot {
+				for _, p := range roots {
+					var sresp struct {
+						OK                 bool `json:"ok"`
+						ID, Type, Location string
+					}
+					if err := client.PostJSON(r.Context(), "/v1/snapshot/create", map[string]any{"path": p, "mode": "auto", "reason": "pre-update"}, &sresp); err != nil || !sresp.OK {
+						mark := false
+						now := time.Now().UTC()
+						tx.FinishedAt = &now
+						tx.Success = &mark
+						tx.Notes = "snapshot failed: " + errString(err)
+						_ = snapdb.Append(tx)
+						httpx.WriteError(w, http.StatusInternalServerError, "snapshot failed")
+						return
+					}
+					// append target on success
+					tx.Targets = append(tx.Targets, snapdb.SnapshotTarget{ID: sresp.ID, Path: p, Type: sresp.Type, Location: sresp.Location, CreatedAt: time.Now().UTC()})
+				}
+			}
+			// perform updates apply on agent
+			var applyResp map[string]any
+			if err := client.PostJSON(r.Context(), "/v1/updates/apply", map[string]any{"packages": body.Packages}, &applyResp); err != nil {
+				mark := false
+				now := time.Now().UTC()
+				tx.FinishedAt = &now
+				tx.Success = &mark
+				tx.Notes = "apply failed: " + errString(err)
+				_ = snapdb.Append(tx)
+				httpx.WriteError(w, http.StatusInternalServerError, "updates apply failed")
+				return
+			}
+			// success
+			mark := true
+			now := time.Now().UTC()
+			tx.FinishedAt = &now
+			tx.Success = &mark
+			_ = snapdb.Append(tx)
+			writeJSON(w, map[string]any{"ok": true, "tx_id": txID, "snapshots_count": len(tx.Targets), "updates_count": len(applyResp)})
+		})
+
+		// Snapshots: prune
+		pr.Post("/api/snapshots/prune", func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				KeepPerTarget int `json:"keep_per_target"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if body.KeepPerTarget <= 0 {
+				body.KeepPerTarget = 5
+			}
+			client := agentclient.New("/run/nos-agent.sock")
+			var resp map[string]any
+			if err := client.PostJSON(r.Context(), "/v1/snapshot/prune", map[string]any{"keep_per_target": body.KeepPerTarget}, &resp); err != nil {
+				httpx.WriteError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			writeJSON(w, resp)
+		})
+
+		// Updates: rollback
+		pr.Post("/api/updates/rollback", func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				TxID    string `json:"tx_id"`
+				Confirm string `json:"confirm"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if strings.ToLower(body.Confirm) != "yes" {
+				httpx.WriteError(w, http.StatusPreconditionRequired, "confirm\u003dyes required")
+				return
+			}
+			orig, err := snapdb.FindByTx(body.TxID)
+			if err != nil {
+				httpx.WriteError(w, http.StatusNotFound, "tx not found")
+				return
+			}
+			client := agentclient.New("/run/nos-agent.sock")
+			// start rollback tx record
+			roll := snapdb.UpdateTx{TxID: generateUUID(), StartedAt: time.Now().UTC(), Packages: orig.Packages, Reason: "rollback"}
+			for _, t := range orig.Targets {
+				var resp map[string]any
+				if err := client.PostJSON(r.Context(), "/v1/snapshot/rollback", map[string]any{
+					"path": t.Path, "snapshot_id": t.ID, "type": t.Type,
+				}, &resp); err != nil {
+					mark := false
+					now := time.Now().UTC()
+					roll.FinishedAt = &now
+					roll.Success = &mark
+					roll.Notes = "rollback failed for target " + t.Path + ": " + err.Error()
+					_ = snapdb.Append(roll)
+					httpx.WriteError(w, http.StatusInternalServerError, "rollback failed")
+					return
+				}
+			}
+			okMark := true
+			now := time.Now().UTC()
+			roll.FinishedAt = &now
+			roll.Success = &okMark
+			roll.Notes = "rollback of " + orig.TxID
+			_ = snapdb.Append(roll)
+			writeJSON(w, map[string]any{"ok": true})
+		})
+
+		// Snapshots DB: recent
+		pr.Get("/api/snapshots/recent", func(w http.ResponseWriter, r *http.Request) {
+			list, err := snapdb.ListRecent(20)
+			if err != nil {
+				httpx.WriteError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			// project limited fields
+			out := make([]map[string]any, 0, len(list))
+			for _, tx := range list {
+				miniTargets := make([]map[string]any, 0, len(tx.Targets))
+				for _, t := range tx.Targets {
+					miniTargets = append(miniTargets, map[string]any{
+						"id": t.ID, "type": t.Type, "location": t.Location,
+					})
+				}
+				ok := false
+				if tx.Success != nil {
+					ok = *tx.Success
+				}
+				out = append(out, map[string]any{
+					"tx_id":    tx.TxID,
+					"time":     tx.StartedAt,
+					"packages": tx.Packages,
+					"targets":  miniTargets,
+					"success":  ok,
+				})
+			}
+			writeJSON(w, out)
+		})
+
+		// Snapshots DB: by tx id
+		pr.Get("/api/snapshots/{tx_id}", func(w http.ResponseWriter, r *http.Request) {
+			txID := chi.URLParam(r, "tx_id")
+			tx, err := snapdb.FindByTx(txID)
+			if err != nil {
+				httpx.WriteError(w, http.StatusNotFound, "tx not found")
+				return
+			}
+			writeJSON(w, tx)
+		})
+
 		pr.Post("/api/pools/{id}/snapshots", func(w http.ResponseWriter, r *http.Request) {
 			id := chi.URLParam(r, "id")
 			var body struct {
@@ -466,4 +641,35 @@ func writeJSON(w http.ResponseWriter, v any) {
 func hasCommand(name string) bool {
 	_, err := exec.LookPath(name)
 	return err == nil
+}
+
+func generateUUID() string {
+	const hex = "0123456789abcdef"
+	var b [16]byte
+	n := time.Now().UnixNano()
+	for i := 0; i < 16; i++ {
+		b[i] = byte(n >> (i * 8))
+	}
+	b[6] = (b[6] & 0x0f) | 0x40
+	b[8] = (b[8] & 0x3f) | 0x80
+	out := make([]byte, 36)
+	idx := 0
+	for i := 0; i < 16; i++ {
+		if i == 4 || i == 6 || i == 8 || i == 10 {
+			out[idx] = '-'
+			idx++
+		}
+		out[idx] = hex[b[i]>>4]
+		idx++
+		out[idx] = hex[b[i]&0x0f]
+		idx++
+	}
+	return string(out)
+}
+
+func errString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }

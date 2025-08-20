@@ -31,6 +31,9 @@ type SmbUsersGet = paths['/api/smb/users']['get']['responses'][200]['content']['
 type SmbUserCreateReq = components['schemas']['SmbUserCreate']
 type SmbUserCreateResp = paths['/api/smb/users']['post']['responses'][201]
 type PoolsRootsResp = paths['/api/pools/roots']['get']['responses'][200]['content']['application/json']
+type UpdatesApplyResp = paths['/api/updates/apply']['post']['responses'][200]['content']['application/json']
+type UpdatesRollbackResp = paths['/api/updates/rollback']['post']['responses'][200]['content']['application/json']
+type UpdatesCheckResp = paths['/api/updates/check']['get']['responses'][200]['content']['application/json']
 
 export const api = {
   shares: {
@@ -45,6 +48,13 @@ export const api = {
   smb: {
     usersList: () => req<SmbUsersGet>('/api/smb/users').catch(()=>[] as SmbUsersGet),
     userCreate: (u: SmbUserCreateReq) => req<SmbUserCreateResp>('/api/smb/users', { method:'POST', body: JSON.stringify(u) }),
+  },
+  updates: {
+    check: () => req<UpdatesCheckResp>('/api/updates/check'),
+    apply: (body: { packages?: string[]; snapshot?: boolean; confirm: 'yes' }) =>
+      req<UpdatesApplyResp>('/api/updates/apply', { method:'POST', body: JSON.stringify(body) }),
+    rollback: (body: { tx_id: string; confirm: 'yes' }) =>
+      req<UpdatesRollbackResp>('/api/updates/rollback', { method:'POST', body: JSON.stringify(body) }),
   },
 };
 export default api;

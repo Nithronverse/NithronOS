@@ -1,0 +1,9 @@
+[Unit]
+Description=NithronOS snapshot prune
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/curl --unix-socket /run/nos-agent.sock -sS -X POST http://localhost/v1/snapshot/prune -H 'Content-Type: application/json' -d '{"keep_per_target":5}'
+
+

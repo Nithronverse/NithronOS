@@ -10,7 +10,10 @@ require (
 	github.com/rs/zerolog v1.34.0
 )
 
-require golang.org/x/crypto v0.41.0
+require (
+	golang.org/x/crypto v0.41.0
+	gopkg.in/yaml.v3 v3.0.1
+)
 
 require (
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect

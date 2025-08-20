@@ -314,6 +314,96 @@ paths:
               schema:
                 type: string
                 format: binary
+  /api/updates/apply:
+    post:
+      summary: Apply updates, optionally snapshotting targets before
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                packages:
+                  type: array
+                  items: { type: string }
+                snapshot:
+                  type: boolean
+                confirm:
+                  type: string
+              required: [confirm]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  tx_id: { type: string }
+                  snapshots_count: { type: integer }
+                  updates_count: { type: integer }
+                required: [ok, tx_id]
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/updates/check:
+    get:
+      summary: Check for available updates and list snapshot roots
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plan:
+                    type: object
+                    additionalProperties: true
+                  snapshot_roots:
+                    type: array
+                    items: { type: string }
+                required: [plan, snapshot_roots]
+  /api/updates/rollback:
+    post:
+      summary: Roll back a prior updates transaction using its snapshots
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tx_id: { type: string }
+                confirm: { type: string }
+              required: [tx_id, confirm]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                required: [ok]
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
             application/octet-stream:
               schema:
                 type: string

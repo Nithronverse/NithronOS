@@ -9,6 +9,7 @@ import { Remote } from './pages/Remote'
 import { Login } from './pages/Login'
 import { PoolsCreate } from './pages/PoolsCreate'
 import { PoolDetails } from './pages/PoolDetails'
+import { SettingsUpdates } from './pages/SettingsUpdates'
 
 const router = createBrowserRouter([
 	{
@@ -26,6 +27,7 @@ const router = createBrowserRouter([
 			{ path: 'shares', element: <SharesIndex /> },
 			{ path: 'apps', element: <Apps /> },
 			{ path: 'settings', element: <Settings /> },
+			{ path: 'settings/updates', element: <SettingsUpdates /> },
 			{ path: 'remote', element: <Remote /> },
 			{ path: 'storage/create', element: <PoolsCreate /> },
 			{ path: 'storage/:id', element: <PoolDetails /> },

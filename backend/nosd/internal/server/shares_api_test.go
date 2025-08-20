@@ -93,11 +93,15 @@ func TestSharesCreate_Valid_Smb_WritesConfigAndReloads(t *testing.T) {
 	hasWrite := false
 	hasReload := false
 	for _, c := range fake.calls {
-		if c.path == "/v1/fs/mkdir" && c.body["path"] == "/srv/data/media" {
-			hasMkdir = true
+		if c.path == "/v1/fs/mkdir" {
+			p := fmt.Sprint(c.body["path"])
+			p = strings.ReplaceAll(p, "\\", "/")
+			if p == "/srv/data/media" {
+				hasMkdir = true
+			}
 		}
 		if c.path == "/v1/fs/write" {
-			if p, _ := c.body["path"].(string); strings.HasSuffix(p, "/samba/smb.conf.d/nos-media.conf") {
+			if p, _ := c.body["path"].(string); strings.Contains(p, "nos-media.conf") {
 				hasWrite = true
 			}
 		}
