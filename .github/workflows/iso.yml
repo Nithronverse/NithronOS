@@ -7,6 +7,7 @@ on:
 
 jobs:
   build-iso:
+    needs: deb-packages
     runs-on: ubuntu-latest
     container:
       image: debian:bookworm
@@ -17,13 +18,19 @@ jobs:
           apt-get install -y git live-build ca-certificates curl make build-essential debhelper devscripts fakeroot golang-go nodejs npm
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Build Debian packages
+      - name: Download debs
+        uses: actions/download-artifact@v4
+        with:
+          name: debs
+          path: dist/deb
+      - name: Prep packages for ISO
         run: |
-          bash packaging/build-all.sh
+          mkdir -p packaging/iso/local-debs
+          cp -v dist/deb/*.deb packaging/iso/local-debs/
       - name: Stage debs into ISO build
         run: |
           mkdir -p packaging/iso/debian/config/includes.chroot/root/debs
-          cp -v packaging/output/*.deb packaging/iso/debian/config/includes.chroot/root/debs/
+          cp -v packaging/iso/local-debs/*.deb packaging/iso/debian/config/includes.chroot/root/debs/
       - name: Prepare debs
         run: |
           ls -l packaging/iso/debian/config/includes.chroot/root/debs || true
