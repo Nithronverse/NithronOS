@@ -1,6 +1,86 @@
 name: ISO
 
 on:
+  release:
+    types: [published]    # run only when a Release is published
+  workflow_dispatch:      # manual fallback (optional)
+    inputs:
+      tag:
+        description: "Tag to build (e.g., v0.1.1). Defaults to latest release tag."
+        required: false
+
+jobs:
+  build-iso:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+
+    steps:
+      - name: Determine tag to build
+        id: meta
+        run: |
+          if [ -n "${{ github.event.release.tag_name }}" ]; then
+            echo "TAG=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          elif [ -n "${{ inputs.tag }}" ]; then
+            echo "TAG=${{ inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            # latest release tag via GitHub API
+            TAG=$(gh release list -L 1 --json tagName -q '.[0].tagName')
+            echo "TAG=$TAG" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Checkout repo at release tag
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ steps.meta.outputs.TAG }}
+
+      - name: Resolve tag commit SHA
+        id: sha
+        run: |
+          echo "SHA=$(git rev-list -n 1 ${{ steps.meta.outputs.TAG }})" >> $GITHUB_OUTPUT
+
+      # Download the debs artifact from the CI workflow run that built this commit
+      - name: Download debs from CI run for this tag
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: ci.yml                 # CHANGE if your main CI workflow file has a different name
+          workflow_conclusion: success
+          commit: ${{ steps.sha.outputs.SHA }}
+          name: debs                       # CHANGE if your CI uploaded a different artifact name
+          path: dist/deb
+
+      - name: Ensure ISO build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y live-build xorriso squashfs-tools cpio debootstrap genisoimage
+
+      - name: Prepare packages for ISO build
+        run: |
+          mkdir -p packaging/iso/local-debs dist/iso
+          if ls dist/deb/*.deb 1>/dev/null 2>&1; then
+            cp -v dist/deb/*.deb packaging/iso/local-debs/
+          else
+            echo "::error::No .deb artifacts found for tag ${{ steps.meta.outputs.TAG }}. Ensure your CI builds and uploads an artifact named 'debs' on tag builds."
+            exit 1
+          fi
+
+      - name: Make ISO script executable
+        run: chmod +x packaging/iso/build.sh
+
+      - name: Build ISO
+        run: bash packaging/iso/build.sh packaging/iso/local-debs
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: iso-${{ steps.meta.outputs.TAG }}
+          path: dist/iso/*.iso
+name: ISO
+
+on:
   # Auto-trigger when the main CI workflow finishes
   workflow_run:
     workflows: ["CI"]   # <-- change if your main workflow shows a different name in Actions
