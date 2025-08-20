@@ -56,6 +56,7 @@ func TestUpdatesApply_HappyPath(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("skip on windows")
 	}
+	_ = os.Setenv("NOS_USERS_PATH", "../../../../devdata/users.json")
 	// temp snapdb dir
 	dir := t.TempDir()
 	_ = os.Setenv("NOS_SNAPDB_DIR", dir)
@@ -108,6 +109,7 @@ func TestUpdatesApply_SnapshotError(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("skip on windows")
 	}
+	_ = os.Setenv("NOS_USERS_PATH", "../../../../devdata/users.json")
 	dir := t.TempDir()
 	_ = os.Setenv("NOS_SNAPDB_DIR", dir)
 	defer os.Unsetenv("NOS_SNAPDB_DIR")
@@ -147,6 +149,7 @@ func TestUpdatesRollback_HappyPath(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("skip on windows")
 	}
+	_ = os.Setenv("NOS_USERS_PATH", "../../../../devdata/users.json")
 	dir := t.TempDir()
 	_ = os.Setenv("NOS_SNAPDB_DIR", dir)
 	defer os.Unsetenv("NOS_SNAPDB_DIR")

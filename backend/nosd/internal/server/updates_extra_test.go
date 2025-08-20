@@ -36,6 +36,7 @@ func TestUpdatesCheck_ReturnsPlanAndRoots(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("skip on windows")
 	}
+	_ = os.Setenv("NOS_USERS_PATH", "../../../../devdata/users.json")
 	cfg := config.FromEnv()
 	r := NewRouter(cfg)
 	prev := handlers.AgentClientFactory
@@ -61,6 +62,7 @@ func TestSnapshotsRecent_AndByTx(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("skip on windows")
 	}
+	_ = os.Setenv("NOS_USERS_PATH", "../../../../devdata/users.json")
 	dir := t.TempDir()
 	_ = os.Setenv("NOS_SNAPDB_DIR", dir)
 	defer os.Unsetenv("NOS_SNAPDB_DIR")
@@ -103,6 +105,7 @@ func TestSnapshotsPruneProxy_OK(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("skip on windows")
 	}
+	_ = os.Setenv("NOS_USERS_PATH", "../../../../devdata/users.json")
 	cfg := config.FromEnv()
 	r := NewRouter(cfg)
 	prev := handlers.AgentClientFactory
