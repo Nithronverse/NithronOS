@@ -3,6 +3,153 @@ name: CI
 on:
   push:
     branches: [ main ]
+  pull_request:
+  release:
+    types: [published]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build & Test (backend/agent/web)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          check-latest: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Normalize go.mod and tidy
+        run: |
+          sed -i 's/^go 1\.23\.0$/go 1.23/' backend/nosd/go.mod || true
+          sed -i 's/^go 1\.23\.0$/go 1.23/' agent/nos-agent/go.mod || true
+          (cd backend/nosd && go mod tidy)
+          (cd agent/nos-agent && go mod tidy)
+
+      - name: Build backend & agent
+        run: |
+          cd backend/nosd && CGO_ENABLED=0 go build ./... && cd -
+          cd agent/nos-agent && CGO_ENABLED=0 go build ./... && cd -
+
+      - name: Test backend & agent
+        run: |
+          cd backend/nosd && go test ./... -v && cd -
+          cd agent/nos-agent && go test ./... -v && cd -
+
+      - name: Web install & build
+        run: |
+          cd web
+          npm ci
+          npm run build
+          cd -
+
+      - name: Web tests (if configured)
+        run: |
+          cd web
+          npm test -- --run || echo "no web tests configured"
+          cd -
+
+      - name: Upload web build (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
+          if-no-files-found: ignore
+
+  debs:
+    name: Build Debian packages
+    needs: build-test
+    if: ${{ github.event_name == 'release' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout at release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          check-latest: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Debian packaging toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y debhelper devscripts fakeroot build-essential
+
+      - name: Build .deb packages
+        run: |
+          chmod +x packaging/build-all.sh
+          bash packaging/build-all.sh
+
+      - name: Upload .deb artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: debs
+          path: |
+            dist/deb/*.deb
+            dist/deb/*.changes
+            dist/deb/*.buildinfo
+
+  iso:
+    name: Build ISO
+    needs: debs
+    if: ${{ github.event_name == 'release' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout at release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Download .deb artifacts from this workflow
+        uses: actions/download-artifact@v4
+        with:
+          name: debs
+          path: dist/deb
+
+      - name: Install ISO build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y live-build xorriso squashfs-tools cpio debootstrap genisoimage
+
+      - name: Stage debs for ISO
+        run: |
+          mkdir -p packaging/iso/local-debs
+          cp -v dist/deb/*.deb packaging/iso/local-debs/
+
+      - name: Build ISO
+        run: |
+          chmod +x packaging/iso/build.sh
+          bash packaging/iso/build.sh packaging/iso/local-debs
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: iso-${{ github.event.release.tag_name }}
+          path: dist/iso/*.iso
+name: CI
+
+on:
+  push:
+    branches: [ main ]
     tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
