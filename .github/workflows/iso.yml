@@ -1,6 +1,53 @@
 name: ISO
 
 on:
+  workflow_run:
+    workflows: ["CI"]   # <-- CHANGE if your deb-building workflow has a different display name
+    types: [completed]
+
+jobs:
+  build-iso:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read       # required to download artifacts from another workflow run
+      contents: read
+
+    steps:
+      - name: Check out same commit as CI
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Download .deb artifacts from the CI run
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          run_id: ${{ github.event.workflow_run.id }}
+          name: debs        # <-- CHANGE if your CI uploads a different artifact name
+          path: dist/deb
+
+      - name: Install ISO build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y live-build xorriso squashfs-tools cpio debootstrap genisoimage || true
+
+      - name: Prep packages for ISO build
+        run: |
+          mkdir -p packaging/iso/local-debs
+          cp -v dist/deb/*.deb packaging/iso/local-debs/
+
+      - name: Build ISO
+        run: |
+          bash packaging/iso/build.sh packaging/iso/local-debs
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: iso
+          path: dist/iso/*.iso
+name: ISO
+
+on:
   push:
     tags:
       - 'v*'
