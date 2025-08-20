@@ -72,6 +72,11 @@ rm -rf chroot/ cache/* || true
 # Configure build (Debian bookworm, amd64, ISO-hybrid)
 DEBIAN_MIRROR="http://deb.debian.org/debian"
 
+# Disable LB security mirrors to avoid legacy bookworm/updates
+export LB_MIRROR_CHROOT_SECURITY=""
+export LB_MIRROR_BINARY_SECURITY=""
+export LB_SECURITY="none"
+
 ${SUDO_CMD} lb config \
   --mode debian \
   --distribution bookworm \
@@ -84,6 +89,9 @@ ${SUDO_CMD} lb config \
   --mirror-bootstrap "$DEBIAN_MIRROR" \
   --mirror-chroot   "$DEBIAN_MIRROR" \
   --mirror-binary   "$DEBIAN_MIRROR"
+
+# Defensive cleanup of any legacy security lines injected by LB
+sed -i 's#http://security\.debian\.org .*bookworm/updates.*##' "$PROFILE_DIR"/config/* 2>/dev/null || true
 
 # Build ISO (LB assumes non-interactive)
 export DEBIAN_FRONTEND=noninteractive
