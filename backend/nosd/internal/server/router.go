@@ -440,7 +440,7 @@ func NewRouter(cfg config.Config) http.Handler {
 
 		// Updates: check
 		pr.Get("/api/updates/check", func(w http.ResponseWriter, r *http.Request) {
-			client := agentclient.New("/run/nos-agent.sock")
+			client := handlers.AgentClientFactory()
 			var planResp map[string]any
 			_ = client.PostJSON(r.Context(), "/v1/updates/plan", map[string]any{}, &planResp)
 			// attach snapshot targets (best-effort)
@@ -460,7 +460,7 @@ func NewRouter(cfg config.Config) http.Handler {
 				httpx.WriteError(w, http.StatusPreconditionRequired, "confirm\u003dyes required")
 				return
 			}
-			client := agentclient.New("/run/nos-agent.sock")
+			client := handlers.AgentClientFactory()
 			// create tx and persist initial state
 			txID := generateUUID()
 			tx := snapdb.UpdateTx{TxID: txID, StartedAt: time.Now().UTC(), Packages: body.Packages, Reason: "pre-update"}
