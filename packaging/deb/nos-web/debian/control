@@ -1,14 +1,14 @@
 Source: nos-web
 Section: web
 Priority: optional
-Maintainer: NithronOS <hello@nithron.com>
-Build-Depends: debhelper (>= 12), nodejs, npm
+Maintainer: NithronOS Maintainers <maintainers@nithron.com>
 Standards-Version: 4.6.2
+Build-Depends: debhelper-compat (= 13)
+Rules-Requires-Root: no
 
 Package: nos-web
 Architecture: all
 Depends: ${misc:Depends}
-Description: NithronOS Web UI (static)
- Vite-built static files for the web dashboard.
+Description: NithronOS web UI (static assets)
 
 

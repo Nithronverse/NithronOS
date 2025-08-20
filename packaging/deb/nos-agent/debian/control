@@ -1,14 +1,14 @@
 Source: nos-agent
 Section: admin
 Priority: optional
-Maintainer: NithronOS <hello@nithron.com>
-Build-Depends: debhelper (>= 12), golang-any
+Maintainer: NithronOS Maintainers <maintainers@nithron.com>
 Standards-Version: 4.6.2
+Build-Depends: debhelper-compat (= 13)
+Rules-Requires-Root: no
 
 Package: nos-agent
-Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: NithronOS privileged agent
- Executes allowlisted system tasks via Unix socket.
+Architecture: amd64
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: NithronOS privileged agent (root-only ops)
 
 

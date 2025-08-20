@@ -1,5 +1,5 @@
-nosd (0.1.0-1) unstable; urgency=medium
+nosd (0.1.1-1) unstable; urgency=medium
 
-  * First public preview release.
+  * Initial Debian packaging.
 
- -- NithronOS Team <hello@nithron.com>  Wed, 20 Aug 2025 08:00:00 +0000
+ -- NithronOS Maintainers <maintainers@nithron.com>  Wed, 20 Aug 2025 12:00:00 +0000

@@ -1,14 +1,14 @@
 Source: nithronos
 Section: metapackages
 Priority: optional
-Maintainer: NithronOS <hello@nithron.com>
+Maintainer: NithronOS Maintainers <maintainers@nithron.com>
 Standards-Version: 4.6.2
-Build-Depends: debhelper (>= 12)
+Build-Depends: debhelper-compat (= 13)
+Rules-Requires-Root: no
 
 Package: nithronos
 Architecture: all
-Depends: nosd, nos-agent, nos-web, caddy, smartmontools, btrfs-progs, ${misc:Depends}
-Description: NithronOS meta package
- Pulls in core services and dependencies.
+Depends: ${misc:Depends}, nosd, nos-agent, nos-web, caddy, nftables, fail2ban, docker.io, samba, nfs-kernel-server, btrfs-progs, smartmontools, wireguard
+Description: NithronOS meta package (pulls core services and deps)
 
 
