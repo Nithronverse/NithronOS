@@ -1,10 +1,12 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"nithronos/backend/nosd/internal/config"
@@ -30,8 +32,34 @@ func TestHealth(t *testing.T) {
 }
 
 func TestDisksShape(t *testing.T) {
-	r := NewRouter(config.FromEnv())
+	_ = os.Setenv("NOS_USERS_PATH", "../../../../devdata/users.json")
+	cfg := config.FromEnv()
+	r := NewRouter(cfg)
+
+	// Login to get cookies
+	loginBody := map[string]string{"email": "admin@example.com", "password": "admin123"}
+	lb, _ := json.Marshal(loginBody)
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewReader(lb))
+	loginRes := httptest.NewRecorder()
+	r.ServeHTTP(loginRes, loginReq)
+	if loginRes.Code != http.StatusOK {
+		t.Fatalf("login failed: %d %s", loginRes.Code, loginRes.Body.String())
+	}
+	cookies := loginRes.Result().Cookies()
+	var csrf string
+	for _, c := range cookies {
+		if c.Name == "nos_csrf" {
+			csrf = c.Value
+		}
+	}
+
 	req := httptest.NewRequest(http.MethodGet, "/api/disks", nil)
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+	if csrf != "" {
+		req.Header.Set("X-CSRF-Token", csrf)
+	}
 	res := httptest.NewRecorder()
 
 	r.ServeHTTP(res, req)
@@ -49,7 +77,7 @@ func TestDisksShape(t *testing.T) {
 }
 
 func TestLsblkFixture(t *testing.T) {
-	data, err := ioutil.ReadFile("internal/server/testdata/lsblk.json")
+	data, err := ioutil.ReadFile("testdata/lsblk.json")
 	if err != nil {
 		t.Skip("fixture not present")
 	}

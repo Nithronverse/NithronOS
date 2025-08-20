@@ -38,10 +38,10 @@ func FromEnv() Config {
 	hashKey := []byte(os.Getenv("NOS_SESSION_HASH_KEY"))
 	blockKey := []byte(os.Getenv("NOS_SESSION_BLOCK_KEY"))
 	if len(hashKey) == 0 {
-		hashKey = []byte("dev-hash-key-change-me-32bytes-minxxxx")
+		hashKey = []byte("0123456789abcdef0123456789abcdef") // 32 bytes
 	}
 	if len(blockKey) == 0 {
-		blockKey = []byte("dev-block-key-change-me-32bytes-minxx")
+		blockKey = []byte("abcdef0123456789abcdef0123456789") // 32 bytes
 	}
 
 	return Config{
