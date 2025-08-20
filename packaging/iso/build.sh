@@ -70,6 +70,8 @@ lb config \
   --mode debian \
   --distribution bookworm \
   --architectures amd64 \
+  --linux-packages "linux-image" \
+  --linux-flavours "amd64" \
   --binary-images iso-hybrid \
   --apt-recommends true \
   --security false \

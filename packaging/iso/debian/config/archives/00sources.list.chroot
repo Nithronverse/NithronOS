@@ -1,3 +1,0 @@
-deb http://deb.debian.org/debian bookworm main contrib non-free-firmware
-# security via correct suite
-deb http://security.debian.org/debian-security bookworm-security main contrib non-free-firmware
