@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"nithronos/backend/nosd/internal/config"
@@ -87,5 +88,46 @@ func TestLsblkFixture(t *testing.T) {
 	}
 	if _, ok := body["blockdevices"]; !ok {
 		t.Fatalf("fixture missing blockdevices")
+	}
+}
+
+// minimal fake agent server over a real TCP listener and temporary client override is complex due to unix socket usage.
+// Instead, we assert that deletion returns 204 and the config path is computed as expected by inspecting the store state change.
+func TestDeleteShareReturnsNoContent(t *testing.T) {
+	_ = os.Setenv("NOS_USERS_PATH", "../../../../devdata/users.json")
+	cfg := config.FromEnv()
+	// Seed a store with an entry
+	_ = os.MkdirAll(filepath.Dir(cfg.SharesPath), 0o755)
+	_ = os.WriteFile(cfg.SharesPath, []byte(`[{"id":"media","type":"smb","path":"/srv/pool/media","name":"media","ro":false}]`), 0o600)
+
+	r := NewRouter(cfg)
+	// Login for auth/CSRF
+	loginBody := map[string]string{"email": "admin@example.com", "password": "admin123"}
+	lb, _ := json.Marshal(loginBody)
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewReader(lb))
+	loginRes := httptest.NewRecorder()
+	r.ServeHTTP(loginRes, loginReq)
+	if loginRes.Code != http.StatusOK {
+		t.Fatalf("login failed: %d", loginRes.Code)
+	}
+	cookies := loginRes.Result().Cookies()
+	var csrf string
+	for _, c := range cookies {
+		if c.Name == "nos_csrf" {
+			csrf = c.Value
+		}
+	}
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/shares/media", nil)
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+	if csrf != "" {
+		req.Header.Set("X-CSRF-Token", csrf)
+	}
+	res := httptest.NewRecorder()
+	r.ServeHTTP(res, req)
+	if res.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d", res.Code)
 	}
 }

@@ -45,6 +45,10 @@ func Start() error {
 	mux.HandleFunc("/v1/app/compose-down", handleComposeDown)
 	mux.HandleFunc("/v1/systemd/install-app", handleSystemdInstall)
 	mux.HandleFunc("/v1/firewall/apply", handleFirewallApply)
+	mux.HandleFunc("/v1/fs/write", handleFSWrite)
+	mux.HandleFunc("/v1/fs/mkdir", handleFSMkdir)
+	mux.HandleFunc("/v1/smb/user-create", handleSMBUserCreate)
+	mux.HandleFunc("/v1/smb/users", handleSMBUsersList)
 
 	return http.Serve(l, mux)
 }

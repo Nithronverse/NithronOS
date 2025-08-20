@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -17,6 +16,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	"nithronos/backend/nosd/handlers"
 	"nithronos/backend/nosd/internal/apps"
 	"nithronos/backend/nosd/internal/config"
 	"nithronos/backend/nosd/internal/disks"
@@ -25,6 +25,8 @@ import (
 	"nithronos/backend/nosd/pkg/agentclient"
 	"nithronos/backend/nosd/pkg/auth"
 	"nithronos/backend/nosd/pkg/firewall"
+	"nithronos/backend/nosd/pkg/httpx"
+	poolroots "nithronos/backend/nosd/pkg/pools"
 )
 
 func Logger(cfg config.Config) *zerolog.Logger {
@@ -166,12 +168,21 @@ func NewRouter(cfg config.Config) http.Handler {
 			writeJSON(w, list)
 		})
 
+		// Pools: allowed roots for shares (mounted pool paths)
+		pr.Get("/api/pools/roots", func(w http.ResponseWriter, r *http.Request) {
+			roots, err := poolroots.AllowedRoots()
+			if err != nil {
+				httpx.WriteError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			writeJSON(w, map[string]any{"roots": roots})
+		})
+
 		pr.Post("/api/pools/plan-create", func(w http.ResponseWriter, r *http.Request) {
 			var req pools.PlanRequest
 			_ = json.NewDecoder(r.Body).Decode(&req)
 			if err := pools.EnsureDevicesFree(r.Context(), req.Devices); err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				_ = json.NewEncoder(w).Encode(map[string]any{"error": err.Error()})
+				httpx.WriteError(w, http.StatusBadRequest, err.Error())
 				return
 			}
 			client := agentclient.New("/run/nos-agent.sock")
@@ -187,15 +198,13 @@ func NewRouter(cfg config.Config) http.Handler {
 
 		pr.Post("/api/pools/create", func(w http.ResponseWriter, r *http.Request) {
 			if r.Header.Get("Confirm") != "yes" {
-				w.WriteHeader(http.StatusPreconditionRequired)
-				_ = json.NewEncoder(w).Encode(map[string]string{"error": "confirm header required"})
+				httpx.WriteError(w, http.StatusPreconditionRequired, "confirm header required")
 				return
 			}
 			var req pools.PlanRequest
 			_ = json.NewDecoder(r.Body).Decode(&req)
 			if err := pools.EnsureDevicesFree(r.Context(), req.Devices); err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				_ = json.NewEncoder(w).Encode(map[string]any{"error": err.Error()})
+				httpx.WriteError(w, http.StatusBadRequest, err.Error())
 				return
 			}
 			client := agentclient.New("/run/nos-agent.sock")
@@ -207,11 +216,40 @@ func NewRouter(cfg config.Config) http.Handler {
 				"dry_run": false,
 			}, &resp)
 			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+				httpx.WriteError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
 			writeJSON(w, resp)
+		})
+
+		// Pools: candidates for import
+		pr.Get("/api/pools/candidates", func(w http.ResponseWriter, r *http.Request) {
+			list, err := pools.ListPools(r.Context())
+			if err != nil {
+				httpx.WriteError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			writeJSON(w, list)
+		})
+
+		// Pools: import (mount) by device or UUID
+		pr.Post("/api/pools/import", func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				DeviceOrUUID string `json:"device_or_uuid"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if strings.TrimSpace(body.DeviceOrUUID) == "" {
+				httpx.WriteError(w, http.StatusBadRequest, "device_or_uuid required")
+				return
+			}
+			target := filepath.Join("/mnt", strings.ReplaceAll(body.DeviceOrUUID, "/", "_"))
+			client := agentclient.New("/run/nos-agent.sock")
+			var resp map[string]any
+			if err := client.PostJSON(r.Context(), "/v1/btrfs/mount", map[string]any{"uuid_or_device": body.DeviceOrUUID, "target": target}, &resp); err != nil {
+				httpx.WriteError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			writeJSON(w, map[string]any{"ok": true, "mount": target})
 		})
 
 		// Shares
@@ -219,89 +257,68 @@ func NewRouter(cfg config.Config) http.Handler {
 			st := shares.NewStore(cfg.SharesPath)
 			writeJSON(w, st.List())
 		})
-		pr.Post("/api/shares", func(w http.ResponseWriter, r *http.Request) {
-			var body shares.Share
+		// SMB users proxy
+		pr.Get("/api/smb/users", func(w http.ResponseWriter, r *http.Request) {
+			client := agentclient.New("/run/nos-agent.sock")
+			var out struct {
+				Users []string `json:"users"`
+			}
+			if err := client.GetJSON(r.Context(), "/v1/smb/users", &out); err != nil {
+				// Graceful fallback
+				writeJSON(w, []string{})
+				return
+			}
+			writeJSON(w, out.Users)
+		})
+		pr.Post("/api/shares", handlers.HandleCreateShare(cfg))
+
+		pr.Post("/api/smb/users", func(w http.ResponseWriter, r *http.Request) {
+			var body struct{ Username, Password string }
 			_ = json.NewDecoder(r.Body).Decode(&body)
-			// Validate type
-			if body.Type != "smb" && body.Type != "nfs" {
-				w.WriteHeader(http.StatusBadRequest)
-				_ = json.NewEncoder(w).Encode(map[string]string{"error": "type must be smb or nfs"})
-				return
-			}
-			// Validate name
-			nameRe := regexp.MustCompile(`^[A-Za-z0-9_-]{1,32}$`)
-			if !nameRe.MatchString(body.Name) {
-				w.WriteHeader(http.StatusBadRequest)
-				_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid name; use 1-32 characters [A-Za-z0-9_-]"})
-				return
-			}
-			// Validate path under allowed roots
-			roots := []string{"/srv", "/mnt"}
-			if list, err := pools.ListPools(r.Context()); err == nil {
-				for _, p := range list {
-					if p.Mount != "" {
-						roots = append(roots, p.Mount)
-					}
-				}
-			}
-			clean := filepath.Clean(body.Path)
-			st := shares.NewStore(cfg.SharesPath)
-			if !isUnderAllowed(clean, roots) {
-				w.WriteHeader(http.StatusBadRequest)
-				_ = json.NewEncoder(w).Encode(map[string]string{"error": "path not under allowed roots"})
-				return
-			}
-			if fi, err := os.Stat(clean); err != nil || !fi.IsDir() {
-				w.WriteHeader(http.StatusBadRequest)
-				_ = json.NewEncoder(w).Encode(map[string]string{"error": "path does not exist or is not a directory"})
-				return
-			}
-			// Collisions: name or path
-			for _, ex := range st.List() {
-				if ex.Name == body.Name {
-					w.WriteHeader(http.StatusBadRequest)
-					_ = json.NewEncoder(w).Encode(map[string]string{"error": "share name already exists"})
+			client := agentclient.New("/run/nos-agent.sock")
+			var resp map[string]any
+			if err := client.PostJSON(r.Context(), "/v1/smb/user-create", map[string]any{"username": body.Username, "password": body.Password}, &resp); err != nil {
+				// If agent returned HTTPError 400, propagate 400
+				if he, ok := err.(*agentclient.HTTPError); ok && he.Status == http.StatusBadRequest {
+					httpx.WriteError(w, http.StatusBadRequest, he.Body)
 					return
 				}
-				if filepath.Clean(ex.Path) == clean {
-					w.WriteHeader(http.StatusBadRequest)
-					_ = json.NewEncoder(w).Encode(map[string]string{"error": "path already shared"})
-					return
-				}
-			}
-			if body.ID == "" {
-				body.ID = body.Name
-			}
-			_ = st.Add(body)
-			if body.Type == "smb" {
-				// write smb snippet and reload
-				_ = writeSmbShare(cfg.EtcDir, body)
-				client := agentclient.New("/run/nos-agent.sock")
-				_ = client.PostJSON(r.Context(), "/v1/service/reload", map[string]any{"name": "smb"}, nil)
-			}
-			if body.Type == "nfs" {
-				_ = appendNfsExport(cfg.EtcDir, body)
-				client := agentclient.New("/run/nos-agent.sock")
-				_ = client.PostJSON(r.Context(), "/v1/service/reload", map[string]any{"name": "nfs"}, nil)
+				httpx.WriteError(w, http.StatusInternalServerError, err.Error())
+				return
 			}
 			writeJSON(w, map[string]any{"ok": true})
 		})
 		pr.Delete("/api/shares/{id}", func(w http.ResponseWriter, r *http.Request) {
 			id := chi.URLParam(r, "id")
 			st := shares.NewStore(cfg.SharesPath)
-			if sh, ok := st.GetByID(id); ok {
+			sh, ok := st.GetByID(id)
+			if ok {
+				// Best-effort: in dev/test on Windows or when the agent socket isn't present, skip agent calls
+				var client *agentclient.Client
+				if runtime.GOOS != "windows" {
+					if _, err := os.Stat("/run/nos-agent.sock"); err == nil {
+						client = agentclient.New("/run/nos-agent.sock")
+					}
+				}
 				if sh.Type == "smb" {
-					_ = removeSmbShare(cfg.EtcDir, sh.Name)
+					path := filepath.Join(cfg.EtcDir, "samba", "smb.conf.d", "nos-"+sh.Name+".conf")
+					if client != nil {
+						_ = client.PostJSON(r.Context(), "/v1/fs/write", map[string]any{"path": path, "content": "", "mode": "0644", "owner": "root", "group": "root"}, nil)
+					}
 				}
 				if sh.Type == "nfs" {
-					_ = removeNfsExport(cfg.EtcDir, sh.Path)
+					path := filepath.Join(cfg.EtcDir, "exports.d", "nos-"+sh.Name+".exports")
+					if client != nil {
+						_ = client.PostJSON(r.Context(), "/v1/fs/write", map[string]any{"path": path, "content": ""}, nil)
+					}
+				}
+				_ = st.Delete(id)
+				if client != nil {
+					_ = client.PostJSON(r.Context(), "/v1/service/reload", map[string]any{"name": "smb"}, nil)
+					_ = client.PostJSON(r.Context(), "/v1/service/reload", map[string]any{"name": "nfs"}, nil)
 				}
 			}
-			_ = st.Delete(id)
-			client := agentclient.New("/run/nos-agent.sock")
-			_ = client.PostJSON(r.Context(), "/v1/service/reload", map[string]any{"name": "smb"}, nil)
-			_ = client.PostJSON(r.Context(), "/v1/service/reload", map[string]any{"name": "nfs"}, nil)
-			writeJSON(w, map[string]any{"ok": true})
+			w.WriteHeader(http.StatusNoContent)
 		})
 
 		pr.Get("/api/apps", func(w http.ResponseWriter, r *http.Request) {
@@ -316,7 +333,7 @@ func NewRouter(cfg config.Config) http.Handler {
 					return
 				}
 			}
-			w.WriteHeader(http.StatusNotFound)
+			httpx.WriteError(w, http.StatusNotFound, "not found")
 		})
 
 		pr.Post("/api/apps/install", func(w http.ResponseWriter, r *http.Request) {
@@ -326,16 +343,14 @@ func NewRouter(cfg config.Config) http.Handler {
 			}
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			if body.ID == "" {
-				w.WriteHeader(http.StatusBadRequest)
-				_ = json.NewEncoder(w).Encode(map[string]string{"error": "id required"})
+				httpx.WriteError(w, http.StatusBadRequest, "id required")
 				return
 			}
 			dir := filepath.Join(cfg.AppsInstallDir, body.ID)
 			_ = os.MkdirAll(dir, 0o755)
 			compose := apps.ComposeTemplate(body.ID)
 			if err := os.WriteFile(filepath.Join(dir, "docker-compose.yml"), []byte(compose), 0o644); err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+				httpx.WriteError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
 			unit := apps.UnitTemplate(body.ID, dir)
@@ -352,8 +367,7 @@ func NewRouter(cfg config.Config) http.Handler {
 			}
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			if body.ID == "" {
-				w.WriteHeader(http.StatusBadRequest)
-				_ = json.NewEncoder(w).Encode(map[string]string{"error": "id required"})
+				httpx.WriteError(w, http.StatusBadRequest, "id required")
 				return
 			}
 			dir := filepath.Join(cfg.AppsInstallDir, body.ID)
@@ -396,23 +410,20 @@ func NewRouter(cfg config.Config) http.Handler {
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			if strings.ToLower(body.Mode) != "lan-only" {
 				if s, ok := codec.DecodeFromRequest(r); !ok || !s.TwoFA {
-					w.WriteHeader(http.StatusForbidden)
-					_ = json.NewEncoder(w).Encode(map[string]string{"error": "2FA required"})
+					httpx.WriteError(w, http.StatusForbidden, "2FA required")
 					return
 				}
 			}
 			st, _ := firewall.Detect()
 			if st.UFWPresent || st.FirewalldPresent {
-				w.WriteHeader(http.StatusConflict)
-				_ = json.NewEncoder(w).Encode(map[string]string{"error": "UFW or firewalld active"})
+				httpx.WriteError(w, http.StatusConflict, "UFW or firewalld active")
 				return
 			}
 			rules := firewall.BuildRules(body.Mode)
 			client := agentclient.New("/run/nos-agent.sock")
 			var resp map[string]any
 			if err := client.PostJSON(r.Context(), "/v1/firewall/apply", map[string]any{"ruleset_text": rules, "persist": true}, &resp); err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+				httpx.WriteError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
 			_ = firewall.WriteMode(filepath.Join(cfg.EtcDir, "nos", "firewall", "mode"), body.Mode)
@@ -436,8 +447,7 @@ func NewRouter(cfg config.Config) http.Handler {
 			var resp map[string]any
 			err := client.PostJSON(r.Context(), "/v1/btrfs/snapshot", map[string]any{"path": body.Subvol, "name": body.Name}, &resp)
 			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+				httpx.WriteError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
 			_ = id // unused for now

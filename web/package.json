@@ -19,11 +19,15 @@
     "qrcode": "^1.5.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-hook-form": "^7.53.0",
     "react-router-dom": "^6.26.2",
     "tailwind-merge": "^2.5.2",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@hookform/resolvers": "^5.2.1",
+    "@types/qrcode": "^1.5.5",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
@@ -33,7 +37,6 @@
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.8",
     "openapi-typescript": "^7.4.2",
-    "@types/qrcode": "^1.5.5",
     "postcss": "^8.4.45",
     "prettier": "^3.3.3",
     "tailwindcss": "^3.4.10",

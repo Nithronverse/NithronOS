@@ -44,6 +44,16 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Pool'
+  /api/pools/roots:
+    get:
+      summary: List allowed pool roots (mountpoints)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PoolsRoots'
   /api/pools/plan-create:
     post:
       summary: Plan Btrfs pool creation
@@ -60,6 +70,45 @@ paths:
             application/json:
               schema:
                 type: object
+  /api/pools/candidates:
+    get:
+      summary: List importable pool candidates
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pool'
+  /api/pools/import:
+    post:
+      summary: Import (mount) a pool by device or UUID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                device_or_uuid: { type: string }
+              required: [device_or_uuid]
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/pools/create:
     post:
       summary: Create Btrfs pool
@@ -82,6 +131,24 @@ paths:
             application/json:
               schema:
                 type: object
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '412':
+          description: Precondition Required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/pools/{id}/snapshots:
     get:
       summary: List snapshots
@@ -140,8 +207,30 @@ paths:
             schema:
               $ref: '#/components/schemas/Share'
       responses:
-        '200':
-          description: OK
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Share'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/shares/{id}:
     delete:
       summary: Delete share
@@ -151,8 +240,47 @@ paths:
           required: true
           schema: { type: string }
       responses:
+        '204':
+          description: No Content
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/smb/users:
+    get:
+      summary: List SMB users (proxy)
+      responses:
         '200':
           description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StringArray'
+    post:
+      summary: Create SMB user (proxy)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmbUserCreate'
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/apps:
     get:
       summary: App catalog
@@ -247,6 +375,22 @@ paths:
                 required: [ok]
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/firewall/rollback:
     post:
       summary: Rollback last firewall change
@@ -255,6 +399,21 @@ paths:
           description: OK
 components:
   schemas:
+    StringArray:
+      type: array
+      items: { type: string }
+    SmbUserCreate:
+      type: object
+      properties:
+        username: { type: string }
+        password: { type: string, nullable: true }
+      required: [username]
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
     Health:
       type: object
       properties:
@@ -397,6 +556,13 @@ components:
         firewalld_present: { type: boolean }
         last_applied_at: { type: string, nullable: true }
       required: [mode, nft_present, ufw_present, firewalld_present]
+    PoolsRoots:
+      type: object
+      properties:
+        roots:
+          type: array
+          items: { type: string }
+      required: [roots]
 
 
 

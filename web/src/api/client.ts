@@ -12,6 +12,7 @@ type GetResponse<Path extends keyof paths> = paths[Path] extends { get: any }
 export type Health = GetResponse<'/api/health'>
 export type Disks = GetResponse<'/api/disks'>
 export type Pools = GetResponse<'/api/pools'>
+export type PoolCandidates = GetResponse<'/api/pools/candidates'>
 export type Shares = GetResponse<'/api/shares'>
 export type Apps = GetResponse<'/api/apps'>
 export type RemoteStatus = GetResponse<'/api/remote/status'>
@@ -32,6 +33,10 @@ export const api = {
 	},
 	pools: {
 		get: () => apiGet<Pools>('/api/pools'),
+		planCreate: (body: any) => apiPost<PostResponse<'/api/pools/plan-create'>>('/api/pools/plan-create', body),
+		create: (body: any) => apiPost<PostResponse<'/api/pools/create'>>('/api/pools/create', body),
+		candidates: () => apiGet<PoolCandidates>('/api/pools/candidates'),
+		import: (deviceOrUuid: string) => apiPost<PostResponse<'/api/pools/import'>>('/api/pools/import', { device_or_uuid: deviceOrUuid }),
 	},
 	shares: {
 		get: () => apiGet<Shares>('/api/shares'),

@@ -1,17 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api, type Disks } from '../api/client'
+import { CreatePoolWizard } from '../components/storage/CreatePoolWizard'
+import { ImportPoolModal } from '../components/storage/ImportPoolModal'
+import { Dialog, DialogHeader, DialogTitle } from '../components/ui/dialog'
 
 export function Storage() {
 	const [disks, setDisks] = useState<Disks | null>(null)
-	const [pools, setPools] = useState<any[]>([])
+	const { pools, refresh: refreshPools, loadingPools } = usePools()
 	const [loading, setLoading] = useState(true)
 	const [sortKey, setSortKey] = useState<'name' | 'size'>('name')
 	const [sortAsc, setSortAsc] = useState(true)
+	const [showCreate, setShowCreate] = useState(false)
+	const [showImport, setShowImport] = useState(false)
 
 	useEffect(() => {
 		Promise.all([
 			api.disks.get().then(setDisks),
-			fetch('/api/pools').then((r) => r.json()).then(setPools),
+			refreshPools(),
 		]).finally(() => setLoading(false))
 	}, [])
 
@@ -79,9 +84,17 @@ export function Storage() {
 			<div className="rounded-lg bg-card p-4">
 				<div className="mb-4 flex items-center justify-between">
 					<h2 className="text-lg font-medium">Pools</h2>
-					<a className="btn bg-primary text-primary-foreground" href="/storage/create">Create Pool</a>
+					<div className="flex gap-2">
+						<button className="rounded bg-primary px-3 py-1 text-sm text-background" onClick={() => setShowCreate(true)}>Create Pool</button>
+						<button className="rounded border border-muted/30 px-3 py-1 text-sm" onClick={() => setShowImport(true)}>Import Pool</button>
+					</div>
 				</div>
-				{pools.length === 0 ? (
+				{loadingPools ? (
+					<div className="space-y-2">
+						<div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
+						<div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
+					</div>
+				) : pools.length === 0 ? (
 					<div className="text-sm text-muted-foreground">No pools yet.</div>
 				) : (
 					<table className="w-full text-sm">
@@ -110,6 +123,12 @@ export function Storage() {
 					</table>
 				)}
 			</div>
+
+			<Dialog open={showCreate} onOpenChange={setShowCreate}>
+				<DialogHeader><DialogTitle>Create Pool</DialogTitle><button className="text-sm underline" onClick={() => setShowCreate(false)}>Close</button></DialogHeader>
+				<CreatePoolWizard onCreated={() => { setShowCreate(false); refreshPools() }} />
+			</Dialog>
+			<ImportPoolModal open={showImport} onClose={() => setShowImport(false)} onImported={() => { setShowImport(false); refreshPools() }} />
 		</div>
 	)
 }
@@ -129,6 +148,16 @@ function formatBytes(n: number): string {
 function healthDot(healthy?: boolean) {
 	const color = healthy === true ? 'bg-green-500' : 'bg-muted'
 	return <span className={`inline-block h-2.5 w-2.5 rounded-full ${color}`} />
+}
+
+function usePools() {
+  const [pools, setPools] = useState<any[]>([])
+  const [loadingPools, setLoading] = useState(false)
+  const refresh = async () => {
+    setLoading(true)
+    try { const r = await fetch('/api/pools'); setPools(await r.json()) } finally { setLoading(false) }
+  }
+  return { pools, refresh, loadingPools }
 }
 
 

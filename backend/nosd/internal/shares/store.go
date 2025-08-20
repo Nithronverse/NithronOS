@@ -42,17 +42,7 @@ func (s *Store) load() error {
 	return nil
 }
 
-func (s *Store) save() error {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	b, err := json.MarshalIndent(s.list, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(s.path, b, 0o600)
-}
-
-func (s *Store) List() []Share {
+func (s *Store) snapshot() []Share {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := make([]Share, len(s.list))
@@ -60,11 +50,21 @@ func (s *Store) List() []Share {
 	return out
 }
 
+func (s *Store) List() []Share {
+	return s.snapshot()
+}
+
 func (s *Store) Add(sh Share) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.list = append(s.list, sh)
-	return s.save()
+	data := make([]Share, len(s.list))
+	copy(data, s.list)
+	s.mu.Unlock()
+	b, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(s.path, b, 0o600)
 }
 
 func (s *Store) GetByID(id string) (Share, bool) {
@@ -80,7 +80,6 @@ func (s *Store) GetByID(id string) (Share, bool) {
 
 func (s *Store) Delete(id string) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	out := s.list[:0]
 	for _, sh := range s.list {
 		if sh.ID != id {
@@ -88,5 +87,12 @@ func (s *Store) Delete(id string) error {
 		}
 	}
 	s.list = out
-	return s.save()
+	data := make([]Share, len(s.list))
+	copy(data, s.list)
+	s.mu.Unlock()
+	b, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(s.path, b, 0o600)
 }
