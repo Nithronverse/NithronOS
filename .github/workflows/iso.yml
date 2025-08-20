@@ -1,34 +1,66 @@
 name: ISO
 
 on:
-  # Build an ISO right after our main workflow finishes successfully
+  # Auto-trigger when the main CI workflow finishes
   workflow_run:
-    workflows: ["ci.yml"]   # change to your main workflow's display name if needed
+    workflows: ["CI"]   # <-- change if your main workflow shows a different name in Actions
     types: [completed]
-  # Allow manual runs too (optional)
+  # Allow manual runs with optional inputs
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to build (defaults to main)"
+        required: false
+      branch:
+        description: "Branch to search for latest successful CI run (defaults to main)"
+        required: false
+      run_id:
+        description: "Specific CI run id to pull artifacts from (optional)"
+        required: false
 
 jobs:
   build-iso:
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    # Run if CI succeeded OR we triggered manually
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
-      actions: read   # needed to download artifacts from another run
+      actions: read
       contents: read
 
     steps:
-      - name: Checkout the same commit as the triggering run (or default branch on manual)
+      - name: Checkout source
         uses: actions/checkout@v4
         with:
-          # head_sha only exists for workflow_run; for manual it will use default branch
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          # Use the exact commit from CI when auto-triggered; otherwise requested ref or default branch
+          ref: ${{ github.event.workflow_run.head_sha || inputs.ref || 'main' }}
 
-      - name: Download .deb artifacts from CI
+      # Download debs from the specific CI run when auto-triggered
+      - name: Download debs from triggering CI run
         if: ${{ github.event_name == 'workflow_run' }}
         uses: dawidd6/action-download-artifact@v3
         with:
           run_id: ${{ github.event.workflow_run.id }}
-          name: debs              # <-- CHANGE if your CI uploads a different artifact name
+          name: debs
+          path: dist/deb
+
+      # Manual fallback: grab latest successful debs from the CI workflow on a branch
+      - name: Download latest successful debs from CI (manual fallback)
+        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.run_id }}
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: CI       # <-- change if your CI workflow has a different name
+          workflow_conclusion: success
+          branch: ${{ inputs.branch || 'main' }}
+          name: debs
+          path: dist/deb
+
+      # Manual explicit run_id (optional)
+      - name: Download debs from specific run_id (manual)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_id }}
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          run_id: ${{ inputs.run_id }}
+          name: debs
           path: dist/deb
 
       - name: Ensure ISO build dependencies
@@ -39,20 +71,21 @@ jobs:
       - name: Prepare packages for ISO build
         run: |
           mkdir -p packaging/iso/local-debs dist/iso
-          # If no artifacts (manual run), keep going but warn
           if ls dist/deb/*.deb 1>/dev/null 2>&1; then
             cp -v dist/deb/*.deb packaging/iso/local-debs/
           else
-            echo "::warning::No .deb artifacts found in dist/deb; ensure your main CI uploads 'debs' artifact."
+            echo "::error::No .deb artifacts found in dist/deb. Ensure your main CI uploads an artifact named 'debs'."
+            exit 1
           fi
 
+      - name: Make ISO script executable
+        run: chmod +x packaging/iso/build.sh
+
       - name: Build ISO
-        run: |
-          bash packaging/iso/build.sh packaging/iso/local-debs
+        run: bash packaging/iso/build.sh packaging/iso/local-debs
 
       - name: Upload ISO artifact
         uses: actions/upload-artifact@v4
         with:
           name: iso
           path: dist/iso/*.iso
-
