@@ -162,12 +162,31 @@ Place local `.deb` artifacts in `config/includes.chroot/root/debs/` to include `
 ## Roadmap (early milestones)
 
 - [x] Disk discovery & health (lsblk, smartctl)
-- [x] Btrfs pool create/import & snapshots - basic; send/receive pending
-- [x] SMB/NFS shares with simple ACLs - UI wizard shipped; SMB user mgmt included
+- [x] Btrfs pool create/import & snapshots — basic; send/receive pending
+- [x] SMB/NFS shares with simple ACLs — UI wizard shipped; SMB user mgmt included
 - [x] App catalog (Docker/Compose) with one-click install
-- [ ] Snapshot-before-update & rollback
+- [x] Snapshot-before-update & rollback
 - [x] Installable ISO (Debian base), first-boot wizard
-- [x] Remote Access Wizard & Firewall Toggle - plan -> confirm -> apply -> rollback; modes: lan-only (default), vpn-only, tunnel, direct. Require 2FA for non-lan-only, back up current ruleset before apply, controls under Settings -> Remote.
+- [x] Remote Access Wizard & Firewall Toggle — plan → confirm → apply → rollback; modes: lan-only (default), vpn-only, tunnel, direct. Require 2FA for non–lan-only, back up current ruleset before apply, controls under Settings → Remote.
+
+## Updates & Rollback
+
+NithronOS takes a **pre-update snapshot** of key data before applying updates, then lets you **roll back** if something breaks.
+
+- Config file: `snapshots.yaml` (system: `/etc/nos/snapshots.yaml`, dev: `./devdata/snapshots.yaml`)
+- Modes: **btrfs** read-only snapshot (preferred) or **tar.gz** fallback when not on Btrfs
+- Where they go:
+  - Btrfs: `<target>/.snapshots/<timestamp>-pre-update`
+  - Tar: `/var/lib/nos/snapshots/<target-id>/<timestamp>-pre-update.tar.gz`
+- Retention: keep the **last 5** per target (a daily prune timer runs automatically)
+
+**How to use (UI):** Settings → **Updates** → Check → (toggle *Snapshot before update*) → **Apply Updates**.  
+To revert: pick a prior transaction and click **Rollback**.
+
+**CLI / API (advanced):**
+- Check: `GET /api/updates/check`
+- Apply with snapshots: `POST /api/updates/apply { snapshot:true, confirm:"yes" }`
+- Rollback: `POST /api/updates/rollback { tx_id, confirm:"yes" }`
 
 
 Follow issues & discussions for up-to-date progress.
