@@ -1,4 +1,6 @@
 # NithronOS (nOS)
+![NithronOS](./assets/brand/nithronos-readme-banner.svg)
+
 [![CI](https://github.com/NotTekk/NithronOS/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/NotTekk/NithronOS/actions/workflows/ci.yml)
 
 **Open-source Linux-based OS for NAS & homelabs.**  
@@ -84,6 +86,22 @@ make package
 
 ---
 
+## ISO build
+
+You can build a bootable ISO (Debian live) with NithronOS preinstalled.
+
+Prereqs: Debian/Ubuntu with `live-build`.
+
+```bash
+cd packaging/iso/debian
+sudo ./auto/config
+sudo lb build
+```
+
+Place local `.deb` artifacts in `config/includes.chroot/root/debs/` to include `nosd`, `nos-agent`, and `nos-web` during build. On first boot, a first-boot service generates TLS certs, enables required services, and prints the UI URL + one-time OTP to the console.
+
+---
+
 ## Repository Structure (planned)
 ~~~text
 /backend/nosd          # Go API server (REST/gRPC, OpenAPI)
@@ -132,6 +150,27 @@ To revert the ruleset manually:
 ~~~bash
 sudo nft flush ruleset
 sudo systemctl restart nftables.service
+~~~
+
+### Brute-force protection (fail2ban)
+
+Enable request rate-limiting and fail2ban for auth endpoints in production:
+
+- Caddy logs JSON to `/var/log/caddy/access.log` and rate-limits `/api/auth/*` and the SPA `/login` route.
+- fail2ban jail and filter are provided:
+  - `deploy/fail2ban/filter.d/caddy-nithronos.conf`
+  - `deploy/fail2ban/jail.d/nithronos.local`
+
+Apply and enable fail2ban:
+
+~~~bash
+sudo install -d -o caddy -g caddy /var/log/caddy
+sudo systemctl daemon-reload
+sudo systemctl enable --now caddy
+sudo cp -r deploy/fail2ban/* /etc/fail2ban/
+sudo systemctl enable --now fail2ban
+sudo fail2ban-client reload
+sudo fail2ban-client status caddy-nithronos
 ~~~
 
 ## Contributing

@@ -1,0 +1,92 @@
+package shares
+
+import (
+	"encoding/json"
+	"os"
+	"sync"
+)
+
+type Share struct {
+	ID    string   `json:"id"`
+	Type  string   `json:"type"` // smb|nfs
+	Path  string   `json:"path"`
+	Name  string   `json:"name"`
+	RO    bool     `json:"ro"`
+	Users []string `json:"users"`
+}
+
+type Store struct {
+	path string
+	mu   sync.RWMutex
+	list []Share
+}
+
+func NewStore(path string) *Store {
+	s := &Store{path: path}
+	_ = s.load()
+	return s
+}
+
+func (s *Store) load() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	b, err := os.ReadFile(s.path)
+	if err != nil {
+		return err
+	}
+	var list []Share
+	if err := json.Unmarshal(b, &list); err != nil {
+		return err
+	}
+	s.list = list
+	return nil
+}
+
+func (s *Store) save() error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	b, err := json.MarshalIndent(s.list, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(s.path, b, 0o600)
+}
+
+func (s *Store) List() []Share {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]Share, len(s.list))
+	copy(out, s.list)
+	return out
+}
+
+func (s *Store) Add(sh Share) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.list = append(s.list, sh)
+	return s.save()
+}
+
+func (s *Store) GetByID(id string) (Share, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, sh := range s.list {
+		if sh.ID == id {
+			return sh, true
+		}
+	}
+	return Share{}, false
+}
+
+func (s *Store) Delete(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := s.list[:0]
+	for _, sh := range s.list {
+		if sh.ID != id {
+			out = append(out, sh)
+		}
+	}
+	s.list = out
+	return s.save()
+}

@@ -1,0 +1,12 @@
+linux-image-amd64
+btrfs-progs
+smartmontools
+samba
+nfs-kernel-server
+docker.io
+wireguard
+caddy
+fail2ban
+nftables
+
+

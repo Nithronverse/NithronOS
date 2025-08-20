@@ -22,7 +22,20 @@ export async function apiPost<T>(path: string, body?: any): Promise<T> {
 		},
 		body: body ? JSON.stringify(body) : undefined,
 	})
-	if (!res.ok) throw new Error(`HTTP ${res.status}`)
+	if (!res.ok) {
+		const ct = res.headers.get('content-type') || ''
+		let detail = ''
+		try {
+			if (ct.includes('application/json')) {
+				const j = await res.json()
+				detail = (j as any)?.error || JSON.stringify(j)
+			} else {
+				detail = await res.text()
+			}
+		} catch {}
+		const msg = detail ? `HTTP ${res.status}: ${detail}` : `HTTP ${res.status}`
+		throw new Error(msg)
+	}
 	return (await res.json()) as T
 }
 

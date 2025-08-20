@@ -7,6 +7,8 @@ import { Apps } from './pages/Apps'
 import { Settings } from './pages/Settings'
 import { Remote } from './pages/Remote'
 import { Login } from './pages/Login'
+import { PoolsCreate } from './pages/PoolsCreate'
+import { PoolDetails } from './pages/PoolDetails'
 
 const router = createBrowserRouter([
 	{
@@ -25,6 +27,8 @@ const router = createBrowserRouter([
 			{ path: 'apps', element: <Apps /> },
 			{ path: 'settings', element: <Settings /> },
 			{ path: 'remote', element: <Remote /> },
+			{ path: 'storage/create', element: <PoolsCreate /> },
+			{ path: 'storage/:id', element: <PoolDetails /> },
 		],
 	},
 	{ path: '/login', element: <Login /> },

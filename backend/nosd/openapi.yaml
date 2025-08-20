@@ -44,6 +44,81 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Pool'
+  /api/pools/plan-create:
+    post:
+      summary: Plan Btrfs pool creation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PoolCreateReq'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/pools/create:
+    post:
+      summary: Create Btrfs pool
+      parameters:
+        - in: header
+          name: Confirm
+          schema: { type: string }
+          required: true
+          description: must be "yes" for destructive operations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PoolCreateReq'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/pools/{id}/snapshots:
+    get:
+      summary: List snapshots
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Snapshot'
+    post:
+      summary: Create snapshot
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                subvol: { type: string }
+                name: { type: string }
+              required: [subvol]
+      responses:
+        '200':
+          description: OK
   /api/shares:
     get:
       summary: List shares
@@ -56,6 +131,28 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Share'
+    post:
+      summary: Create share
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Share'
+      responses:
+        '200':
+          description: OK
+  /api/shares/{id}:
+    delete:
+      summary: Delete share
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
   /api/apps:
     get:
       summary: App catalog
@@ -78,6 +175,84 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RemoteStatus'
+  /api/support/bundle:
+    get:
+      summary: Download support bundle
+      responses:
+        '200':
+          description: Tarball of logs and diagnostics
+          content:
+            application/gzip:
+              schema:
+                type: string
+                format: binary
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+  /api/firewall/status:
+    get:
+      summary: Firewall status
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FirewallStatus'
+  /api/firewall/plan:
+    post:
+      summary: Plan firewall rules for a mode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode: { type: string, enum: [lan-only, vpn-only, tunnel, direct] }
+              required: [mode]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rules: { type: string }
+                required: [rules]
+  /api/firewall/apply:
+    post:
+      summary: Apply firewall rules for a mode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode: { type: string, enum: [lan-only, vpn-only, tunnel, direct] }
+                twoFactorToken: { type: string, nullable: true }
+              required: [mode]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                required: [ok]
+        '409':
+          description: Conflict
+  /api/firewall/rollback:
+    post:
+      summary: Rollback last firewall change
+      responses:
+        '200':
+          description: OK
 components:
   schemas:
     Health:
@@ -144,11 +319,57 @@ components:
       properties:
         id:
           type: string
+        label:
+          type: string
+        uuid:
+          type: string
+        devices:
+          type: array
+          items: { type: string }
+        size:
+          type: integer
+          format: int64
+        used:
+          type: integer
+          format: int64
+        free:
+          type: integer
+          format: int64
+        raid:
+          type: string
+    Snapshot:
+      type: object
+      properties:
+        path: { type: string }
+        name: { type: string }
+        readonly: { type: boolean }
+    PoolCreateReq:
+      type: object
+      properties:
+        label: { type: string }
+        devices:
+          type: array
+          items: { type: string }
+        raid: { type: string, enum: [single, raid1, raid10] }
+      required: [label, devices, raid]
     Share:
       type: object
       properties:
         id:
           type: string
+        type:
+          type: string
+          enum: [smb, nfs]
+        path:
+          type: string
+        name:
+          type: string
+        ro:
+          type: boolean
+        users:
+          type: array
+          items: { type: string }
+      required: [type, path, name]
     App:
       type: object
       properties:
@@ -163,10 +384,19 @@ components:
       properties:
         mode:
           type: string
-          enum: [lan-only, tunnel, vpn]
+          enum: [lan-only, vpn-only, tunnel, direct]
         https:
           type: boolean
       required: [mode, https]
+    FirewallStatus:
+      type: object
+      properties:
+        mode: { type: string, enum: [lan-only, vpn-only, tunnel, direct] }
+        nft_present: { type: boolean }
+        ufw_present: { type: boolean }
+        firewalld_present: { type: boolean }
+        last_applied_at: { type: string, nullable: true }
+      required: [mode, nft_present, ufw_present, firewalld_present]
 
 
 

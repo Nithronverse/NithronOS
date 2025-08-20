@@ -1,14 +1,17 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
 
 const SocketPath = "/run/nos-agent.sock"
@@ -35,7 +38,13 @@ func Start() error {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/btrfs/create", handleBtrfsCreate)
+	mux.HandleFunc("/v1/btrfs/mount", handleBtrfsMount)
+	mux.HandleFunc("/v1/btrfs/snapshot", handleBtrfsSnapshot)
 	mux.HandleFunc("/v1/service/reload", handleServiceReload)
+	mux.HandleFunc("/v1/app/compose-up", handleComposeUp)
+	mux.HandleFunc("/v1/app/compose-down", handleComposeDown)
+	mux.HandleFunc("/v1/systemd/install-app", handleSystemdInstall)
+	mux.HandleFunc("/v1/firewall/apply", handleFirewallApply)
 
 	return http.Serve(l, mux)
 }
@@ -53,6 +62,7 @@ type BtrfsCreateRequest struct {
 	Raid    string   `json:"raid"`
 	Label   string   `json:"label"`
 	Encrypt bool     `json:"encrypt"`
+	DryRun  bool     `json:"dry_run"`
 }
 
 func handleBtrfsCreate(w http.ResponseWriter, r *http.Request) {
@@ -99,6 +109,24 @@ func handleBtrfsCreate(w http.ResponseWriter, r *http.Request) {
 		plan = append(plan, mkfsBtrfsCommand(req.Label, req.Raid, req.Devices...))
 	}
 
+	if req.DryRun || runtime.GOOS == "windows" {
+		writeJSON(w, http.StatusOK, PlanResponse{Plan: plan})
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
+	defer cancel()
+	for _, cmdline := range plan {
+		parts := strings.Fields(cmdline)
+		if len(parts) == 0 {
+			continue
+		}
+		cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, fmt.Sprintf("%s: %s", err, string(out)))
+			return
+		}
+	}
 	writeJSON(w, http.StatusOK, PlanResponse{Plan: plan})
 }
 
@@ -116,16 +144,27 @@ func handleServiceReload(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	allowed := map[string]string{
-		"smb": "smb",
-	}
-	unit, ok := allowed[strings.ToLower(req.Name)]
-	if !ok {
+	switch strings.ToLower(req.Name) {
+	case "smb", "smbd":
+		cmd := exec.Command("systemctl", "reload", "smbd")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			writeErr(w, http.StatusInternalServerError, fmt.Sprintf("reload smbd failed: %s", string(out)))
+			return
+		}
+		writeJSON(w, http.StatusOK, PlanResponse{Plan: []string{"systemctl reload smbd"}})
+		return
+	case "nfs":
+		cmd := exec.Command("exportfs", "-ra")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			writeErr(w, http.StatusInternalServerError, fmt.Sprintf("exportfs -ra failed: %s", string(out)))
+			return
+		}
+		writeJSON(w, http.StatusOK, PlanResponse{Plan: []string{"exportfs -ra"}})
+		return
+	default:
 		writeErr(w, http.StatusBadRequest, "service not allowed")
 		return
 	}
-	plan := []string{fmt.Sprintf("systemctl reload %s", shellQuote(unit))}
-	writeJSON(w, http.StatusOK, PlanResponse{Plan: plan})
 }
 
 func mkfsBtrfsCommand(label, raid string, devices ...string) string {
@@ -165,3 +204,74 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 }
 
 // umask and root checks are handled in OS-specific files
+
+// Mount
+type BtrfsMountRequest struct {
+	Target       string `json:"target"`
+	UUIDOrDevice string `json:"uuid_or_device"`
+}
+
+func handleBtrfsMount(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	if runtime.GOOS == "windows" {
+		writeErr(w, http.StatusNotImplemented, "not supported on windows")
+		return
+	}
+	var req BtrfsMountRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if req.Target == "" || req.UUIDOrDevice == "" {
+		writeErr(w, http.StatusBadRequest, "missing fields")
+		return
+	}
+	_ = os.MkdirAll(req.Target, 0o755)
+	args := []string{"-t", "btrfs", "-o", "noatime,compress=zstd:3", req.UUIDOrDevice, req.Target}
+	cmd := exec.Command("mount", args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, fmt.Sprintf("mount failed: %s", string(out)))
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"ok": "true"})
+}
+
+// Snapshot
+type BtrfsSnapshotRequest struct {
+	Path string `json:"path"`
+	Name string `json:"name"`
+}
+
+func handleBtrfsSnapshot(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	if runtime.GOOS == "windows" {
+		writeErr(w, http.StatusNotImplemented, "not supported on windows")
+		return
+	}
+	var req BtrfsSnapshotRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if req.Path == "" || req.Name == "" {
+		writeErr(w, http.StatusBadRequest, "missing fields")
+		return
+	}
+	snapDir := filepath.Join(req.Path, ".snapshots")
+	_ = os.MkdirAll(snapDir, 0o755)
+	target := filepath.Join(snapDir, req.Name)
+	cmd := exec.Command("btrfs", "subvolume", "snapshot", "-r", req.Path, target)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, fmt.Sprintf("snapshot failed: %s", string(out)))
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"ok": "true"})
+}

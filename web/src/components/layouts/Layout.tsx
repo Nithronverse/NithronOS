@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom'
+import { Toasts } from '../ui/toast'
 import { Menu } from 'lucide-react'
 import { useState } from 'react'
 
@@ -55,6 +56,7 @@ export function Layout() {
 					))}
 				</aside>
 				<main>
+					<Toasts />
 					<Outlet />
 				</main>
 			</div>

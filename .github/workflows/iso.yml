@@ -1,0 +1,45 @@
+name: ISO
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-iso:
+    runs-on: ubuntu-latest
+    container:
+      image: debian:bookworm
+    steps:
+      - name: Install deps
+        run: |
+          apt-get update
+          apt-get install -y git live-build ca-certificates curl make build-essential debhelper devscripts fakeroot golang-go nodejs npm
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build Debian packages
+        run: |
+          bash packaging/build-all.sh
+      - name: Stage debs into ISO build
+        run: |
+          mkdir -p packaging/iso/debian/config/includes.chroot/root/debs
+          cp -v packaging/output/*.deb packaging/iso/debian/config/includes.chroot/root/debs/
+      - name: Prepare debs
+        run: |
+          ls -l packaging/iso/debian/config/includes.chroot/root/debs || true
+      - name: Build ISO
+        working-directory: packaging/iso/debian
+        run: |
+          ./auto/config
+          lb build
+      - name: Upload ISO
+        uses: actions/upload-artifact@v4
+        with:
+          name: nithronos-${{ github.ref_name }}-amd64.iso
+          path: packaging/iso/debian/live-image-amd64.hybrid.iso
+      - name: Smoke test in QEMU
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          apt-get update && apt-get install -y qemu-system-x86 curl
+          bash scripts/qemu-smoke.sh packaging/iso/debian/live-image-amd64.hybrid.iso
+

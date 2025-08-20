@@ -6,6 +6,8 @@ Wants=network-online.target
 [Service]
 User=caddy
 Group=caddy
+ExecStartPre=/bin/mkdir -p /var/log/caddy
+ExecStartPre=/bin/chown caddy:caddy /var/log/caddy
 ExecStart=/usr/bin/caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
 ExecReload=/usr/bin/caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
 Restart=on-failure

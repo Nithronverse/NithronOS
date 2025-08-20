@@ -3,12 +3,16 @@ import { api, type Disks } from '../api/client'
 
 export function Storage() {
 	const [disks, setDisks] = useState<Disks | null>(null)
+	const [pools, setPools] = useState<any[]>([])
 	const [loading, setLoading] = useState(true)
 	const [sortKey, setSortKey] = useState<'name' | 'size'>('name')
 	const [sortAsc, setSortAsc] = useState(true)
 
 	useEffect(() => {
-		api.disks.get().then(setDisks).finally(() => setLoading(false))
+		Promise.all([
+			api.disks.get().then(setDisks),
+			fetch('/api/pools').then((r) => r.json()).then(setPools),
+		]).finally(() => setLoading(false))
 	}, [])
 
 	const sorted = useMemo(() => {
@@ -75,11 +79,36 @@ export function Storage() {
 			<div className="rounded-lg bg-card p-4">
 				<div className="mb-4 flex items-center justify-between">
 					<h2 className="text-lg font-medium">Pools</h2>
-					<button className="btn bg-primary text-primary-foreground opacity-60 cursor-not-allowed">
-						Create Pool
-					</button>
+					<a className="btn bg-primary text-primary-foreground" href="/storage/create">Create Pool</a>
 				</div>
-				<div className="text-sm text-muted-foreground">No pools yet.</div>
+				{pools.length === 0 ? (
+					<div className="text-sm text-muted-foreground">No pools yet.</div>
+				) : (
+					<table className="w-full text-sm">
+						<thead className="text-left text-muted-foreground">
+							<tr>
+								<th>Label</th>
+								<th>UUID</th>
+								<th>RAID</th>
+								<th>Size</th>
+								<th>Used</th>
+								<th>Free</th>
+							</tr>
+						</thead>
+						<tbody>
+							{pools.map((p: any) => (
+								<tr key={p.uuid || p.label} className="border-t border-muted/20">
+									<td className="py-2">{p.label || '-'}</td>
+									<td className="font-mono text-xs">{p.uuid || '-'}</td>
+									<td className="uppercase">{p.raid || '-'}</td>
+									<td>{formatBytes(p.size)}</td>
+									<td>{formatBytes(p.used)}</td>
+									<td>{formatBytes(p.free)}</td>
+								</tr>
+							))}
+						</tbody>
+					</table>
+				)}
 			</div>
 		</div>
 	)

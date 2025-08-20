@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+# Install locally built debs if present in /root/debs within chroot
+DEB_DIR=/root/debs
+if [ -d "$DEB_DIR" ]; then
+  dpkg -i $DEB_DIR/*.deb || apt-get -f install -y
+fi
+systemctl enable nithronos-firstboot.service || true
+

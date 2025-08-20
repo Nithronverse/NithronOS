@@ -4,6 +4,11 @@
 
 	encode zstd gzip
 
+	log {
+		output file /var/log/caddy/access.log
+		format json
+	}
+
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
 		X-Frame-Options "DENY"
@@ -14,11 +19,28 @@
 
 	@api path /api/*
 	handle @api {
+		@auth path /api/auth/*
+		rate_limit @auth {
+			zone auth_api
+			key {remote_ip}
+			events 10 / 1m
+			events 30 / 10m
+		}
 		reverse_proxy 127.0.0.1:9000
 	}
 
 	handle {
 		root * /srv/nos-web
+
+		# Basic rate-limit for login page route if served statically via SPA
+		@login {
+			path /login
+		}
+		rate_limit @login {
+			zone login_page
+			key {remote_ip}
+			events 20 / 10m
+		}
 		try_files {path} /index.html
 		file_server
 	}

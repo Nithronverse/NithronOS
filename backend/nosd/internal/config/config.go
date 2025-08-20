@@ -11,8 +11,12 @@ type Config struct {
 	Port            int
 	LogLevel        zerolog.Level
 	UsersPath       string
+	SharesPath      string
 	SessionHashKey  []byte
 	SessionBlockKey []byte
+	EtcDir          string
+	AppsDataDir     string
+	AppsInstallDir  string
 }
 
 func FromEnv() Config {
@@ -34,6 +38,10 @@ func FromEnv() Config {
 	if users == "" {
 		users = "./devdata/users.json"
 	}
+	shares := os.Getenv("NOS_SHARES_PATH")
+	if shares == "" {
+		shares = "./devdata/shares.json"
+	}
 
 	hashKey := []byte(os.Getenv("NOS_SESSION_HASH_KEY"))
 	blockKey := []byte(os.Getenv("NOS_SESSION_BLOCK_KEY"))
@@ -44,11 +52,28 @@ func FromEnv() Config {
 		blockKey = []byte("abcdef0123456789abcdef0123456789") // 32 bytes
 	}
 
+	etcDir := os.Getenv("NOS_ETC_DIR")
+	if etcDir == "" {
+		etcDir = "/etc"
+	}
+	appsData := os.Getenv("NOS_APPS_DATA_DIR")
+	if appsData == "" {
+		appsData = "/var/lib/nos/apps"
+	}
+	appsInstall := os.Getenv("NOS_APPS_INSTALL_DIR")
+	if appsInstall == "" {
+		appsInstall = "/opt/nos/apps"
+	}
+
 	return Config{
 		Port:            port,
 		LogLevel:        level,
 		UsersPath:       users,
+		SharesPath:      shares,
 		SessionHashKey:  hashKey,
 		SessionBlockKey: blockKey,
+		EtcDir:          etcDir,
+		AppsDataDir:     appsData,
+		AppsInstallDir:  appsInstall,
 	}
 }

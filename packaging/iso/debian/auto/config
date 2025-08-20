@@ -1,0 +1,14 @@
+#!/bin/sh
+set -e
+
+# Configure live-build for Debian Bookworm amd64 ISO (hybrid)
+lb config \
+  -d bookworm \
+  --architectures amd64 \
+  --binary-images iso-hybrid \
+  --debian-installer live \
+  --apt-recommends false \
+  --updates true \
+  --security true
+
+
