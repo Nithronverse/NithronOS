@@ -116,13 +116,15 @@ Place local `.deb` artifacts in `config/includes.chroot/root/debs/` to include `
 ---
 
 ## Roadmap (early milestones)
+
 - [x] Disk discovery & health (lsblk, smartctl)
-- [x] Btrfs pool create/import & snapshots — basic; send/receive pending
-- [x] SMB/NFS shares with simple ACLs — backend complete; UI wizard next
+- [x] Btrfs pool create/import & snapshots - basic; send/receive pending
+- [x] SMB/NFS shares with simple ACLs - UI wizard shipped; SMB user mgmt included
 - [x] App catalog (Docker/Compose) with one-click install
 - [ ] Snapshot-before-update & rollback
 - [x] Installable ISO (Debian base), first-boot wizard
-- [x] Remote Access Wizard & Firewall Toggle — plan → confirm → apply → rollback; modes: lan-only (default), vpn-only, tunnel, direct. Require 2FA for non–lan-only, back up current ruleset before apply, controls under Settings → Remote.
+- [x] Remote Access Wizard & Firewall Toggle - plan -> confirm -> apply -> rollback; modes: lan-only (default), vpn-only, tunnel, direct. Require 2FA for non-lan-only, back up current ruleset before apply, controls under Settings -> Remote.
+
 
 Follow issues & discussions for up-to-date progress.
 
