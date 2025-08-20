@@ -1,1 +1,1 @@
-deploy/systemd/nosd.service  lib/systemd/system/
+../../../deploy/systemd/nosd.service  lib/systemd/system/

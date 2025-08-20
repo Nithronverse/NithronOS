@@ -1,1 +1,1 @@
-deploy/systemd/nos-agent.service  lib/systemd/system/
+../../../deploy/systemd/nos-agent.service  lib/systemd/system/

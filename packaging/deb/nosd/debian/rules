@@ -12,5 +12,5 @@ override_dh_auto_build:
 	cd ../../../backend/nosd && CGO_ENABLED=0 go build -o ../../packaging/deb/nosd/deb-build/nosd .
 
 override_dh_auto_install:
-	install -D -m0755 deb-build/nosd $(DESTDIR)/usr/bin/nosd
+	install -D -m0755 deb-build/nosd debian/nosd/usr/bin/nosd
 

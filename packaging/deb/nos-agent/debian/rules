@@ -10,5 +10,5 @@ override_dh_auto_build:
 	cd ../../../agent/nos-agent && CGO_ENABLED=0 go build -o ../../packaging/deb/nos-agent/deb-build/nos-agent .
 
 override_dh_auto_install:
-	install -D -m0755 deb-build/nos-agent $(DESTDIR)/usr/sbin/nos-agent
+	install -D -m0755 deb-build/nos-agent debian/nos-agent/usr/sbin/nos-agent
 
