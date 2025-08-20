@@ -70,10 +70,11 @@ lb config \
   --mode debian \
   --distribution bookworm \
   --architectures amd64 \
-  --linux-packages none \
   --binary-images iso-hybrid \
   --apt-recommends true \
+  --updates false \
   --security false \
+  --apt-indices false \
   --debian-installer live \
   --archive-areas "main contrib non-free-firmware" \
   --mirror-bootstrap "$DEBIAN_MIRROR" \

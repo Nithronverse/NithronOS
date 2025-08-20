@@ -1,0 +1,8 @@
+linux-image-amd64
+live-boot
+systemd-sysv
+sudo
+ca-certificates
+curl
+openssh-server
+
