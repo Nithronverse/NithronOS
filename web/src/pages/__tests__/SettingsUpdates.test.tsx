@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { SettingsUpdates } from '../../pages/SettingsUpdates'
+import * as toast from '@/components/ui/toast'
 
 function mockFetchSequence() {
   const original = global.fetch
@@ -30,7 +31,7 @@ function mockFetchSequence() {
 
 describe('SettingsUpdates', () => {
   let restore: (()=>void) | undefined
-  beforeEach(() => { restore?.(); restore = mockFetchSequence(); vi.spyOn(window,'alert').mockImplementation(()=>{}); vi.spyOn(window,'confirm').mockReturnValue(true) })
+  beforeEach(() => { restore?.(); restore = mockFetchSequence(); vi.spyOn(window,'confirm').mockReturnValue(true) })
 
   it('renders available updates list', async () => {
     render(<SettingsUpdates />)
@@ -45,8 +46,13 @@ describe('SettingsUpdates', () => {
     // wait initial load
     await screen.findByText(/Available updates/i)
     const btn = screen.getByRole('button', { name: /Apply Updates/i }) as HTMLButtonElement
+    const toastSpy = vi.spyOn(toast, 'pushToast')
     fireEvent.click(btn)
     expect(btn.disabled).toBe(true)
+    await waitFor(()=> {
+      // success toast after mocked apply
+      expect(toastSpy).toHaveBeenCalled()
+    })
   })
 
   it('calls rollback API', async () => {
@@ -66,11 +72,15 @@ describe('SettingsUpdates', () => {
       }
       return new Response(JSON.stringify({}), { status:200, headers:{'Content-Type':'application/json'} })
     })
+    const toastSpy = vi.spyOn(toast, 'pushToast')
     render(<SettingsUpdates />)
     await screen.findByText(/Previous updates/i)
     const rb = await screen.findByRole('button', { name: /Rollback/i })
     fireEvent.click(rb)
     await waitFor(() => expect((global.fetch as any)).toHaveBeenCalled())
+    await waitFor(()=> {
+      expect(toastSpy).toHaveBeenCalled()
+    })
     global.fetch = original
   })
 })

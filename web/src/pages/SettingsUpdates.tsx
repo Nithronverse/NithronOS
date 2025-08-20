@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import api from '@/lib/api'
+import { pushToast } from '@/components/ui/toast'
 
 type CheckResp = { plan:any; snapshot_roots:string[] }
 type ApplyResp = { ok:boolean; tx_id:string; snapshots_count:number; updates_count:number }
@@ -33,9 +34,13 @@ export function SettingsUpdates(){
     setError('')
     try{
       const resp = await api.updates.apply({ snapshot, confirm:'yes' }) as unknown as ApplyResp
-      alert(`Updates applied. TX ${resp.tx_id}`)
+      pushToast(`Updates applied (tx ${resp.tx_id})`, 'success')
       await load()
-    }catch(e:any){ setError(e?.message||'Failed to apply updates') }
+    }catch(e:any){
+      const msg = e?.message||'Failed to apply updates'
+      setError(msg)
+      pushToast(msg, 'error')
+    }
     finally{ setApplying(false) }
   }
 
@@ -45,9 +50,13 @@ export function SettingsUpdates(){
     setError('')
     try{
       await api.updates.rollback({ tx_id, confirm:'yes' })
-      alert('Rollback requested')
+      pushToast('Rollback requested', 'success')
       await load()
-    }catch(e:any){ setError(e?.message||'Failed to rollback') }
+    }catch(e:any){
+      const msg = e?.message||'Failed to rollback'
+      setError(msg)
+      pushToast(msg, 'error')
+    }
     finally{ setApplying(false) }
   }
 
@@ -66,8 +75,12 @@ export function SettingsUpdates(){
       if (!resp.ok) throw new Error(await resp.text())
       const data = await resp.json()
       setPruneResult(data)
-      alert('Prune completed')
-    }catch(e:any){ setError(e?.message||'Failed to prune snapshots') }
+      pushToast('Prune completed', 'success')
+    }catch(e:any){
+      const msg = e?.message||'Failed to prune snapshots'
+      setError(msg)
+      pushToast(msg, 'error')
+    }
     finally{ setPruning(false) }
   }
 

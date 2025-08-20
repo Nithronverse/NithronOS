@@ -92,6 +92,16 @@ func TestUpdatesApply_HappyPath(t *testing.T) {
 	if len(items) == 0 || items[len(items)-1].Success == nil || !*items[len(items)-1].Success {
 		t.Fatalf("expected success record, got %+v", items)
 	}
+	// verify two snapshot/create calls (roots default: /srv and /mnt)
+	snaps := 0
+	for _, c := range fake.calls {
+		if c.path == "/v1/snapshot/create" {
+			snaps++
+		}
+	}
+	if snaps < 2 {
+		t.Fatalf("expected at least 2 snapshot creates, got %d: %+v", snaps, fake.calls)
+	}
 }
 
 func TestUpdatesApply_SnapshotError(t *testing.T) {
@@ -182,5 +192,15 @@ func TestUpdatesRollback_HappyPath(t *testing.T) {
 	first := items[0]
 	if first.Reason != "rollback" || first.Success == nil || !*first.Success {
 		t.Fatalf("expected most recent to be rollback success, got %+v", first)
+	}
+	// verify agent rollback called for each target
+	rb := 0
+	for _, c := range fake.calls {
+		if c.path == "/v1/snapshot/rollback" {
+			rb++
+		}
+	}
+	if rb != len(seed.Targets) {
+		t.Fatalf("expected %d rollback calls, got %d", len(seed.Targets), rb)
 	}
 }
