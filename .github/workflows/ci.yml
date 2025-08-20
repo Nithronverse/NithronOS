@@ -150,7 +150,11 @@ jobs:
       - name: Build ISO
         run: |
           chmod +x packaging/iso/build.sh
-          bash packaging/iso/build.sh packaging/iso/local-debs
+          sudo -E bash packaging/iso/build.sh packaging/iso/local-debs
+
+      - name: Fix ISO artifact permissions
+        run: |
+          sudo chown -R $USER:$USER dist/iso || true
 
       - name: Upload ISO artifact
         uses: actions/upload-artifact@v4
