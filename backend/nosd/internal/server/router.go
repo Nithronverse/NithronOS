@@ -560,9 +560,10 @@ func NewRouter(cfg config.Config) http.Handler {
 					return
 				}
 			}
-			okMark := true
+			// persist rollback record and adjust ordering by writing a small "touch"
 			now := time.Now().UTC()
 			roll.FinishedAt = &now
+			okMark := true
 			roll.Success = &okMark
 			roll.Notes = "rollback of " + orig.TxID
 			_ = snapdb.Append(roll)
