@@ -11,9 +11,4 @@ override_dh_auto_build:
 
 override_dh_auto_install:
 	install -D -m0755 deb-build/nos-agent $(DESTDIR)/usr/sbin/nos-agent
-	install -D -m0644 ../../../deploy/systemd/nos-agent.service $(DESTDIR)/lib/systemd/system/nos-agent.service
-
-override_dh_systemd_enable:
-	dh_systemd_enable --name=nos-agent nos-agent.service
-
 

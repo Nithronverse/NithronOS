@@ -13,9 +13,4 @@ override_dh_auto_build:
 
 override_dh_auto_install:
 	install -D -m0755 deb-build/nosd $(DESTDIR)/usr/bin/nosd
-	install -D -m0644 ../../../deploy/systemd/nosd.service $(DESTDIR)/lib/systemd/system/nosd.service
-
-override_dh_systemd_enable:
-	dh_systemd_enable --name=nosd nosd.service
-
 
