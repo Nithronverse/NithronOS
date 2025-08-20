@@ -51,8 +51,6 @@ lb config \
   --apt-recommends true \
   --debian-installer live \
   --archive-areas "main contrib non-free-firmware" \
-  --updates true \
-  --security true \
   --mirror-bootstrap "$DEBIAN_MIRROR" \
   --mirror-chroot   "$DEBIAN_MIRROR" \
   --mirror-binary   "$DEBIAN_MIRROR" \
