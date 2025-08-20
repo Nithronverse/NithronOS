@@ -77,6 +77,10 @@ export LB_MIRROR_CHROOT_SECURITY=""
 export LB_MIRROR_BINARY_SECURITY=""
 export LB_SECURITY="none"
 
+# Disable live-build's kernel autodetect/linux-image stage
+export LB_LINUX_FLAVOURS="none"
+export LB_LINUX_PACKAGES="none"
+
 ${SUDO_CMD} lb config \
   --mode debian \
   --distribution bookworm \
@@ -89,6 +93,10 @@ ${SUDO_CMD} lb config \
   --mirror-bootstrap "$DEBIAN_MIRROR" \
   --mirror-chroot   "$DEBIAN_MIRROR" \
   --mirror-binary   "$DEBIAN_MIRROR"
+
+# Persist kernel skip into profile so lb build picks it up even if envs are sanitized
+echo 'LB_LINUX_FLAVOURS="none"' >> "$PROFILE_DIR/config/chroot"
+echo 'LB_LINUX_PACKAGES="none"' >> "$PROFILE_DIR/config/chroot"
 
 # Defensive cleanup of any legacy security lines injected by LB
 sed -i 's#http://security\.debian\.org .*bookworm/updates.*##' "$PROFILE_DIR"/config/* 2>/dev/null || true

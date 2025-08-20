@@ -1,0 +1,6 @@
+#!/bin/sh
+set -e
+echo "LB_LINUX_FLAVOURS=$LB_LINUX_FLAVOURS"
+echo "LB_LINUX_PACKAGES=$LB_LINUX_PACKAGES"
+
+
