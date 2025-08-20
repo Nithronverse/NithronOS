@@ -9,6 +9,7 @@ OUT_DIR="$SCRIPT_DIR/../../dist/iso"
 
 # Ensure apt includes directories exist for pinned sources
 mkdir -p "$PROFILE_DIR/config/includes.chroot/etc/apt" "$PROFILE_DIR/config/includes.binary/etc/apt"
+mkdir -p "$PROFILE_DIR/config/archives"
 
 echo "[iso] using debs from: $DEB_DIR"
 mkdir -p "$OUT_DIR"
@@ -36,20 +37,7 @@ fi
 EOS
 chmod +x "$HOOK"
 
-# Hook to correct Debian security suite from bookworm/updates -> bookworm-security
-FIXSEC_HOOK="$PROFILE_DIR/config/hooks/normal/05-fix-security-sources.chroot"
-cat > "$FIXSEC_HOOK" <<'EOS'
-#!/bin/sh
-set -e
-if command -v sed >/dev/null 2>&1; then
-  [ -f /etc/apt/sources.list ] && sed -ri 's/bookworm\/updates/bookworm-security/g' /etc/apt/sources.list || true
-  if [ -d /etc/apt/sources.list.d ]; then
-    find /etc/apt/sources.list.d -maxdepth 1 -type f -print0 2>/dev/null | xargs -0 -r sed -ri 's/bookworm\/updates/bookworm-security/g' || true
-  fi
-fi
-apt-get update || true
-EOS
-chmod +x "$FIXSEC_HOOK"
+# No longer need sed-based fix hooks; sources are pinned via includes and archives config
 
 # Run live-build
 pushd "$PROFILE_DIR" >/dev/null
