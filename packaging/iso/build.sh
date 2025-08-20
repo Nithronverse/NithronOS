@@ -78,8 +78,8 @@ export LB_MIRROR_BINARY_SECURITY=""
 export LB_SECURITY="none"
 
 # Disable live-build's kernel autodetect/linux-image stage
-export LB_LINUX_FLAVOURS="none"
-export LB_LINUX_PACKAGES="none"
+export LB_LINUX_FLAVOURS=""
+export LB_LINUX_PACKAGES=""
 
 ${SUDO_CMD} lb config \
   --mode debian \
@@ -95,14 +95,15 @@ ${SUDO_CMD} lb config \
   --mirror-binary   "$DEBIAN_MIRROR"
 
 # Persist kernel skip into profile so lb build picks it up even if envs are sanitized
-echo 'LB_LINUX_FLAVOURS="none"' >> "$PROFILE_DIR/config/chroot"
-echo 'LB_LINUX_PACKAGES="none"' >> "$PROFILE_DIR/config/chroot"
+printf '%s\n' 'LB_LINUX_FLAVOURS=""' 'LB_LINUX_PACKAGES=""' >> "$PROFILE_DIR/config/common"
+printf '%s\n' 'LB_LINUX_FLAVOURS=""' 'LB_LINUX_PACKAGES=""' >> "$PROFILE_DIR/config/chroot"
 
-# Defensive cleanup of any legacy security lines injected by LB
-sed -i 's#http://security\.debian\.org .*bookworm/updates.*##' "$PROFILE_DIR"/config/* 2>/dev/null || true
+# Remove any stale security lines live-build might inject
+sed -i '/security\.debian\.org.*bookworm\/updates/d' "$PROFILE_DIR"/config/* 2>/dev/null || true
 
 # Build ISO (LB assumes non-interactive)
 export DEBIAN_FRONTEND=noninteractive
+echo "[iso] LB_LINUX_FLAVOURS='${LB_LINUX_FLAVOURS}' LB_LINUX_PACKAGES='${LB_LINUX_PACKAGES}' (kernel installed via package list)"
 ${SUDO_CMD} lb build
 
 # Default output path from live-build

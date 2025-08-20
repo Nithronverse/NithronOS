@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+dpkg-query -W linux-image-amd64 >/dev/null 2>&1 || {
+  echo "::error::linux-image-amd64 missing in chroot; attempting install"
+  apt-get update
+  apt-get install -y linux-image-amd64
+}
+
+
