@@ -19,6 +19,9 @@ jobs:
         with:
           go-version: '1.22'
           cache: true
+          cache-dependency-path: |
+            backend/**/go.sum
+            agent/**/go.sum
       - name: Test backend/nosd
         run: |
           cd backend/nosd
