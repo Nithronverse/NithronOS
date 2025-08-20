@@ -81,6 +81,28 @@ export LB_SECURITY="none"
 export LB_LINUX_FLAVOURS=""
 export LB_LINUX_PACKAGES=""
 
+# --- begin live-build Contents path hotfix ---
+patch_live_build_contents_bug() {
+  local f="/usr/lib/live/build/lb_chroot_linux-image"
+  if [ ! -f "$f" ]; then
+    echo "[iso] skip patch: $f not found"; return 0
+  fi
+  # Only patch if it still uses the legacy path (missing /main/)
+  if grep -q 'dists/\${LB_DISTRIBUTION}/Contents-\${LB_ARCHITECTURES}\.gz' "$f" \
+     || grep -q 'dists/\${LB_PARENT_DISTRIBUTION}/Contents-\${LB_ARCHITECTURES}\.gz' "$f"; then
+    echo "[iso] patching $f to use /main/Contents-…"
+    # Add /main/ between dists/<suite>/ and Contents-… for both mirror vars
+    sed -i -E \
+      -e 's#(dists/\${LB_DISTRIBUTION}/)Contents-\${LB_ARCHITECTURES}\.gz#\1main/Contents-${LB_ARCHITECTURES}.gz#g' \
+      -e 's#(dists/\${LB_PARENT_DISTRIBUTION}/)Contents-\${LB_ARCHITECTURES}\.gz#\1main/Contents-${LB_ARCHITECTURES}.gz#g' \
+      "$f"
+  else
+    echo "[iso] live-build script already uses /main/Contents-… (no patch needed)"
+  fi
+}
+patch_live_build_contents_bug
+# --- end live-build Contents path hotfix ---
+
 ${SUDO_CMD} lb config \
   --mode debian \
   --distribution bookworm \
