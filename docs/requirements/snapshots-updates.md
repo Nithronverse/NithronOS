@@ -54,3 +54,8 @@ On every system or app update, take point-in-time backups so an admin can quickl
 - **Per-app hooks:** pre/post update hooks to stop only the affected containers/services, not all docker apps.
 - **Advanced retention:** prune snapshots by age and/or total size caps (in addition to “keep N”).
 
+## Post-v0 follow-ups
+- Rootfs rollback on Btrfs (GRUB integration, @ snapshot pair)
+- Per-app pre/post hooks to stop only affected containers/services
+- Retention by age/size in addition to "keep N"
+
