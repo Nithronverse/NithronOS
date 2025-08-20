@@ -66,12 +66,15 @@ func HandleCreateShare(cfg config.Config) http.HandlerFunc {
 		// ensure directory exists via agent
 		client := AgentClientFactory()
 		var fsResp map[string]any
-		_ = client.PostJSON(r.Context(), "/v1/fs/mkdir", map[string]any{
+		if err := client.PostJSON(r.Context(), "/v1/fs/mkdir", map[string]any{
 			"path":  clean,
 			"mode":  "0775",
 			"owner": "nos",
 			"group": "nos",
-		}, &fsResp)
+		}, &fsResp); err != nil {
+			httpx.WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
 
 		// write config via agent
 		switch body.Type {
