@@ -145,11 +145,15 @@ jobs:
           apt-get install -y --no-install-recommends nodejs
       - name: Build .debs
         run: |
+          chmod +x packaging/build-all.sh
           bash packaging/build-all.sh
       - name: Upload Debian artifacts
         uses: actions/upload-artifact@v4
         with:
           name: debian-packages
-          path: packaging/output/*.deb
+          path: |
+            dist/deb/*.deb
+            dist/deb/*.changes
+            dist/deb/*.buildinfo
 
 
