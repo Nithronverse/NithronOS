@@ -172,7 +172,7 @@ jobs:
       - name: Upload ISO artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NithronOS - amd64 - ${{ github.event.release.tag_name || github.ref_name }} - ISO
+          name: NithronOS - amd64 - ${{ github.event.release.tag_name || github.ref_name }}
           path: dist/iso/*.iso
           if-no-files-found: error
           retention-days: 7
