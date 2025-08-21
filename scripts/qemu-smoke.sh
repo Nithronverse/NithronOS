@@ -1,5 +1,38 @@
 #!/usr/bin/env bash
 set -euo pipefail
+ISO="${1:?Usage: $0 <path-to-iso>}"
+
+LOG="/tmp/nos-serial.log"
+DISK="/tmp/nos-smoke.qcow2"
+
+# Create a small test disk
+qemu-img create -f qcow2 "$DISK" 8G >/dev/null
+
+# Boot headless with serial console captured to $LOG. TCG only (no KVM on GitHub-hosted runners).
+# We rely on the ISO to pass console=ttyS0 to show logs here.
+timeout 240s qemu-system-x86_64 \
+  -accel tcg \
+  -m 1024 -smp 2 \
+  -no-reboot -no-shutdown \
+  -display none \
+  -serial file:"$LOG" \
+  -drive file="$DISK",if=virtio,format=qcow2 \
+  -cdrom "$ISO" \
+  -boot d || true
+
+# Basic heuristics that the kernel/systemd actually booted
+if grep -E "Linux version|systemd|Debian GNU/Linux" "$LOG" >/dev/null 2>&1; then
+  echo "[smoke] Boot output detected on serial console:"
+  sed -n '1,120p' "$LOG" | sed -e 's/^/[serial] /'
+  exit 0
+else
+  echo "::error::No boot output detected on serial console. Full log follows:"
+  sed -n '1,200p' "$LOG" || true
+  exit 1
+fi
+
+#!/usr/bin/env bash
+set -euo pipefail
 
 ISO_PATH=${1:-packaging/iso/debian/live-image-amd64.hybrid.iso}
 QEMU_BIN=${QEMU_BIN:-qemu-system-x86_64}
