@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
-ISO="${1:?Usage: $0 <path-to-iso>}"
+if [ "${1:-}" = "" ]; then
+  echo "::error::No ISO path passed to qemu-smoke.sh"; exit 1
+fi
+ISO="$1"
 
 LOG="/tmp/nos-serial.log"
 DISK="/tmp/nos-smoke.qcow2"

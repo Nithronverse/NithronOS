@@ -166,15 +166,16 @@ jobs:
           path: dist/iso/*.iso
 
   smoke:
-    name: Smoke ISO (QEMU, headless)
+    name: Smoke ISO (QEMU: HTTP+SSH or serial)
     needs: iso
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
-      - name: Download ISO artifact from previous job
+      - name: Download ISO artifact (pattern, merge all)
         uses: actions/download-artifact@v4
         with:
-          name: iso-${{ github.sha }}
+          pattern: iso-*
+          merge-multiple: true
           path: dist/iso
 
       - name: Checkout repo (for scripts)
@@ -187,12 +188,25 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y qemu-system-x86
 
-      - name: Run smoke test (serial console)
+      - name: Locate ISO (and list artifacts on failure)
+        id: findiso
+        run: |
+          set -e
+          echo "[ci] Available files under dist/iso:"
+          ls -lah dist/iso || true
+          ISO_PATH="$(ls -1 dist/iso/*.iso 2>/dev/null || true)"
+          if [ -z "$ISO_PATH" ]; then
+            echo "::error::No ISO found in dist/iso. Listing any *.iso in workspace:"
+            find . -type f -name '*.iso' -maxdepth 5 -printf '%p\n' || true
+            exit 1
+          fi
+          echo "ISO_PATH=$ISO_PATH" >> $GITHUB_OUTPUT
+          echo "[ci] Using $ISO_PATH"
+
+      - name: Smoke test ISO in QEMU (serial)
         run: |
           chmod +x scripts/qemu-smoke.sh
-          ISO_PATH=$(ls dist/iso/*.iso | head -n1)
-          echo "[ci] Testing $ISO_PATH"
-          sudo -E bash scripts/qemu-smoke.sh "$ISO_PATH"
+          sudo -E bash scripts/qemu-smoke.sh "${{ steps.findiso.outputs.ISO_PATH }}"
 
       - name: Upload serial log (always)
         if: always()
