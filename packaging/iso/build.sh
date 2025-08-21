@@ -77,6 +77,10 @@ export LB_MIRROR_CHROOT_SECURITY=""
 export LB_MIRROR_BINARY_SECURITY=""
 export LB_SECURITY="false"
 
+# Ensure serial console output for CI smoke (QEMU serial)
+export LB_BOOTAPPEND_LIVE="console=ttyS0,115200n8 console=tty0"
+export LB_BOOTAPPEND_INSTALL="console=ttyS0,115200n8 console=tty0"
+
 # Disable live-build's kernel autodetect/linux-image stage
 export LB_LINUX_FLAVOURS=""
 export LB_LINUX_PACKAGES=""
@@ -112,6 +116,8 @@ ${SUDO_CMD} lb config \
   --distribution bookworm \
   --architectures amd64 \
   --binary-images iso-hybrid \
+  --bootappend-live "${LB_BOOTAPPEND_LIVE}" \
+  --bootappend-install "${LB_BOOTAPPEND_INSTALL}" \
   --apt-recommends true \
   --apt-indices false \
   --debian-installer live \
@@ -123,6 +129,10 @@ ${SUDO_CMD} lb config \
 # Persist kernel skip into profile so lb build picks it up even if envs are sanitized
 printf '%s\n' 'LB_LINUX_FLAVOURS=""' 'LB_LINUX_PACKAGES=""' >> "$PROFILE_DIR/config/common"
 printf '%s\n' 'LB_LINUX_FLAVOURS=""' 'LB_LINUX_PACKAGES=""' >> "$PROFILE_DIR/config/chroot"
+
+# Persist serial console boot parameters into profile
+printf '%s\n' 'LB_BOOTAPPEND_LIVE="console=ttyS0,115200n8 console=tty0"' 'LB_BOOTAPPEND_INSTALL="console=ttyS0,115200n8 console=tty0"' >> "$PROFILE_DIR/config/common"
+printf '%s\n' 'LB_BOOTAPPEND_LIVE="console=ttyS0,115200n8 console=tty0"' 'LB_BOOTAPPEND_INSTALL="console=ttyS0,115200n8 console=tty0"' >> "$PROFILE_DIR/config/chroot"
 
 # Remove any stale security lines live-build might inject
 sed -i '/security\.debian\.org.*bookworm\/updates/d' "$PROFILE_DIR"/config/* 2>/dev/null || true
