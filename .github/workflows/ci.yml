@@ -1,11 +1,10 @@
 name: CI
 
-on:
+'on':
   push:
     branches: [ main ]
   pull_request:
-  release:
-    types: [ published ]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -74,15 +73,14 @@ jobs:
           if-no-files-found: ignore
 
   debs:
-    name: Build Debian packages
+    name: Build Debian packages (every commit)
     needs: build-test
-    if: ${{ github.event_name == 'release' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout at release tag
+      - name: Checkout at commit
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ github.sha }}
 
       - name: Set up Go (with cache for both modules)
         uses: actions/setup-go@v5
@@ -121,38 +119,48 @@ jobs:
             dist/deb/*.buildinfo
 
   iso:
-    name: Build ISO
+    name: Build ISO (every commit)
     needs: debs
-    if: ${{ github.event_name == 'release' }}
     runs-on: ubuntu-latest
     container:
       image: debian:bookworm
+      options: --privileged --security-opt seccomp=unconfined --cap-add=SYS_ADMIN --tmpfs /run --tmpfs /run/lock --tmpfs /tmp
     steps:
-      - name: Install ISO build dependencies
+      - name: Show container context
+        run: |
+          id -u; id -g
+          cat /etc/os-release || true
+
+      - name: Install ISO build dependencies (container root)
         run: |
           apt-get update
           apt-get install -y git live-build xorriso squashfs-tools cpio debootstrap genisoimage ca-certificates
-      - name: Checkout at release tag
+
+      - name: Checkout at commit
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ github.sha }}
+
       - name: Download .deb artifacts from this workflow
         uses: actions/download-artifact@v4
         with:
           name: debs
           path: dist/deb
+
       - name: Stage debs for ISO
         run: |
           mkdir -p packaging/iso/local-debs
           cp -v dist/deb/*.deb packaging/iso/local-debs/
+
       - name: Build ISO
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
           chmod +x packaging/iso/build.sh
           bash packaging/iso/build.sh packaging/iso/local-debs
+
       - name: Upload ISO artifact
         uses: actions/upload-artifact@v4
         with:
-          name: iso-${{ github.event.release.tag_name }}
+          name: iso-${{ github.sha }}
           path: dist/iso/*.iso
