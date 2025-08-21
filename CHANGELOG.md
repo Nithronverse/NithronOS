@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.1.0 — First public preview
+## v0.1.0-pre-alpha — First public preview
 - Disk discovery & SMART
 - Btrfs: create/import, snapshots; basic usage reporting
 - Shares: SMB/NFS with simple ACLs + UI wizard, SMB user mgmt
