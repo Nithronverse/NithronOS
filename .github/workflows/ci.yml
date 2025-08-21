@@ -177,6 +177,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
+      - name: Checkout repo (for scripts)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
       - name: Try download ISO artifact (stable name)
         id: dl_stable
         uses: actions/download-artifact@v4
@@ -193,11 +198,6 @@ jobs:
           merge-multiple: true
           path: dist/iso
         continue-on-error: true
-
-      - name: Checkout repo (for scripts)
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
 
       - name: Install QEMU
         run: |
