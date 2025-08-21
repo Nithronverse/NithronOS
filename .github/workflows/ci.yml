@@ -1,6 +1,6 @@
 name: CI
 
-'on':
+on:
   push:
     branches: [ main ]
   pull_request:
@@ -178,6 +178,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Try download ISO artifact (stable name)
+        id: dl_stable
         uses: actions/download-artifact@v4
         with:
           name: iso
@@ -185,7 +186,7 @@ jobs:
         continue-on-error: true
 
       - name: Fallback: download by pattern (merge all)
-        if: ${{ failure() || steps.__prev.outputs.result == '' }}
+        if: ${{ steps.dl_stable.outcome == 'failure' }}
         uses: actions/download-artifact@v4
         with:
           pattern: iso-*
@@ -216,7 +217,7 @@ jobs:
             find . -type f -name '*.iso' -maxdepth 6 -printf '%p\n' || true
             exit 1
           fi
-          echo "ISO_PATH=$ISO_PATH" >> $GITHUB_OUTPUT
+          echo "ISO_PATH=$ISO_PATH" >> "$GITHUB_OUTPUT"
           echo "[ci] Using $ISO_PATH"
 
       - name: Run smoke test (serial console)
