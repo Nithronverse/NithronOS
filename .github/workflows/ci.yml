@@ -159,24 +159,39 @@ jobs:
           chmod +x packaging/iso/build.sh
           bash packaging/iso/build.sh packaging/iso/local-debs
 
+      - name: Debug: list built ISO
+        run: |
+          ls -lah dist/iso || true
+
       - name: Upload ISO artifact
         uses: actions/upload-artifact@v4
         with:
-          name: iso-${{ github.sha }}
+          name: iso
           path: dist/iso/*.iso
+          if-no-files-found: error
+          retention-days: 7
 
   smoke:
-    name: "Smoke ISO (QEMU: HTTP+SSH or serial)"
+    name: "Smoke ISO (QEMU: serial)"
     needs: iso
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - name: Download ISO artifact (pattern, merge all)
+      - name: Try download ISO artifact (stable name)
+        uses: actions/download-artifact@v4
+        with:
+          name: iso
+          path: dist/iso
+        continue-on-error: true
+
+      - name: Fallback: download by pattern (merge all)
+        if: ${{ failure() || steps.__prev.outputs.result == '' }}
         uses: actions/download-artifact@v4
         with:
           pattern: iso-*
           merge-multiple: true
           path: dist/iso
+        continue-on-error: true
 
       - name: Checkout repo (for scripts)
         uses: actions/checkout@v4
@@ -192,18 +207,19 @@ jobs:
         id: findiso
         run: |
           set -e
-          echo "[ci] Available files under dist/iso:"
+          echo "[ci] Listing dist/iso:"
           ls -lah dist/iso || true
-          ISO_PATH=$(ls -1 dist/iso/*.iso 2>/dev/null || true)
+          ISO_PATH="$(ls -1 dist/iso/*.iso 2>/dev/null || true)"
           if [ -z "$ISO_PATH" ]; then
-            echo "::error::No ISO found in dist/iso. Listing any *.iso in workspace:"
-            find . -type f -name '*.iso' -maxdepth 5 -printf '%p\n' || true
+            echo "::error::No ISO found in dist/iso after download."
+            echo "[ci] Searching workspace for *.iso just in case:"
+            find . -type f -name '*.iso' -maxdepth 6 -printf '%p\n' || true
             exit 1
           fi
-          echo "ISO_PATH=$ISO_PATH" >> "$GITHUB_OUTPUT"
+          echo "ISO_PATH=$ISO_PATH" >> $GITHUB_OUTPUT
           echo "[ci] Using $ISO_PATH"
 
-      - name: Smoke test ISO in QEMU (serial)
+      - name: Run smoke test (serial console)
         run: |
           chmod +x scripts/qemu-smoke.sh
           sudo -E bash scripts/qemu-smoke.sh "${{ steps.findiso.outputs.ISO_PATH }}"
