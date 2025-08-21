@@ -69,8 +69,9 @@ pushd "$PROFILE_DIR" >/dev/null
 ${SUDO_CMD} lb clean --purge || true
 rm -rf chroot/ cache/* || true
 
-# Configure build (Debian bookworm, amd64, ISO-hybrid)
+# Configure build (Debian bookworm, ISO-hybrid)
 DEBIAN_MIRROR="http://deb.debian.org/debian"
+ARCH="${ISO_ARCH:-amd64}"
 
 # Disable LB security mirrors to avoid legacy bookworm/updates
 export LB_MIRROR_CHROOT_SECURITY=""
@@ -118,7 +119,7 @@ patch_skip_linux_stage
 ${SUDO_CMD} lb config \
   --mode debian \
   --distribution bookworm \
-  --architectures amd64 \
+  --architectures "${ARCH}" \
   --binary-images iso-hybrid \
   --bootappend-live "${LB_BOOTAPPEND_LIVE}" \
   --bootappend-install "${LB_BOOTAPPEND_INSTALL}" \
@@ -166,11 +167,11 @@ echo "[iso] LB_LINUX_FLAVOURS='${LB_LINUX_FLAVOURS}' LB_LINUX_PACKAGES='${LB_LIN
 ${SUDO_CMD} lb build
 
 # Default output path from live-build
-ISO_SRC="live-image-amd64.hybrid.iso"
+ISO_SRC="live-image-${ARCH}.hybrid.iso"
 
-# Name the ISO nicely (prefer ISO_TAG from CI, fallback to GITHUB_REF_NAME, else dev)
+# Name the ISO as: NithronOS - <arch> - <tag>.iso
 TAG="${ISO_TAG:-${GITHUB_REF_NAME:-dev}}"
-ISO_DST="$OUT_DIR/NithronOS - ${TAG}.iso"
+ISO_DST="$OUT_DIR/NithronOS - ${ARCH} - ${TAG}.iso"
 [ -f "$ISO_SRC" ] || { echo "::error::ISO not found at $ISO_SRC"; exit 1; }
 mv -v "$ISO_SRC" "$ISO_DST"
 
