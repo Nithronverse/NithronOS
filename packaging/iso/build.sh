@@ -120,7 +120,6 @@ ${SUDO_CMD} lb config \
   --distribution bookworm \
   --architectures amd64 \
   --binary-images iso-hybrid \
-  --syslinux-serial "${LB_SYSLINUX_SERIAL}" \
   --bootappend-live "${LB_BOOTAPPEND_LIVE}" \
   --bootappend-install "${LB_BOOTAPPEND_INSTALL}" \
   --apt-recommends true \
