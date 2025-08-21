@@ -125,37 +125,32 @@ jobs:
     needs: debs
     if: ${{ github.event_name == 'release' }}
     runs-on: ubuntu-latest
+    container:
+      image: debian:bookworm
     steps:
+      - name: Install ISO build dependencies
+        run: |
+          apt-get update
+          apt-get install -y git live-build xorriso squashfs-tools cpio debootstrap genisoimage ca-certificates
       - name: Checkout at release tag
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.release.tag_name }}
-
       - name: Download .deb artifacts from this workflow
         uses: actions/download-artifact@v4
         with:
           name: debs
           path: dist/deb
-
-      - name: Install ISO build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y live-build xorriso squashfs-tools cpio debootstrap genisoimage
-
       - name: Stage debs for ISO
         run: |
           mkdir -p packaging/iso/local-debs
           cp -v dist/deb/*.deb packaging/iso/local-debs/
-
       - name: Build ISO
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
           chmod +x packaging/iso/build.sh
-          sudo -E bash packaging/iso/build.sh packaging/iso/local-debs
-
-      - name: Fix ISO artifact permissions
-        run: |
-          sudo chown -R $USER:$USER dist/iso || true
-
+          bash packaging/iso/build.sh packaging/iso/local-debs
       - name: Upload ISO artifact
         uses: actions/upload-artifact@v4
         with:
