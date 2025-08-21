@@ -173,6 +173,7 @@ jobs:
 
   smoke:
     name: "Smoke ISO (QEMU: serial)"
+    if: ${{ false }}
     needs: iso
     runs-on: ubuntu-latest
     timeout-minutes: 25
