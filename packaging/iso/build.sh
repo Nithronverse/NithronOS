@@ -107,8 +107,6 @@ SH
 patch_skip_linux_stage
 # --- end: disable live-build linux-image stage ---
 
-export LB_BOOTAPPEND_LIVE="console=ttyS0,115200n8"
-
 ${SUDO_CMD} lb config \
   --mode debian \
   --distribution bookworm \
@@ -125,9 +123,6 @@ ${SUDO_CMD} lb config \
 # Persist kernel skip into profile so lb build picks it up even if envs are sanitized
 printf '%s\n' 'LB_LINUX_FLAVOURS=""' 'LB_LINUX_PACKAGES=""' >> "$PROFILE_DIR/config/common"
 printf '%s\n' 'LB_LINUX_FLAVOURS=""' 'LB_LINUX_PACKAGES=""' >> "$PROFILE_DIR/config/chroot"
-
-# Persist serial console boot append
-printf '%s\n' 'LB_BOOTAPPEND_LIVE="console=ttyS0,115200n8"' >> "$PROFILE_DIR/config/common"
 
 # Remove any stale security lines live-build might inject
 sed -i '/security\.debian\.org.*bookworm\/updates/d' "$PROFILE_DIR"/config/* 2>/dev/null || true
