@@ -174,55 +174,7 @@ sudo bash packaging/iso/build.sh packaging/iso/local-debs
 ```
 
 On first boot, a first-boot service generates TLS certs, enables required services, and prints the UI URL + one-time OTP to the console.
-
----
-
-## Repository Structure (planned)
-~~~text
-/backend/nosd          # Go API server (REST/gRPC, OpenAPI)
-/agent/nos-agent       # Privileged helper (Unix socket)
-/web                   # React + TypeScript dashboard (shadcn/ui)
-/packaging/deb         # Debian packaging for nosd/agent/web
-/packaging/iso/debian  # Debian live-build profile (installer ISO)
-/scripts               # CI/build/release tools, support bundle
-/docs                  # Architecture notes, ADRs, guides
-~~~
-
----
-
-## Roadmap
-
-### Pre-M1 (Hardening & Quality)
-- [ ] Run nosd as system user + hardened systemd unit (least-privilege).
-- [ ] Robust auth storage (atomic writes / optional SQLite).
-- [ ] Session/refresh hardening (server-side session IDs, rotate refresh, reuse detection).
-- [ ] Rate limits persisted across restarts + proxy awareness (X-Forwarded-For when trusted).
-- [ ] API versioning `/api/v1`, typed error shape, initial OpenAPI spec.
-- [ ] Config system `/etc/nos/config.yaml` + env overrides + safe hot reload (SIGHUP).
-- [ ] Observability: request IDs, structured logs, `/metrics` (Prometheus), gated `/debug/pprof`.
-- [ ] Security headers (CSP, HSTS, Referrer-Policy, X-Content-Type-Options, COOP/COEP).
-- [ ] Frontend resilience & a11y (CSRF/refresh guard, toasts, focus, contrast).
-- [ ] CI upgrades (linters, govulncheck, TypeScript check, stronger ISO smoke).
-- [ ] Packaging polish (sysusers/tmpfiles/postinst/postrm, console OTP visibility).
-- [ ] Agent ↔ daemon trust bootstrap (token or mTLS, rotation).
-- [ ] Recovery paths (console/TUI: reset admin/2FA, `nos.recovery=1`).
-- [ ] Threat model doc + fuzz/property tests.
-
-### Milestones to v1
-- [ ] M1 — Storage Foundation (Btrfs + Health): Pool wizard (create/import), optional LUKS-on-Btrfs, SMART, scrub/repair, schedules.
-- [ ] M2 — Shares & Permissions: SMB/NFS with simple ACLs, guest toggle, recycle bin, optional Time Machine (fruit).
-- [ ] M3 — App Catalog v1 (Docker/Compose): One-click apps, lifecycle, health checks, pre-snapshot + rollback.
-- [ ] M4 — Networking & Remote Access: Remote Access Wizard (LAN-only, WireGuard VPN, reverse tunnel), HTTPS (LE), firewall profiles with plan/apply/rollback and 2FA for non-LAN.
-- [ ] M5 — Updates & Releases Hardening: Signed packages, channels (stable/beta), atomic upgrades (snapshot rollback safety net).
-- [ ] M6 — Installer & First-boot Wizard++: Guided disk install (Btrfs subvols), hostname/timezone/network, telemetry opt-in.
-- [ ] M7 — Backup & Replication: Scheduled snapshots + retention; send/receive (SSH), optional cloud (rclone), restore wizard.
-- [ ] M8 — Monitoring & Alerts: Dashboard (CPU/RAM/IO), disk temps/SMART, scrub status, service health, notifications (email/webhook/ntfy), auth audit log.
-- [ ] M9 — Security Hardening (User-facing): Account management UI (password change, 2FA reset, regenerate recovery); password reset (console/admin); audit log UI; session list & revoke.
-- [ ] M10 — Extensibility & API: `nosctl` CLI, OpenAPI, scoped API tokens, app-template SDK.
-- [ ] M11 — QA, CI, Docs (v1 Gate): ISO boot + HTTP/SSH/Btrfs E2E in CI, UI E2E (Playwright), N-1→N upgrade tests, full docs site.
-
-See the dedicated guide: [Updates & Rollback](docs/updates.md).
-
+0
 ---
 
 ## Firewall (LAN-only by default)
@@ -269,6 +221,56 @@ sudo systemctl enable --now fail2ban
 sudo fail2ban-client reload
 sudo fail2ban-client status caddy-nithronos
 ~~~
+
+---
+
+## Repository Structure
+~~~text
+/backend/nosd          # Go API server (REST/gRPC, OpenAPI)
+/agent/nos-agent       # Privileged helper (Unix socket)
+/web                   # React + TypeScript dashboard (shadcn/ui)
+/packaging/deb         # Debian packaging for nosd/agent/web
+/packaging/iso/debian  # Debian live-build profile (installer ISO)
+/scripts               # CI/build/release tools, support bundle
+/docs                  # Architecture notes, ADRs, guides
+~~~
+
+---
+
+## Roadmap
+
+### Pre-M1 (Hardening & Quality)
+- [ ] Run nosd as system user + hardened systemd unit (least-privilege).
+- [ ] Robust auth storage (atomic writes / optional SQLite).
+- [ ] Session/refresh hardening (server-side session IDs, rotate refresh, reuse detection).
+- [ ] Rate limits persisted across restarts + proxy awareness (X-Forwarded-For when trusted).
+- [ ] API versioning `/api/v1`, typed error shape, initial OpenAPI spec.
+- [ ] Config system `/etc/nos/config.yaml` + env overrides + safe hot reload (SIGHUP).
+- [ ] Observability: request IDs, structured logs, `/metrics` (Prometheus), gated `/debug/pprof`.
+- [ ] Security headers (CSP, HSTS, Referrer-Policy, X-Content-Type-Options, COOP/COEP).
+- [ ] Frontend resilience & a11y (CSRF/refresh guard, toasts, focus, contrast).
+- [ ] CI upgrades (linters, govulncheck, TypeScript check, stronger ISO smoke).
+- [ ] Packaging polish (sysusers/tmpfiles/postinst/postrm, console OTP visibility).
+- [ ] Agent ↔ daemon trust bootstrap (token or mTLS, rotation).
+- [ ] Recovery paths (console/TUI: reset admin/2FA, `nos.recovery=1`).
+- [ ] Threat model doc + fuzz/property tests.
+
+### Milestones to v1
+- [ ] M1 — Storage Foundation (Btrfs + Health): Pool wizard (create/import), optional LUKS-on-Btrfs, SMART, scrub/repair, schedules.
+- [ ] M2 — Shares & Permissions: SMB/NFS with simple ACLs, guest toggle, recycle bin, optional Time Machine (fruit).
+- [ ] M3 — App Catalog v1 (Docker/Compose): One-click apps, lifecycle, health checks, pre-snapshot + rollback.
+- [ ] M4 — Networking & Remote Access: Remote Access Wizard (LAN-only, WireGuard VPN, reverse tunnel), HTTPS (LE), firewall profiles with plan/apply/rollback and 2FA for non-LAN.
+- [ ] M5 — Updates & Releases Hardening: Signed packages, channels (stable/beta), atomic upgrades (snapshot rollback safety net).
+- [ ] M6 — Installer & First-boot Wizard++: Guided disk install (Btrfs subvols), hostname/timezone/network, telemetry opt-in.
+- [ ] M7 — Backup & Replication: Scheduled snapshots + retention; send/receive (SSH), optional cloud (rclone), restore wizard.
+- [ ] M8 — Monitoring & Alerts: Dashboard (CPU/RAM/IO), disk temps/SMART, scrub status, service health, notifications (email/webhook/ntfy), auth audit log.
+- [ ] M9 — Security Hardening (User-facing): Account management UI (password change, 2FA reset, regenerate recovery); password reset (console/admin); audit log UI; session list & revoke.
+- [ ] M10 — Extensibility & API: `nosctl` CLI, OpenAPI, scoped API tokens, app-template SDK.
+- [ ] M11 — QA, CI, Docs (v1 Gate): ISO boot + HTTP/SSH/Btrfs E2E in CI, UI E2E (Playwright), N-1→N upgrade tests, full docs site.
+
+See the dedicated guide: [Updates & Rollback](docs/updates.md).
+
+---
 
 ## Contributing
 We welcome issues and PRs! Please read:
