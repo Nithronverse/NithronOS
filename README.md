@@ -174,7 +174,7 @@ sudo bash packaging/iso/build.sh packaging/iso/local-debs
 ```
 
 On first boot, a first-boot service generates TLS certs, enables required services, and prints the UI URL + one-time OTP to the console.
-0
+
 ---
 
 ## Firewall (LAN-only by default)
