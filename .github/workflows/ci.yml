@@ -148,7 +148,7 @@ jobs:
             dist/deb/*.buildinfo
 
   iso:
-    name: Build ISO
+    name: Build ISO (amd64)
     if: ${{ (github.event_name == 'release' && github.event.action == 'published') || startsWith(github.ref, 'refs/tags/') }}
     needs: debs
     runs-on: ubuntu-latest
