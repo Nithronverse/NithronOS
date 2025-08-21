@@ -70,7 +70,7 @@ jobs:
       - name: Upload web build (artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: web-dist
+          name: NithronOS - Web UI - ${{ github.event.release.tag_name || github.ref_name }}
           path: web/dist
           if-no-files-found: ignore
 
@@ -115,7 +115,7 @@ jobs:
       - name: Upload .deb artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: debs
+          name: NithronOS - Debian Packages - ${{ github.event.release.tag_name || github.ref_name }}
           path: |
             dist/deb/*.deb
             dist/deb/*.changes
