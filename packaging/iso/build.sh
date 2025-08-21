@@ -103,6 +103,32 @@ patch_live_build_contents_bug() {
 patch_live_build_contents_bug
 # --- end live-build Contents path hotfix ---
 
+# --- begin: disable live-build linux-image stage ---
+patch_skip_linux_stage() {
+  local f="/usr/lib/live/build/lb_chroot_linux-image"
+  if [ ! -f "$f" ]; then
+    echo "[iso] skip: $f not found"
+    return 0
+  fi
+  # Only patch once
+  if grep -q 'nithronos-skip-linux-image' "$f"; then
+    echo "[iso] linux-image stage already disabled"
+    return 0
+  fi
+  echo "[iso] disabling live-build linux-image stage (we install kernel via package list)"
+  cp -a "$f" "$f.orig" || true
+  cat > "$f" <<'SH'
+#!/bin/sh
+# nithronos-skip-linux-image: live-build kernel autodetect disabled.
+# The kernel is installed explicitly via package lists (linux-image-amd64).
+echo "[iso] skipping lb_chroot_linux-image (kernel provided by package list)"
+exit 0
+SH
+  chmod +x "$f"
+}
+patch_skip_linux_stage
+# --- end: disable live-build linux-image stage ---
+
 ${SUDO_CMD} lb config \
   --mode debian \
   --distribution bookworm \
