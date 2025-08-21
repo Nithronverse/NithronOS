@@ -74,6 +74,7 @@ jobs:
 
   debs:
     name: Build Debian packages (every commit)
+    if: ${{ (github.event_name == 'release' && github.event.action == 'published') || startsWith(github.ref, 'refs/tags/') }}
     needs: build-test
     runs-on: ubuntu-latest
     steps:
@@ -120,6 +121,7 @@ jobs:
 
   iso:
     name: Build ISO (every commit)
+    if: ${{ (github.event_name == 'release' && github.event.action == 'published') || startsWith(github.ref, 'refs/tags/') }}
     needs: debs
     runs-on: ubuntu-latest
     container:
