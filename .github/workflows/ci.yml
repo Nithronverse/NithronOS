@@ -164,3 +164,40 @@ jobs:
         with:
           name: iso-${{ github.sha }}
           path: dist/iso/*.iso
+
+  smoke:
+    name: Smoke ISO (QEMU, headless)
+    needs: iso
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Download ISO artifact from previous job
+        uses: actions/download-artifact@v4
+        with:
+          name: iso-${{ github.sha }}
+          path: dist/iso
+
+      - name: Checkout repo (for scripts)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Install QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86
+
+      - name: Run smoke test (serial console)
+        run: |
+          chmod +x scripts/qemu-smoke.sh
+          ISO_PATH=$(ls dist/iso/*.iso | head -n1)
+          echo "[ci] Testing $ISO_PATH"
+          sudo -E bash scripts/qemu-smoke.sh "$ISO_PATH"
+
+      - name: Upload serial log (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-serial-${{ github.sha }}
+          path: /tmp/nos-serial.log
+          if-no-files-found: warn
