@@ -75,7 +75,7 @@ DEBIAN_MIRROR="http://deb.debian.org/debian"
 # Disable LB security mirrors to avoid legacy bookworm/updates
 export LB_MIRROR_CHROOT_SECURITY=""
 export LB_MIRROR_BINARY_SECURITY=""
-export LB_SECURITY="none"
+export LB_SECURITY="false"
 
 # Disable live-build's kernel autodetect/linux-image stage
 export LB_LINUX_FLAVOURS=""
@@ -126,6 +126,18 @@ printf '%s\n' 'LB_LINUX_FLAVOURS=""' 'LB_LINUX_PACKAGES=""' >> "$PROFILE_DIR/con
 
 # Remove any stale security lines live-build might inject
 sed -i '/security\.debian\.org.*bookworm\/updates/d' "$PROFILE_DIR"/config/* 2>/dev/null || true
+
+# Normalize LB_SECURITY in any persisted live-build config and remove legacy --security flags
+sed -i -E 's/^LB_SECURITY=.*$/LB_SECURITY="false"/' "$PROFILE_DIR"/config/* 2>/dev/null || true
+sed -i '/--security/d' "$PROFILE_DIR"/config/* 2>/dev/null || true
+
+# Make auto/config executable if it exists to silence warnings
+if [ -f "$PROFILE_DIR/auto/config" ]; then chmod +x "$PROFILE_DIR/auto/config"; fi
+
+# Ensure previously persisted invalid LB_SECURITY is corrected in profile files
+for f in "$PROFILE_DIR/config/common" "$PROFILE_DIR/config/chroot"; do
+  [ -f "$f" ] && sed -i -E 's/^LB_SECURITY=.*$/LB_SECURITY="false"/' "$f"
+done
 
 # Build ISO (LB assumes non-interactive)
 export DEBIAN_FRONTEND=noninteractive
