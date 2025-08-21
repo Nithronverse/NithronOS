@@ -168,10 +168,9 @@ ${SUDO_CMD} lb build
 # Default output path from live-build
 ISO_SRC="live-image-amd64.hybrid.iso"
 
-# Name the ISO nicely
-TAG="${GITHUB_REF_NAME:-dev}"
-DATE="$(date +%Y%m%d)"
-ISO_DST="$OUT_DIR/nithronos-${TAG}-${DATE}-amd64.iso"
+# Name the ISO nicely (prefer ISO_TAG from CI, fallback to GITHUB_REF_NAME, else dev)
+TAG="${ISO_TAG:-${GITHUB_REF_NAME:-dev}}"
+ISO_DST="$OUT_DIR/NithronOS - ${TAG}.iso"
 [ -f "$ISO_SRC" ] || { echo "::error::ISO not found at $ISO_SRC"; exit 1; }
 mv -v "$ISO_SRC" "$ISO_DST"
 
