@@ -24,11 +24,11 @@ Local-first storage management (Btrfs/ZFS*), snapshots, shares, backups, and a m
 ---
 
 ## High-level Architecture
-- **`nosd`** (Go): REST/gRPC API for disks, pools, snapshots, shares, jobs.
+- **`nosd`** (Go): REST API for disks, pools, snapshots, shares, jobs.
 - **`nos-agent`** (Go, root): tiny allowlisted helper for privileged actions.
 - **Web UI** (React + TypeScript): talks to `nosd` via OpenAPI client.
 - **Reverse proxy** (Caddy): TLS, headers, rate limits; backend bound to loopback.
-- **Jobs**: systemd timers + lightweight queue for scrubs/snapshots/replication.
+- **Jobs**: systemd timers for snapshots/prune and scheduled maintenance.
 
 **Remote access (opt-in):**
 1) VPN (WireGuard/Tailscale) — recommended  
@@ -40,12 +40,12 @@ Local-first storage management (Btrfs/ZFS*), snapshots, shares, backups, and a m
 ---
 
 ## Quickstart (Dev)
-> Requires: Go 1.22+, Node 20+, npm, make (optional), Docker (for app catalog dev)
+> Requires: Go 1.23+, Node 20+, npm, make (optional), Docker (for app catalog dev)
 
 ~~~bash
 # clone
-git clone https://github.com/<you>/<repo>.git
-cd <repo>
+git clone https://github.com/NotTekk/NithronOS.git
+cd NithronOS
 
 # install deps
 cd web && npm install && cd ..
@@ -161,15 +161,19 @@ See `docs/updates.md` for CLI examples and troubleshooting.
 
 You can build a bootable ISO (Debian live) with NithronOS preinstalled.
 
-Prereqs: Debian/Ubuntu with `live-build`.
+Prereqs: Debian/Ubuntu with `live-build` and standard tooling.
 
 ```bash
-cd packaging/iso/debian
-sudo ./auto/config
-sudo lb build
+# 1) Build local .debs (outputs to dist/deb)
+bash packaging/build-all.sh
+
+# 2) Build ISO (stages local debs automatically)
+sudo bash packaging/iso/build.sh packaging/iso/local-debs
+
+# Output: dist/iso/NithronOS - <arch> - <tag>.iso
 ```
 
-Place local `.deb` artifacts in `config/includes.chroot/root/debs/` to include `nosd`, `nos-agent`, and `nos-web` during build. On first boot, a first-boot service generates TLS certs, enables required services, and prints the UI URL + one-time OTP to the console.
+On first boot, a first-boot service generates TLS certs, enables required services, and prints the UI URL + one-time OTP to the console.
 
 ---
 
@@ -217,27 +221,7 @@ Place local `.deb` artifacts in `config/includes.chroot/root/debs/` to include `
 - [ ] M10 — Extensibility & API: `nosctl` CLI, OpenAPI, scoped API tokens, app-template SDK.
 - [ ] M11 — QA, CI, Docs (v1 Gate): ISO boot + HTTP/SSH/Btrfs E2E in CI, UI E2E (Playwright), N-1→N upgrade tests, full docs site.
 
-## Updates & Rollback
-
-NithronOS takes a **pre-update snapshot** of key data before applying updates, then lets you **roll back** if something breaks.
-
-- Config file: `snapshots.yaml` (system: `/etc/nos/snapshots.yaml`, dev: `./devdata/snapshots.yaml`)
-- Modes: **btrfs** read-only snapshot (preferred) or **tar.gz** fallback when not on Btrfs
-- Where they go:
-  - Btrfs: `<target>/.snapshots/<timestamp>-pre-update`
-  - Tar: `/var/lib/nos/snapshots/<target-id>/<timestamp>-pre-update.tar.gz`
-- Retention: keep the **last 5** per target (a daily prune timer runs automatically)
-
-**How to use (UI):** Settings → **Updates** → Check → (toggle *Snapshot before update*) → **Apply Updates**.  
-To revert: pick a prior transaction and click **Rollback**.
-
-**CLI / API (advanced):**
-- Check: `GET /api/updates/check`
-- Apply with snapshots: `POST /api/updates/apply { snapshot:true, confirm:"yes" }`
-- Rollback: `POST /api/updates/rollback { tx_id, confirm:"yes" }`
-
-
-Follow issues & discussions for up-to-date progress.
+See the dedicated guide: [Updates & Rollback](docs/updates.md).
 
 ---
 
