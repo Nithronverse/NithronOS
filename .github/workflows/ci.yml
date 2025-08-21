@@ -1,14 +1,10 @@
 name: CI
-run-name: >-
-  ${{
-    github.event_name == 'release' && format('Release {0}', github.event.release.tag_name) ||
-    startsWith(github.ref, 'refs/tags/') && format('{0}', github.ref_name) ||
-    format('{0}', github.ref_name)
-  }}
 
 on:
   push:
     branches: [ main ]
+    tags:
+      - "*"
   pull_request:
   workflow_dispatch:
   release:
