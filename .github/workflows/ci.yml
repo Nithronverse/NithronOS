@@ -166,7 +166,7 @@ jobs:
           path: dist/iso/*.iso
 
   smoke:
-    name: Smoke ISO (QEMU: HTTP+SSH or serial)
+    name: "Smoke ISO (QEMU: HTTP+SSH or serial)"
     needs: iso
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -194,13 +194,13 @@ jobs:
           set -e
           echo "[ci] Available files under dist/iso:"
           ls -lah dist/iso || true
-          ISO_PATH="$(ls -1 dist/iso/*.iso 2>/dev/null || true)"
+          ISO_PATH=$(ls -1 dist/iso/*.iso 2>/dev/null || true)
           if [ -z "$ISO_PATH" ]; then
             echo "::error::No ISO found in dist/iso. Listing any *.iso in workspace:"
             find . -type f -name '*.iso' -maxdepth 5 -printf '%p\n' || true
             exit 1
           fi
-          echo "ISO_PATH=$ISO_PATH" >> $GITHUB_OUTPUT
+          echo "ISO_PATH=$ISO_PATH" >> "$GITHUB_OUTPUT"
           echo "[ci] Using $ISO_PATH"
 
       - name: Smoke test ISO in QEMU (serial)
