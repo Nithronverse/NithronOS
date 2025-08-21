@@ -13,8 +13,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-test:
-    name: Build & Test (backend/agent/web)
+  build:
+    name: Build (backend, agent, web)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -49,22 +49,11 @@ jobs:
           cd backend/nosd && CGO_ENABLED=0 go build ./... && cd -
           cd agent/nos-agent && CGO_ENABLED=0 go build ./... && cd -
 
-      - name: Test backend & agent
-        run: |
-          cd backend/nosd && go test ./... -v && cd -
-          cd agent/nos-agent && go test ./... -v && cd -
-
       - name: Web install & build
         run: |
           cd web
           npm ci
           npm run build
-          cd -
-
-      - name: Web tests (if configured)
-        run: |
-          cd web
-          npm test -- --run || echo "no web tests configured"
           cd -
 
       - name: Upload web build (artifact)
@@ -74,10 +63,47 @@ jobs:
           path: web/dist
           if-no-files-found: ignore
 
+  test:
+    name: Test (backend, agent, web)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go (with cache for both modules)
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          check-latest: true
+          cache: true
+          cache-dependency-path: |
+            backend/nosd/go.sum
+            agent/nos-agent/go.sum
+
+      - name: Set up Node (with npm cache for /web)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Test backend & agent
+        run: |
+          cd backend/nosd && go test ./... -v && cd -
+          cd agent/nos-agent && go test ./... -v && cd -
+
+      - name: Web tests (if configured)
+        run: |
+          cd web
+          npm ci
+          npm test -- --run || echo "no web tests configured"
+          cd -
+
   debs:
-    name: Build Debian packages (every commit)
+    name: Build Debian packages
     if: ${{ (github.event_name == 'release' && github.event.action == 'published') || startsWith(github.ref, 'refs/tags/') }}
-    needs: build-test
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout at commit
@@ -122,7 +148,7 @@ jobs:
             dist/deb/*.buildinfo
 
   iso:
-    name: Build ISO (every commit)
+    name: Build ISO
     if: ${{ (github.event_name == 'release' && github.event.action == 'published') || startsWith(github.ref, 'refs/tags/') }}
     needs: debs
     runs-on: ubuntu-latest
@@ -148,7 +174,7 @@ jobs:
       - name: Download .deb artifacts from this workflow
         uses: actions/download-artifact@v4
         with:
-          name: debs
+          name: NithronOS - Debian Packages - ${{ github.event.release.tag_name || github.ref_name }}
           path: dist/deb
 
       - name: Stage debs for ISO
@@ -193,7 +219,7 @@ jobs:
         id: dl_stable
         uses: actions/download-artifact@v4
         with:
-          name: iso
+          name: NithronOS - amd64 - ${{ github.event.release.tag_name || github.ref_name }}
           path: dist/iso
         continue-on-error: true
 
@@ -201,7 +227,7 @@ jobs:
         if: ${{ steps.dl_stable.outcome == 'failure' }}
         uses: actions/download-artifact@v4
         with:
-          pattern: iso-*
+          pattern: NithronOS - * - ${{ github.event.release.tag_name || github.ref_name }}
           merge-multiple: true
           path: dist/iso
         continue-on-error: true
