@@ -11,17 +11,16 @@ DISK="/tmp/nos-smoke.qcow2"
 # Small test disk
 qemu-img create -f qcow2 "$DISK" 8G >/dev/null
 
-# Headless boot, capture serial. TCG only (no KVM on GitHub runners).
-# Requires the ISO to use console=ttyS0,115200n8 (we set this in build.sh).
-timeout 480s qemu-system-x86_64 \
+# Headless boot, capture serial via stdio. TCG only (no KVM on GitHub runners).
+# -nographic routes serial + monitor to stdio; we tee it into $LOG.
+stdbuf -oL -eL timeout 480s qemu-system-x86_64 \
   -accel tcg \
   -m 2048 -smp 2 \
   -no-reboot -no-shutdown \
-  -display none \
-  -serial file:"$LOG" \
+  -nographic \
   -drive file="$DISK",if=virtio,format=qcow2 \
   -cdrom "$ISO" \
-  -boot d || true
+  -boot d 2>&1 | tee "$LOG" >/dev/null || true
 
 # Did it actually boot? Look for a broad set of common markers on serial.
 if grep -Ei "Linux version|systemd|Debian GNU/Linux|Welcome to|Starting systemd|initramfs| init:|Kernel command line" "$LOG" >/dev/null 2>&1; then
