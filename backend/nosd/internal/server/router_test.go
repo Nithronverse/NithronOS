@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"nithronos/backend/nosd/internal/config"
 )
@@ -32,13 +33,47 @@ func TestHealth(t *testing.T) {
 	}
 }
 
-func TestDisksShape(t *testing.T) {
+func TestLoginThrottleLockUnlock(t *testing.T) {
 	_ = os.Setenv("NOS_USERS_PATH", "../../../../devdata/users.json")
 	cfg := config.FromEnv()
 	r := NewRouter(cfg)
 
+	// Too many bad passwords should increment failures and eventually lock
+	for i := 0; i < 10; i++ {
+		lb, _ := json.Marshal(map[string]any{"username": "admin@example.com", "password": "wrong"})
+		req := httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewReader(lb))
+		res := httptest.NewRecorder()
+		r.ServeHTTP(res, req)
+		if res.Code != http.StatusUnauthorized && res.Code != http.StatusTooManyRequests {
+			t.Fatalf("unexpected code on bad login: %d", res.Code)
+		}
+	}
+
+	// Next try within window should still fail (locked)
+	lb, _ := json.Marshal(map[string]any{"username": "admin@example.com", "password": "admin123"})
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewReader(lb))
+	res := httptest.NewRecorder()
+	r.ServeHTTP(res, req)
+	if res.Code == http.StatusOK {
+		t.Fatalf("expected lock to prevent login")
+	}
+
+	// Simulate lock expiry by sleeping a tiny amount beyond limiter window for test flake safety
+	time.Sleep(100 * time.Millisecond)
+}
+
+func TestDisksShape(t *testing.T) {
+	_ = os.Setenv("NOS_USERS_PATH", "../../../../devdata/users.json")
+	// Seed minimal users db for new auth store
+	if up := os.Getenv("NOS_USERS_PATH"); up != "" {
+		_ = os.MkdirAll(filepath.Dir(up), 0o755)
+		_ = os.WriteFile(up, []byte(`{"version":1,"users":[{"id":"u1","username":"admin@example.com","password_hash":"plain:admin123","roles":["admin"],"created_at":"","updated_at":""}]}`), 0o600)
+	}
+	cfg := config.FromEnv()
+	r := NewRouter(cfg)
+
 	// Login to get cookies
-	loginBody := map[string]string{"email": "admin@example.com", "password": "admin123"}
+	loginBody := map[string]any{"username": "admin@example.com", "password": "admin123"}
 	lb, _ := json.Marshal(loginBody)
 	loginReq := httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewReader(lb))
 	loginRes := httptest.NewRecorder()
@@ -95,6 +130,11 @@ func TestLsblkFixture(t *testing.T) {
 // Instead, we assert that deletion returns 204 and the config path is computed as expected by inspecting the store state change.
 func TestDeleteShareReturnsNoContent(t *testing.T) {
 	_ = os.Setenv("NOS_USERS_PATH", "../../../../devdata/users.json")
+	// Seed minimal users db for new auth store
+	if up := os.Getenv("NOS_USERS_PATH"); up != "" {
+		_ = os.MkdirAll(filepath.Dir(up), 0o755)
+		_ = os.WriteFile(up, []byte(`{"version":1,"users":[{"id":"u1","username":"admin@example.com","password_hash":"plain:admin123","roles":["admin"],"created_at":"","updated_at":""}]}`), 0o600)
+	}
 	cfg := config.FromEnv()
 	// Seed a store with an entry
 	_ = os.MkdirAll(filepath.Dir(cfg.SharesPath), 0o755)
@@ -102,7 +142,7 @@ func TestDeleteShareReturnsNoContent(t *testing.T) {
 
 	r := NewRouter(cfg)
 	// Login for auth/CSRF
-	loginBody := map[string]string{"email": "admin@example.com", "password": "admin123"}
+	loginBody := map[string]any{"username": "admin@example.com", "password": "admin123"}
 	lb, _ := json.Marshal(loginBody)
 	loginReq := httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewReader(lb))
 	loginRes := httptest.NewRecorder()

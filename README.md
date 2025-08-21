@@ -19,7 +19,7 @@ Local-first storage management (Btrfs/ZFS*), snapshots, shares, backups, and a m
 - **Real safety features** — dry-run plans for destructive ops, pre-update snapshots, easy rollback.
 - **Clean UX** — modern React dashboard, clear health/status, sensible defaults.
 
-\* ZFS availability depends on platform licensing constraints.
+* ZFS availability depends on platform licensing constraints.
 
 ---
 
@@ -62,6 +62,32 @@ make web-dev
 
 - Backend default: `http://127.0.0.1:9000`  
 - Web dev server: `http://127.0.0.1:5173` (Vite)
+
+---
+
+## First Boot & Auth (Setup)
+
+On first boot, `nosd` generates a one-time 6‑digit OTP, logs it, and prints it to the console (unit uses `StandardOutput=journal+console`). The UI calls `/api/setup/state` on load and routes to `/setup` when required.
+
+Setup steps:
+- **Step 1: OTP** — Enter the OTP (valid 15 minutes). A temporary setup token is issued; it is kept only in memory by the UI.
+- **Step 2: Admin** — Create the first admin (username + strong password). Optionally choose to enable 2FA now.
+- **Step 3: 2FA (optional)** — Scan the TOTP QR (or use manual secret), enter a 6‑digit code to verify, and save the shown recovery codes.
+- **Step 4: Done** — Sign in at `/login`.
+
+After the first admin is created, all `/api/setup/*` routes return `410 Gone` and the normal login applies.
+
+### Credentials location and reset
+- Users database: `/etc/nos/users.json` (versioned schema).  
+  Remove this file to rerun the first-boot setup on next start (recovery).  
+  Secret key for encryption/cookies: `/etc/nos/secret.key` (32 bytes; `0600`).
+- First‑boot state: `/var/lib/nos/state/firstboot.json` (stores the temporary OTP and usage).
+
+### Security defaults
+- Passwords: **Argon2id** (PHC format) with safe defaults.
+- Sessions: httpOnly cookies (`nos_session` 15m, optional `nos_refresh` 7d) and CSRF cookie (`nos_csrf`) with double‑submit (`X‑CSRF‑Token`).
+- 2FA: TOTP enrollment/verification with encrypted secrets (XChaCha20‑Poly1305); recovery codes stored as SHA‑256 hashes only.
+- Guardrails: in‑memory rate limiting per IP and username, generic auth errors, and temporary account lockout after repeated failures.
 
 ---
 

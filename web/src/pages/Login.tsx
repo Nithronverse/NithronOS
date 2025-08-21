@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { apiPost } from '../api/http'
 import { useNavigate } from 'react-router-dom'
+import { pushToast } from '@/components/ui/toast'
 
 export function Login() {
-	const [email, setEmail] = useState('admin@example.com')
-	const [password, setPassword] = useState('admin123')
-	const [needTotp, setNeedTotp] = useState(false)
-	const [totp, setTotp] = useState('')
+	const [username, setUsername] = useState('')
+	const [password, setPassword] = useState('')
+	const [remember, setRemember] = useState(false)
+	const [needCode, setNeedCode] = useState(false)
+	const [code, setCode] = useState('')
 	const [error, setError] = useState<string | null>(null)
 	const nav = useNavigate()
 
@@ -14,33 +16,56 @@ export function Login() {
 		e.preventDefault()
 		setError(null)
 		try {
-			const body: any = { email, password }
-			if (needTotp) body.totp = totp
-			const res = await apiPost<{ ok?: boolean; need_totp?: boolean }>('/api/auth/login', body)
-			if (res.need_totp) {
-				setNeedTotp(true)
-				return
-			}
+			const body: any = { username, password, rememberMe: remember }
+			if (needCode && code.trim()) body.code = code.trim().replace(/\s+/g,'')
+			await apiPost<{ ok: boolean }>('/api/auth/login', body)
 			nav('/')
 		} catch (e: any) {
-			setError(String(e?.message || e))
+			const msg = String(e?.message || e)
+			// Throttling (rate limit)
+			if (msg.includes('429') || /try again later/i.test(msg)) {
+				pushToast('Too many attempts. Please try again later.', 'error')
+				setError('Too many attempts. Please try again later.')
+				return
+			}
+			// If code required, reveal TOTP/recovery input
+			if (/code required/i.test(msg)) {
+				setNeedCode(true)
+				pushToast('Enter your 6-digit TOTP or a recovery code.', 'error')
+				setError('Two-factor code required')
+				return
+			}
+			// Generic unauthorized / lockout
+			if (msg.includes('401')) {
+				pushToast('Invalid credentials or account temporarily locked.', 'error')
+				setError('Invalid credentials or account temporarily locked.')
+				return
+			}
+			setError(msg)
+			pushToast(msg, 'error')
 		}
 	}
 
 	return (
-		<div className="mx-auto max-w-sm p-6">
-			<h1 className="mb-4 text-2xl font-semibold">Sign in</h1>
-			{error && <div className="mb-3 text-sm text-red-400">{error}</div>}
-			<form onSubmit={onSubmit} className="space-y-3">
-				<input className="w-full rounded bg-card p-2" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-				<input className="w-full rounded bg-card p-2" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-				{needTotp && (
-					<input className="w-full rounded bg-card p-2" placeholder="TOTP Code" value={totp} onChange={(e) => setTotp(e.target.value)} />
-				)}
-				<button className="btn bg-primary text-primary-foreground w-full" type="submit">
-					{needTotp ? 'Verify' : 'Sign in'}
-				</button>
-			</form>
+		<div className="min-h-screen w-full flex items-center justify-center">
+			<div className="relative w-full max-w-sm p-6 pt-20">
+				<img src="/brand/nithronos-logo-mark.svg" alt="NithronOS" className="absolute left-1/2 -translate-x-1/2 -top-28 h-36" />
+				<h1 className="mb-4 text-center text-2xl font-semibold">Sign in</h1>
+				{error && <div className="mb-3 text-sm text-red-400">{error}</div>}
+				<form onSubmit={onSubmit} className="space-y-3">
+					<input className="w-full rounded bg-card p-2" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} />
+					<input className="w-full rounded bg-card p-2" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+					<label className="flex items-center gap-2 text-sm">
+						<input type="checkbox" checked={remember} onChange={(e)=>setRemember(e.target.checked)} /> Remember me
+					</label>
+					{needCode && (
+						<input className="w-full rounded bg-card p-2 tracking-widest" placeholder="TOTP or recovery code" value={code} onChange={(e) => setCode(e.target.value)} />
+					)}
+					<button className="btn bg-primary text-primary-foreground w-full" type="submit">
+						{needCode ? 'Verify and Sign in' : 'Sign in'}
+					</button>
+				</form>
+			</div>
 		</div>
 	)
 }

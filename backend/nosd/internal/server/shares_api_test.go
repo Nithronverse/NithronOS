@@ -42,7 +42,12 @@ func (f *fakeAgent) PostJSON(_ context.Context, path string, body any, v any) er
 
 func withAuth(t *testing.T, r http.Handler) (cookies []*http.Cookie, csrf string) {
 	t.Helper()
-	loginBody := map[string]string{"email": "admin@example.com", "password": "admin123"}
+	// Seed minimal users db for new auth store
+	if up := os.Getenv("NOS_USERS_PATH"); up != "" {
+		_ = os.MkdirAll(filepath.Dir(up), 0o755)
+		_ = os.WriteFile(up, []byte(`{"version":1,"users":[{"id":"u1","username":"admin@example.com","password_hash":"plain:admin123","roles":["admin"],"created_at":"","updated_at":""}]}`), 0o600)
+	}
+	loginBody := map[string]string{"username": "admin@example.com", "password": "admin123"}
 	lb, _ := json.Marshal(loginBody)
 	loginReq := httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewReader(lb))
 	loginRes := httptest.NewRecorder()

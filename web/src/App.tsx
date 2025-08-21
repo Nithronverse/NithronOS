@@ -10,15 +10,28 @@ import { Login } from './pages/Login'
 import { PoolsCreate } from './pages/PoolsCreate'
 import { PoolDetails } from './pages/PoolDetails'
 import { SettingsUpdates } from './pages/SettingsUpdates'
+import Setup from './pages/Setup'
 
 const router = createBrowserRouter([
 	{
 		path: '/',
 		loader: async () => {
-			// simple guard: require session cookie
-			const hasSess = document.cookie.includes('nos_sess=')
-			if (!hasSess) throw redirect('/login')
-			return null
+			// On init: check setup, then auth
+			try {
+				const stRes = await fetch('/api/setup/state', { credentials: 'include' })
+				if (stRes.status === 200) {
+					const st = await stRes.json()
+					if (st?.firstBoot) return redirect('/setup')
+				} else if (stRes.status === 410) {
+					// setup completed; continue to auth check
+				}
+			} catch {}
+			// Auth check
+			try {
+				const me = await fetch('/api/auth/me', { credentials: 'include' })
+				if (me.ok) return null
+			} catch {}
+			return redirect('/login')
 		},
 		element: <Layout />,
 		children: [
@@ -34,6 +47,7 @@ const router = createBrowserRouter([
 		],
 	},
 	{ path: '/login', element: <Login /> },
+	{ path: '/setup', element: <Setup /> },
 ])
 
 export default function App() {

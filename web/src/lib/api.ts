@@ -2,7 +2,10 @@ import type { paths, components } from '@/api-types'
 export type Share = components['schemas']['Share'];
 export type Pool = { id:string; label?:string; mountpoint:string; size?:number; free?:number };
 
-const csrf = () => localStorage.getItem('csrf') || '';
+const csrf = () => {
+  const m = document.cookie.match(/(?:^|; )nos_csrf=([^;]*)/)
+  return m ? decodeURIComponent(m[1]) : ''
+};
 async function req<T>(url:string, init:RequestInit={}) {
   const r = await fetch(url, {
     credentials: 'include',

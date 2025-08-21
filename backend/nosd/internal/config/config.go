@@ -11,6 +11,8 @@ type Config struct {
 	Port            int
 	LogLevel        zerolog.Level
 	UsersPath       string
+	SecretPath      string
+	FirstBootPath   string
 	SharesPath      string
 	SessionHashKey  []byte
 	SessionBlockKey []byte
@@ -37,6 +39,14 @@ func FromEnv() Config {
 	users := os.Getenv("NOS_USERS_PATH")
 	if users == "" {
 		users = "./devdata/users.json"
+	}
+	secret := os.Getenv("NOS_SECRET_PATH")
+	if secret == "" {
+		secret = "/etc/nos/secret.key"
+	}
+	firstboot := os.Getenv("NOS_FIRSTBOOT_PATH")
+	if firstboot == "" {
+		firstboot = "/var/lib/nos/state/firstboot.json"
 	}
 	shares := os.Getenv("NOS_SHARES_PATH")
 	if shares == "" {
@@ -69,6 +79,8 @@ func FromEnv() Config {
 		Port:            port,
 		LogLevel:        level,
 		UsersPath:       users,
+		SecretPath:      secret,
+		FirstBootPath:   firstboot,
 		SharesPath:      shares,
 		SessionHashKey:  hashKey,
 		SessionBlockKey: blockKey,
