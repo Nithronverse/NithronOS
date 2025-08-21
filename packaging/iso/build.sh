@@ -78,8 +78,12 @@ export LB_MIRROR_BINARY_SECURITY=""
 export LB_SECURITY="false"
 
 # Ensure serial console output for CI smoke (QEMU serial). Put ttyS0 last so it's primary.
-export LB_BOOTAPPEND_LIVE="console=tty0 console=ttyS0,115200n8"
-export LB_BOOTAPPEND_INSTALL="console=tty0 console=ttyS0,115200n8"
+# Also enable very-early and verbose logging on serial for CI detection.
+SERIAL_ARGS="console=tty0 console=ttyS0,115200 earlyprintk=ttyS0,115200 ignore_loglevel loglevel=7 systemd.log_level=debug systemd.journald.forward_to_console=1"
+export LB_BOOTAPPEND_LIVE="${SERIAL_ARGS}"
+export LB_BOOTAPPEND_INSTALL="${SERIAL_ARGS}"
+# Enable serial for syslinux (BIOS boot menu) so early bootloader output goes to serial
+export LB_SYSLINUX_SERIAL="0 115200"
 
 # Disable live-build's kernel autodetect/linux-image stage
 export LB_LINUX_FLAVOURS=""
@@ -116,6 +120,7 @@ ${SUDO_CMD} lb config \
   --distribution bookworm \
   --architectures amd64 \
   --binary-images iso-hybrid \
+  --syslinux-serial "${LB_SYSLINUX_SERIAL}" \
   --bootappend-live "${LB_BOOTAPPEND_LIVE}" \
   --bootappend-install "${LB_BOOTAPPEND_INSTALL}" \
   --apt-recommends true \
@@ -130,9 +135,16 @@ ${SUDO_CMD} lb config \
 printf '%s\n' 'LB_LINUX_FLAVOURS=""' 'LB_LINUX_PACKAGES=""' >> "$PROFILE_DIR/config/common"
 printf '%s\n' 'LB_LINUX_FLAVOURS=""' 'LB_LINUX_PACKAGES=""' >> "$PROFILE_DIR/config/chroot"
 
-# Persist serial console boot parameters into profile
-printf '%s\n' 'LB_BOOTAPPEND_LIVE="console=tty0 console=ttyS0,115200n8"' 'LB_BOOTAPPEND_INSTALL="console=tty0 console=ttyS0,115200n8"' >> "$PROFILE_DIR/config/common"
-printf '%s\n' 'LB_BOOTAPPEND_LIVE="console=tty0 console=ttyS0,115200n8"' 'LB_BOOTAPPEND_INSTALL="console=tty0 console=ttyS0,115200n8"' >> "$PROFILE_DIR/config/chroot"
+# Persist serial console boot parameters into profile (clean any prior entries)
+for f in "$PROFILE_DIR/config/common" "$PROFILE_DIR/config/chroot"; do
+  [ -f "$f" ] && sed -i -E '/^LB_BOOTAPPEND_(LIVE|INSTALL)=/d; /^LB_SYSLINUX_SERIAL=/d' "$f"
+done
+printf '%s\n' 'LB_SYSLINUX_SERIAL="0 115200"' >> "$PROFILE_DIR/config/common"
+printf '%s\n' 'LB_SYSLINUX_SERIAL="0 115200"' >> "$PROFILE_DIR/config/chroot"
+printf '%s\n' 'LB_BOOTAPPEND_LIVE="console=tty0 console=ttyS0,115200 earlyprintk=ttyS0,115200 ignore_loglevel loglevel=7 systemd.log_level=debug systemd.journald.forward_to_console=1"' >> "$PROFILE_DIR/config/common"
+printf '%s\n' 'LB_BOOTAPPEND_INSTALL="console=tty0 console=ttyS0,115200 earlyprintk=ttyS0,115200 ignore_loglevel loglevel=7 systemd.log_level=debug systemd.journald.forward_to_console=1"' >> "$PROFILE_DIR/config/common"
+printf '%s\n' 'LB_BOOTAPPEND_LIVE="console=tty0 console=ttyS0,115200 earlyprintk=ttyS0,115200 ignore_loglevel loglevel=7 systemd.log_level=debug systemd.journald.forward_to_console=1"' >> "$PROFILE_DIR/config/chroot"
+printf '%s\n' 'LB_BOOTAPPEND_INSTALL="console=tty0 console=ttyS0,115200 earlyprintk=ttyS0,115200 ignore_loglevel loglevel=7 systemd.log_level=debug systemd.journald.forward_to_console=1"' >> "$PROFILE_DIR/config/chroot"
 
 # Remove any stale security lines live-build might inject
 sed -i '/security\.debian\.org.*bookworm\/updates/d' "$PROFILE_DIR"/config/* 2>/dev/null || true

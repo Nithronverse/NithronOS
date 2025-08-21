@@ -15,7 +15,7 @@ qemu-img create -f qcow2 "$DISK" 8G >/dev/null
 # Requires the ISO to use console=ttyS0,115200n8 (we set this in build.sh).
 timeout 480s qemu-system-x86_64 \
   -accel tcg \
-  -m 1024 -smp 2 \
+  -m 2048 -smp 2 \
   -no-reboot -no-shutdown \
   -display none \
   -serial file:"$LOG" \
