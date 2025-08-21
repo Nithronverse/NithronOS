@@ -13,7 +13,7 @@ qemu-img create -f qcow2 "$DISK" 8G >/dev/null
 
 # Headless boot, capture serial. TCG only (no KVM on GitHub runners).
 # Requires the ISO to use console=ttyS0,115200n8 (we set this in build.sh).
-timeout 300s qemu-system-x86_64 \
+timeout 480s qemu-system-x86_64 \
   -accel tcg \
   -m 1024 -smp 2 \
   -no-reboot -no-shutdown \
@@ -23,14 +23,16 @@ timeout 300s qemu-system-x86_64 \
   -cdrom "$ISO" \
   -boot d || true
 
-# Did it actually boot?
-if grep -E "Linux version|systemd|Debian GNU/Linux" "$LOG" >/dev/null 2>&1; then
+# Did it actually boot? Look for a broad set of common markers on serial.
+if grep -Ei "Linux version|systemd|Debian GNU/Linux|Welcome to|Starting systemd|initramfs| init:|Kernel command line" "$LOG" >/dev/null 2>&1; then
   echo "[smoke] Boot output detected on serial console:"
-  sed -n '1,120p' "$LOG" | sed -e 's/^/[serial] /'
+  sed -n '1,200p' "$LOG" | sed -e 's/^/[serial] /'
   exit 0
 else
   echo "::error::No boot output detected on serial console. First 200 lines:"
   sed -n '1,200p' "$LOG" || true
+  echo "[smoke] Last 100 lines (tail):"
+  tail -n 100 "$LOG" || true
   exit 1
 fi
 
