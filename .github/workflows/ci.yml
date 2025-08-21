@@ -258,10 +258,12 @@ jobs:
           chmod +x scripts/qemu-smoke.sh
           sudo -E bash scripts/qemu-smoke.sh "${{ steps.findiso.outputs.ISO_PATH }}"
 
-      - name: Upload serial log (always)
+      - name: Upload serial and qemu logs (always)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: smoke-serial-${{ github.sha }}
-          path: /tmp/nos-serial.log
+          name: smoke-logs-${{ github.sha }}
+          path: |
+            /tmp/nos-serial.log
+            /tmp/qemu.log
           if-no-files-found: warn

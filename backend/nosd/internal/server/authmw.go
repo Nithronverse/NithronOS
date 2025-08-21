@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"nithronos/backend/nosd/internal/config"
 	"nithronos/backend/nosd/pkg/auth"
 )
 
@@ -24,13 +25,17 @@ func withUser(next http.Handler, codec *auth.SessionCodec) http.Handler {
 	})
 }
 
-func requireAuth(next http.Handler, codec *auth.SessionCodec) http.Handler {
+func requireAuth(next http.Handler, codec *auth.SessionCodec, cfg config.Config) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, ok := codec.DecodeFromRequest(r); !ok {
-			w.WriteHeader(http.StatusUnauthorized)
+		if uid, ok := decodeSessionUID(r, cfg); ok && uid != "" {
+			next.ServeHTTP(w, r)
 			return
 		}
-		next.ServeHTTP(w, r)
+		if _, ok := codec.DecodeFromRequest(r); ok {
+			next.ServeHTTP(w, r)
+			return
+		}
+		w.WriteHeader(http.StatusUnauthorized)
 	})
 }
 

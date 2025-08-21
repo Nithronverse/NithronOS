@@ -1,0 +1,15 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+  purge)
+    # Remove package state only. Never touch user data/content.
+    # Keep /etc/nos (config) and /var/lib/nos (user data) intact.
+    rm -f /var/lib/systemd/deb-systemd-helper-enabled/*.timer.d/shadow 2>/dev/null || true
+    rm -f /var/lib/systemd/deb-systemd-helper-enabled/*.service.d/shadow 2>/dev/null || true
+    ;;
+esac
+
+exit 0
+
+

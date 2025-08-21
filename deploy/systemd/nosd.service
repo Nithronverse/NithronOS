@@ -5,16 +5,16 @@ After=network.target
 [Service]
 User=nos
 Group=nos
-ExecStart=/usr/local/bin/nosd
+ExecStart=/usr/bin/nosd
 StandardOutput=journal+console
 StandardError=journal+console
 Restart=on-failure
 RestartSec=2s
 AmbientCapabilities=
-NoNewPrivileges=true
+NoNewPrivileges=yes
 IPAddressAllow=127.0.0.1
-ProtectSystem=strict
-ProtectHome=yes
+ProtectSystem=full
+ProtectHome=true
 PrivateTmp=yes
 PrivateDevices=yes
 ProtectKernelTunables=yes
@@ -25,7 +25,10 @@ LockPersonality=yes
 MemoryDenyWriteExecute=yes
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
 SystemCallFilter=@system-service
+ReadWritePaths=/etc/nos /var/lib/nos
 
 [Install]
 WantedBy=multi-user.target

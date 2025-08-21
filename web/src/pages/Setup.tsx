@@ -92,8 +92,8 @@ function StepOTP({ onVerified, setError, setLoading, post }: { onVerified: (toke
   }
   return (
     <form onSubmit={submit} className="space-y-3">
-      <label className="block text-sm">One-time OTP (6 digits)</label>
-      <input className="w-full rounded bg-card p-2 tracking-widest" placeholder="123 456" value={otp} onChange={(e) => setOtp(e.target.value)} />
+      <label htmlFor="otp" className="block text-sm">One-time OTP (6 digits)</label>
+      <input id="otp" className="w-full rounded bg-card p-2 tracking-widest" placeholder="123 456" value={otp} onChange={(e) => setOtp(e.target.value)} aria-label="One-time OTP (6 digits)" />
       <button className="btn bg-primary text-primary-foreground w-full" type="submit">Verify</button>
     </form>
   )
@@ -252,7 +252,8 @@ function StepTOTPEnroll({ creds, onDone }: { creds: Creds; onDone: ()=>void }) {
             </div>
           )}
           <form onSubmit={verify} className="space-y-3">
-            <input className="w-full rounded bg-card p-2 tracking-widest" placeholder="TOTP code" value={code} onChange={(e)=>setCode(e.target.value)} />
+            <label htmlFor="totp" className="block text-sm">TOTP code</label>
+            <input id="totp" className="w-full rounded bg-card p-2 tracking-widest" placeholder="TOTP code" value={code} onChange={(e)=>setCode(e.target.value)} aria-label="TOTP code" />
             <button className="btn bg-primary text-primary-foreground w-full" type="submit">Verify</button>
           </form>
         </>

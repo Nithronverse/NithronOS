@@ -1,1 +1,3 @@
 ../../../deploy/systemd/nosd.service  lib/systemd/system/
+sysusers.d/nosd.conf  usr/lib/sysusers.d/
+tmpfiles.d/nosd.conf  usr/lib/tmpfiles.d/

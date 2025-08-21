@@ -1,11 +1,14 @@
 package updates
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"time"
+
+	"nithronos/backend/nosd/internal/fsatomic"
 )
 
 type SnapshotRef struct {
@@ -41,16 +44,16 @@ func Load(path string) (Index, error) {
 	if path == "" {
 		path = defaultIndexPath()
 	}
-	b, err := os.ReadFile(path)
+	var idx Index
+	ok, err := fsatomic.LoadJSON(path, &idx)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return Index{}, nil
 		}
 		return Index{}, err
 	}
-	var idx Index
-	if err := json.Unmarshal(b, &idx); err != nil {
-		return Index{}, err
+	if !ok {
+		return Index{}, nil
 	}
 	return idx, nil
 }
@@ -62,13 +65,8 @@ func Save(path string, idx Index) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	b, err := json.MarshalIndent(idx, "", "  ")
-	if err != nil {
-		return err
-	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+	// Serialize across processes via .lock and persist with durability (0644 public metadata)
+	return fsatomic.WithLock(path, func() error {
+		return fsatomic.SaveJSON(context.Background(), path, idx, fs.FileMode(0o644))
+	})
 }

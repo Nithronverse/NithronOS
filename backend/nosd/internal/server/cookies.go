@@ -92,6 +92,48 @@ func issueCSRFCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{Name: cookieCSRF, Value: encodeBase64(b), Path: "/", Secure: true, SameSite: http.SameSiteLaxMode, Expires: time.Now().Add(24 * time.Hour)})
 }
 
+// issueSessionCookiesSID sets nos_session with server-side sid binding
+func issueSessionCookiesSID(w http.ResponseWriter, cfg config.Config, uid, sid string, keepRefresh bool) error {
+	now := time.Now().UTC()
+	sess := map[string]any{"uid": uid, "sid": sid, "exp": now.Add(15 * time.Minute).Unix()}
+	sVal, err := encodeOpaque(cfg, cookieSession, sess)
+	if err != nil {
+		return err
+	}
+	http.SetCookie(w, &http.Cookie{Name: cookieSession, Value: sVal, Path: "/", HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode, Expires: now.Add(15 * time.Minute)})
+	if keepRefresh {
+		ref := map[string]any{"uid": uid, "exp": now.Add(7 * 24 * time.Hour).Unix()}
+		rVal, err := encodeOpaque(cfg, cookieRefresh, ref)
+		if err != nil {
+			return err
+		}
+		http.SetCookie(w, &http.Cookie{Name: cookieRefresh, Value: rVal, Path: "/", HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode, Expires: now.Add(7 * 24 * time.Hour)})
+	}
+	return nil
+}
+
+// decodeSessionParts returns uid and sid (when present) from nos_session
+func decodeSessionParts(r *http.Request, cfg config.Config) (string, string, bool) {
+	ck, err := r.Cookie(cookieSession)
+	if err != nil {
+		return "", "", false
+	}
+	var m map[string]any
+	if err := decodeOpaque(cfg, cookieSession, ck.Value, &m); err != nil {
+		return "", "", false
+	}
+	expUnix, ok := asInt64(m["exp"])
+	if !ok || time.Now().UTC().Unix() > expUnix {
+		return "", "", false
+	}
+	uid, ok1 := m["uid"].(string)
+	sid, _ := m["sid"].(string)
+	if uid == "" {
+		ok1 = false
+	}
+	return uid, sid, ok1
+}
+
 func encodeOpaque(cfg config.Config, name string, payload map[string]any) (string, error) {
 	key, _ := json.Marshal([]byte{}) // dummy to satisfy interface
 	_ = key

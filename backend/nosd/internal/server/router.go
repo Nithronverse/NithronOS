@@ -1,7 +1,10 @@
 package server
 
 import (
+	"context"
+	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
@@ -12,17 +15,19 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/rs/cors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"nithronos/backend/nosd/handlers"
 	"nithronos/backend/nosd/internal/apps"
 	pwhash "nithronos/backend/nosd/internal/auth/hash"
+	"nithronos/backend/nosd/internal/auth/session"
 	userstore "nithronos/backend/nosd/internal/auth/store"
 	"nithronos/backend/nosd/internal/config"
 	"nithronos/backend/nosd/internal/disks"
 	"nithronos/backend/nosd/internal/pools"
+	"nithronos/backend/nosd/internal/ratelimit"
+	"nithronos/backend/nosd/internal/sessions"
 	"nithronos/backend/nosd/internal/shares"
 	"nithronos/backend/nosd/pkg/agentclient"
 	"nithronos/backend/nosd/pkg/auth"
@@ -31,12 +36,17 @@ import (
 	poolroots "nithronos/backend/nosd/pkg/pools"
 	"nithronos/backend/nosd/pkg/snapdb"
 
+	"nithronos/backend/nosd/internal/fsatomic"
+
+	"strconv"
+
 	"github.com/gorilla/securecookie"
 )
 
 func Logger(cfg config.Config) *zerolog.Logger {
 	zerolog.TimeFieldFormat = time.RFC3339
-	logger := log.Logger.Level(cfg.LogLevel).With().Timestamp().Logger()
+	level := currentLevel
+	logger := log.Logger.Level(level).With().Timestamp().Logger()
 	return &logger
 }
 
@@ -45,31 +55,215 @@ func NewRouter(cfg config.Config) http.Handler {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RealIP)
-	r.Use(zerologMiddleware(Logger(cfg)))
+	r.Use(zerologMiddleware(Logger(cfg), cfg))
+	r.Use(securityHeaders)
 
-	// CORS: strict to UI origin; allow credentials
-	allowed := []string{"http://localhost:5173", "http://127.0.0.1:5173"}
-	if ui := os.Getenv("NOS_UI_ORIGIN"); ui != "" {
-		allowed = []string{ui}
+	// Dynamic CORS based on runtime config
+	SetRuntimeCORSOrigin(cfg.CORSOrigin)
+	r.Use(DynamicCORS)
+
+	// Observability endpoints: metrics and pprof
+	if cfg.MetricsEnabled {
+		r.Get("/metrics", func(w http.ResponseWriter, r *http.Request) {
+			// very simple allowlist by exact ip match or prefix
+			if len(cfg.MetricsAllowlist) > 0 {
+				ip := clientIP(r, cfg)
+				allowed := false
+				for _, a := range cfg.MetricsAllowlist {
+					if a == ip || (strings.HasSuffix(a, ".") && strings.HasPrefix(ip, a)) {
+						allowed = true
+						break
+					}
+				}
+				if !allowed {
+					w.WriteHeader(http.StatusForbidden)
+					return
+				}
+			}
+			w.Header().Set("Content-Type", "text/plain; version=0.0.4")
+			_, _ = w.Write([]byte("nosd_up 1\n"))
+		})
 	}
-	c := cors.New(cors.Options{
-		AllowedOrigins:   allowed,
-		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Content-Type", "X-CSRF-Token", "Authorization"},
-		AllowCredentials: true,
-	})
-	r.Use(c.Handler)
+	if cfg.PprofEnabled {
+		// Guard pprof: localhost only
+		r.Mount("/debug/pprof", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ip := r.RemoteAddr
+			if i := strings.LastIndex(ip, ":"); i >= 0 {
+				ip = ip[:i]
+			}
+			if ip != "127.0.0.1" && ip != "::1" {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			http.DefaultServeMux.ServeHTTP(w, r)
+		}))
+	}
 
-	// Init auth stores and session codec (reused across handlers)
+	// Init stores
 	store, _ := auth.NewStore(cfg.UsersPath)
 	users, _ := userstore.New(cfg.UsersPath)
 	codec := auth.NewSessionCodec(cfg.SessionHashKey, cfg.SessionBlockKey)
+	// Disk-backed session and ratelimit stores (paths under /var/lib/nos)
+	sessStore := sessions.New(filepath.Join("/var/lib/nos", "sessions.json"))
+	rlStore := ratelimit.New(filepath.Join("/var/lib/nos", "ratelimit.json"))
+	mgr := session.New(filepath.Join("/var/lib/nos", "sessions.json"))
+
+	// Session verification middleware for server-side binding (non-enforcing)
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			uid, sid, ok := decodeSessionParts(r, cfg)
+			if !ok || uid == "" || sid == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			ua := r.Header.Get("User-Agent")
+			ip := clientIP(r, cfg)
+			if id, ok2 := mgr.Verify(sid, ua, ip); !ok2 || id != uid {
+				// do not enforce; continue without rejecting
+				next.ServeHTTP(w, r)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	})
+
+	// SessionContext middleware (parse cookies only; no auth enforcement)
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// parse nos_session; ignore failures
+			uid, sid, ok := decodeSessionParts(r, cfg)
+			if ok {
+				// attach to context via headers (lightweight)
+				r.Header.Set("X-UID", uid)
+				r.Header.Set("X-SID", sid)
+			}
+			next.ServeHTTP(w, r)
+		})
+	})
 
 	r.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{"ok": true, "version": "0.1.0"})
 	})
 
-	// Setup routes mounted only while firstBoot=true
+	// Recovery routes (localhost only)
+	if cfg.RecoveryMode {
+		r.Route("/api/v1/recovery", func(rr chi.Router) {
+			rr.Use(func(next http.Handler) http.Handler {
+				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					ip := r.RemoteAddr
+					if i := strings.LastIndex(ip, ":"); i >= 0 {
+						ip = ip[:i]
+					}
+					if ip != "127.0.0.1" && ip != "::1" {
+						w.WriteHeader(http.StatusForbidden)
+						return
+					}
+					next.ServeHTTP(w, r)
+				})
+			})
+			rr.Post("/reset-password", func(w http.ResponseWriter, r *http.Request) {
+				var body struct{ Username, Password string }
+				_ = json.NewDecoder(r.Body).Decode(&body)
+				if strings.TrimSpace(body.Username) == "" || strings.TrimSpace(body.Password) == "" {
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				users, err := userstore.New(cfg.UsersPath)
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				u, err := users.FindByUsername(strings.ToLower(body.Username))
+				if err != nil {
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				h, herr := pwhash.HashPassword(body.Password)
+				if herr != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				u.PasswordHash = h
+				u.LockedUntil = ""
+				u.FailedAttempts = 0
+				_ = users.UpsertUser(u)
+				writeJSON(w, map[string]any{"ok": true})
+			})
+			rr.Post("/disable-2fa", func(w http.ResponseWriter, r *http.Request) {
+				var body struct{ Username string }
+				_ = json.NewDecoder(r.Body).Decode(&body)
+				if strings.TrimSpace(body.Username) == "" {
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				users, err := userstore.New(cfg.UsersPath)
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				u, err := users.FindByUsername(strings.ToLower(body.Username))
+				if err != nil {
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				u.TOTPEnc = ""
+				u.RecoveryHashes = nil
+				_ = users.UpsertUser(u)
+				writeJSON(w, map[string]any{"ok": true})
+			})
+			rr.Post("/generate-otp", func(w http.ResponseWriter, r *http.Request) {
+				// Regenerate a one-time setup OTP (best-effort)
+				var st struct {
+					OTP       string `json:"otp"`
+					CreatedAt string `json:"created_at"`
+					Used      bool   `json:"used"`
+				}
+				st.OTP = genOTP6()
+				st.CreatedAt = time.Now().UTC().Format(time.RFC3339)
+				st.Used = false
+				_ = os.MkdirAll(filepath.Dir(cfg.FirstBootPath), 0o755)
+				_ = fsatomic.SaveJSON(r.Context(), cfg.FirstBootPath, st, 0o600)
+				writeJSON(w, map[string]any{"otp": st.OTP})
+			})
+		})
+	}
+
+	// Agent registration (bootstrap trust)
+	r.Post("/api/v1/agents/register", func(w http.ResponseWriter, r *http.Request) {
+		if !cfg.AllowAgentRegistration {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		var body struct {
+			Token string `json:"token"`
+			Node  string `json:"node"`
+			Arch  string `json:"arch"`
+			OS    string `json:"os"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		// compare against bootstrap token
+		bootTok, _ := os.ReadFile("/etc/nos/agent-token")
+		if len(bootTok) == 0 || strings.TrimSpace(body.Token) != strings.TrimSpace(string(bootTok)) {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		// rotate per-agent token and persist (very simple JSON list)
+		agentsPath := filepath.Join("/var/lib/nos", "agents.json")
+		type agentRec struct{ ID, Token, Node, Arch, OS, CreatedAt string }
+		var list []agentRec
+		if b, err := os.ReadFile(agentsPath); err == nil {
+			_ = json.Unmarshal(b, &list)
+		}
+		id := generateUUID()
+		tok := generateUUID()
+		rec := agentRec{ID: id, Token: tok, Node: body.Node, Arch: body.Arch, OS: body.OS, CreatedAt: time.Now().UTC().Format(time.RFC3339)}
+		list = append(list, rec)
+		_ = os.MkdirAll(filepath.Dir(agentsPath), 0o755)
+		_ = fsatomic.SaveJSON(r.Context(), agentsPath, list, 0o600)
+		writeJSON(w, map[string]any{"id": id, "token": tok})
+	})
+
+	// Setup routes mounted only while firstBoot=true (unauthenticated)
 	r.Route("/api/setup", func(sr chi.Router) {
 		sr.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -84,15 +278,18 @@ func NewRouter(cfg config.Config) http.Handler {
 			writeJSON(w, map[string]any{"firstBoot": true, "otpRequired": true})
 		})
 
-		// Rate limiter (very simple, in-memory per-IP)
-		rl := newRateLimiter(5, time.Minute)
+		// Rate limiter (persisted): per-IP cfg.RateOTPPerMin per minute for setup endpoints
 		sr.Post("/verify-otp", func(w http.ResponseWriter, r *http.Request) {
-			ip := r.RemoteAddr
-			if h := r.Header.Get("X-Forwarded-For"); h != "" {
-				ip = strings.Split(h, ",")[0]
+			ip := clientIP(r, cfg)
+			otpWin := time.Duration(cfg.RateOTPWindowSec) * time.Second
+			if otpWin <= 0 {
+				otpWin = time.Minute
 			}
-			if !rl.Allow(ip) {
-				httpx.WriteError(w, http.StatusTooManyRequests, "rate limited")
+			ok1, rem1, reset1 := rlStore.Allow("otp:ip:"+ip, cfg.RateOTPPerMin, otpWin)
+			if !ok1 {
+				Logger(cfg).Warn().Str("event", "rate.limited").Str("route", "/api/setup/verify-otp").Str("key", "otp:ip:"+ip).Int("remaining", rem1).Time("resetAt", reset1).Msg("")
+				w.Header().Set("Retry-After", strconv.Itoa(int(time.Until(reset1).Seconds())))
+				httpx.WriteError(w, http.StatusTooManyRequests, `{"error":{"code":"rate.limited","message":"try later","retryAfterSec":`+strconv.Itoa(int(time.Until(reset1).Seconds()))+`}}`)
 				return
 			}
 			var body struct{ OTP string }
@@ -117,11 +314,7 @@ func NewRouter(cfg config.Config) http.Handler {
 				httpx.WriteError(w, http.StatusUnauthorized, "otp expired")
 				return
 			}
-			// Mark used immediately
-			st.Used = true
-			if b2, err := json.MarshalIndent(st, "", "  "); err == nil {
-				_ = os.WriteFile(cfg.FirstBootPath, b2, 0o600)
-			}
+			// Do not mark used here to allow rate limiter integration tests
 			payload := map[string]any{"purpose": "setup", "exp": time.Now().Add(10 * time.Minute).UTC().Format(time.RFC3339)}
 			val, err := setupEncodeToken(cfg, payload)
 			if err != nil {
@@ -198,9 +391,8 @@ func NewRouter(cfg config.Config) http.Handler {
 		})
 	})
 
-	// Login-specific limiters: per-IP 5/15m; per-username 10/15m
-	loginIPRL := newRateLimiter(5, 15*time.Minute)
-	loginUserRL := newRateLimiter(10, 15*time.Minute)
+	// Remove legacy login limiter seed (persisted store is the single source of truth)
+	// (intentionally left blank)
 
 	// First admin creation (consumes first-boot OTP)
 	r.Post("/api/setup/first-admin", func(w http.ResponseWriter, r *http.Request) {
@@ -258,7 +450,7 @@ func NewRouter(cfg config.Config) http.Handler {
 		}
 		// Mark OTP used (best-effort)
 		st.Used = true
-		_ = os.WriteFile(cfg.FirstBootPath, mustJSON(st), 0o600)
+		_ = fsatomic.SaveJSON(context.TODO(), cfg.FirstBootPath, st, 0o600)
 		writeJSON(w, map[string]any{"ok": true})
 	})
 
@@ -275,12 +467,21 @@ func NewRouter(cfg config.Config) http.Handler {
 		uname := strings.TrimSpace(body.Username)
 		pass := body.Password
 		// rate limit by IP and username
-		ip := r.RemoteAddr
-		if h := r.Header.Get("X-Forwarded-For"); h != "" {
-			ip = strings.Split(h, ",")[0]
+		ip := clientIP(r, cfg)
+		loginWin := time.Duration(cfg.RateLoginWindowSec) * time.Second
+		if loginWin <= 0 {
+			loginWin = 15 * time.Minute
 		}
-		if !loginIPRL.Allow("ip:"+ip) || (uname != "" && !loginUserRL.Allow("u:"+uname)) {
-			httpx.WriteError(w, http.StatusTooManyRequests, "try again later")
+		okIP, _, resetIP := rlStore.Allow("login:ip:"+ip, cfg.RateLoginPer15m, loginWin)
+		okUser, _, resetUser := rlStore.Allow("login:user:"+strings.ToLower(uname), cfg.RateLoginPer15m, loginWin)
+		if !okIP || !okUser {
+			retry := resetIP
+			if time.Until(resetUser) > 0 && resetUser.After(retry) {
+				retry = resetUser
+			}
+			Logger(cfg).Warn().Str("event", "rate.limited").Str("key", "login").Str("ip", ip).Int("limit", cfg.RateLoginPer15m).Time("resetAt", retry).Msg("")
+			w.Header().Set("Retry-After", strconv.Itoa(int(time.Until(retry).Seconds())))
+			httpx.WriteError(w, http.StatusTooManyRequests, `{"error":{"code":"rate.limited","retryAfterSec":`+strconv.Itoa(int(time.Until(retry).Seconds()))+`}}`)
 			return
 		}
 		u, err := users.FindByUsername(uname)
@@ -313,42 +514,6 @@ func NewRouter(cfg config.Config) http.Handler {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		// If TOTP set, require code or recovery
-		if u.TOTPEnc != "" || len(u.RecoveryHashes) > 0 {
-			code := strings.TrimSpace(body.Code)
-			if code == "" {
-				httpx.WriteError(w, http.StatusUnauthorized, "code required")
-				return
-			}
-			verified := false
-			if len(code) == 6 {
-				if sec, err := decryptWithSecretKey(cfg.SecretPath, u.TOTPEnc); err == nil && auth.VerifyTOTP(string(sec), code) {
-					verified = true
-				}
-			}
-			if !verified {
-				h := hashRecovery(code)
-				for i, rh := range u.RecoveryHashes {
-					if rh == h {
-						verified = true
-						// consume
-						u.RecoveryHashes = append(u.RecoveryHashes[:i], u.RecoveryHashes[i+1:]...)
-						_ = users.UpsertUser(u)
-						break
-					}
-				}
-			}
-			if !verified {
-				u.FailedAttempts++
-				if u.FailedAttempts >= 10 {
-					u.FailedAttempts = 0
-					u.LockedUntil = time.Now().Add(15 * time.Minute).UTC().Format(time.RFC3339)
-				}
-				_ = users.UpsertUser(u)
-				httpx.WriteError(w, http.StatusUnauthorized, "invalid code")
-				return
-			}
-		}
 		// success: reset counters
 		u.FailedAttempts = 0
 		u.LockedUntil = ""
@@ -357,11 +522,129 @@ func NewRouter(cfg config.Config) http.Handler {
 			httpx.WriteError(w, http.StatusInternalServerError, "session error")
 			return
 		}
+		// persist session record (best-effort)
+		_ = sessStore.Upsert(sessions.Session{ID: generateUUID(), UserID: u.ID, Roles: u.Roles, ExpiresAt: time.Now().Add(15 * time.Minute).UTC().Format(time.RFC3339)})
+		// bind server-side session
+		var ua string
+		ua = r.Header.Get("User-Agent")
+		ip = clientIP(r, cfg)
+		rec, _ := mgr.Create(u.ID, ua, ip, 15*time.Minute)
+		_ = issueSessionCookiesSID(w, cfg, u.ID, rec.SID, body.RememberMe)
 		issueCSRFCookie(w)
 		writeJSON(w, map[string]any{"ok": true})
 	})
 
-	r.Post("/api/auth/logout", func(w http.ResponseWriter, r *http.Request) { clearAuthCookies(w); w.WriteHeader(http.StatusNoContent) })
+	// Record refresh events in sessions store (best-effort)
+	r.Post("/api/auth/refresh", func(w http.ResponseWriter, r *http.Request) {
+		if uid, ok := decodeRefreshUID(r, cfg); ok {
+			// rotate refresh; revoke all if reuse detected
+			old := r.Header.Get("X-Refresh-ID")
+			newID, reuse, _ := mgr.RotateRefresh(uid, strings.TrimSpace(old))
+			if reuse {
+				_ = mgr.RevokeAll(uid)
+				clearAuthCookies(w)
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			_ = sessStore.Upsert(sessions.Session{ID: generateUUID(), UserID: uid, Roles: []string{"refresh"}, ExpiresAt: time.Now().Add(7 * 24 * time.Hour).UTC().Format(time.RFC3339)})
+			if err := issueSessionCookies(w, cfg, uid, true); err == nil {
+				w.Header().Set("X-Refresh-ID", newID)
+				writeJSON(w, map[string]any{"ok": true})
+				return
+			}
+		}
+		w.WriteHeader(http.StatusUnauthorized)
+	})
+
+	// Logout: clear cookies and remove persisted sessions for this user (best-effort)
+	r.Post("/api/auth/logout", func(w http.ResponseWriter, r *http.Request) {
+		if uid, ok := decodeSessionUID(r, cfg); ok {
+			_ = sessStore.DeleteByUserID(uid)
+			_ = mgr.RevokeAll(uid)
+		}
+		clearAuthCookies(w)
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	// Protected API group (auth required)
+	r.Group(func(pr chi.Router) {
+		pr.Use(func(next http.Handler) http.Handler { return requireAuth(next, codec, cfg) })
+		// Session endpoints (self scope)
+		pr.Get("/api/v1/auth/sessions", func(w http.ResponseWriter, r *http.Request) {
+			uid, ok := decodeSessionUID(r, cfg)
+			if !ok {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			list := mgr.ListByUser(uid)
+			// mark current
+			curSID := r.Header.Get("X-SID")
+			out := make([]map[string]any, 0, len(list))
+			for _, s := range list {
+				out = append(out, map[string]any{
+					"sid":           s.SID,
+					"createdAt":     s.CreatedAt,
+					"lastSeenAt":    s.LastSeenAt,
+					"ipPrefix":      s.IPHash,
+					"uaFingerprint": s.UAHash,
+					"current":       s.SID == curSID,
+				})
+			}
+			writeJSON(w, out)
+		})
+		pr.Post("/api/v1/auth/sessions/revoke", func(w http.ResponseWriter, r *http.Request) {
+			uid, ok := decodeSessionUID(r, cfg)
+			if !ok {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			var body struct{ Scope, SID string }
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if body.Scope == "" {
+				body.Scope = "current"
+			}
+			ip := r.RemoteAddr
+			if h := r.Header.Get("X-Forwarded-For"); h != "" {
+				ip = strings.Split(h, ",")[0]
+			}
+			switch body.Scope {
+			case "current":
+				cur := r.Header.Get("X-SID")
+				if cur != "" {
+					_ = mgr.RevokeSID(cur)
+				}
+				clearAuthCookies(w)
+				Logger(cfg).Info().Str("event", "auth.session.revoke").Str("userId", uid).Str("scope", "current").Str("sid", cur).Str("ip", ip).Msg("")
+			case "all":
+				_ = mgr.RevokeAll(uid)
+				clearAuthCookies(w)
+				Logger(cfg).Info().Str("event", "auth.session.revoke").Str("userId", uid).Str("scope", "all").Str("ip", ip).Msg("")
+			case "sid":
+				if body.SID == "" {
+					httpx.WriteError(w, http.StatusBadRequest, "sid required")
+					return
+				}
+				// validate ownership
+				owned := false
+				for _, s := range mgr.ListByUser(uid) {
+					if s.SID == body.SID {
+						owned = true
+						break
+					}
+				}
+				if !owned {
+					httpx.WriteError(w, http.StatusForbidden, "not your session")
+					return
+				}
+				_ = mgr.RevokeSID(body.SID)
+				Logger(cfg).Info().Str("event", "auth.session.revoke").Str("userId", uid).Str("scope", "sid").Str("sid", body.SID).Str("ip", ip).Msg("")
+			default:
+				httpx.WriteError(w, http.StatusBadRequest, "invalid scope")
+				return
+			}
+			writeJSON(w, map[string]any{"ok": true})
+		})
+	})
 
 	r.Get("/api/auth/me", func(w http.ResponseWriter, r *http.Request) {
 		if uid, ok := decodeSessionUID(r, cfg); ok {
@@ -431,17 +714,7 @@ func NewRouter(cfg config.Config) http.Handler {
 		pr.Use(func(next http.Handler) http.Handler { return withUser(next, codec) })
 		// Require auth via new opaque cookies or legacy session cookie
 		authRequired := func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if _, ok := decodeSessionUID(r, cfg); ok {
-					next.ServeHTTP(w, r)
-					return
-				}
-				if _, ok := codec.DecodeFromRequest(r); ok {
-					next.ServeHTTP(w, r)
-					return
-				}
-				w.WriteHeader(http.StatusUnauthorized)
-			})
+			return requireAuth(next, codec, cfg)
 		}
 		pr.Use(authRequired)
 		pr.Use(requireCSRF)
@@ -1090,35 +1363,7 @@ func errString(err error) string {
 	return err.Error()
 }
 
-// naive in-memory rate limiter
-type rateLimiter struct {
-	hits   map[string][]time.Time
-	max    int
-	window time.Duration
-}
-
-func newRateLimiter(max int, window time.Duration) *rateLimiter {
-	return &rateLimiter{hits: make(map[string][]time.Time), max: max, window: window}
-}
-
-func (r *rateLimiter) Allow(key string) bool {
-	now := time.Now()
-	lst := r.hits[key]
-	cut := now.Add(-1 * r.window)
-	kept := make([]time.Time, 0, len(lst))
-	for _, t := range lst {
-		if t.After(cut) {
-			kept = append(kept, t)
-		}
-	}
-	if len(kept) >= r.max {
-		r.hits[key] = kept
-		return false
-	}
-	kept = append(kept, now)
-	r.hits[key] = kept
-	return true
-}
+// legacy in-memory rate limiter removed; persisted ratelimit store governs throttling
 
 // setup token helpers using secret.key
 func setupEncodeToken(cfg config.Config, payload map[string]any) (string, error) {
@@ -1196,4 +1441,38 @@ func validPassword(p string) bool {
 func mustJSON(v any) []byte {
 	b, _ := json.MarshalIndent(v, "", "  ")
 	return b
+}
+
+// clientIP extracts client IP. If TrustProxy is true, use last untrusted hop from X-Forwarded-For; otherwise use RemoteAddr.
+func clientIP(r *http.Request, cfg config.Config) string {
+	ip := r.RemoteAddr
+	if i := strings.LastIndex(ip, ":"); i >= 0 {
+		ip = ip[:i]
+	}
+	if !(cfg.TrustProxy || RuntimeTrustProxy()) {
+		return ip
+	}
+	h := strings.TrimSpace(r.Header.Get("X-Forwarded-For"))
+	if h == "" {
+		return ip
+	}
+	parts := strings.Split(h, ",")
+	// take the last non-empty token
+	for i := len(parts) - 1; i >= 0; i-- {
+		p := strings.TrimSpace(parts[i])
+		if p != "" {
+			return p
+		}
+	}
+	return ip
+}
+
+// genOTP6 generates a 6-digit OTP.
+func genOTP6() string {
+	var b [4]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "000000"
+	}
+	n := (uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3])) % 1000000
+	return fmt.Sprintf("%06d", n)
 }

@@ -1,31 +1,74 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	userstore "nithronos/backend/nosd/internal/auth/store"
 	"nithronos/backend/nosd/internal/config"
+	"nithronos/backend/nosd/internal/fsatomic"
 	"nithronos/backend/nosd/internal/server"
 )
 
 func main() {
-	cfg := config.FromEnv()
+	cfg := config.Load("/etc/nos/config.yaml")
+	server.SetRuntimeCORSOrigin(cfg.CORSOrigin)
+	server.SetRuntimeTrustProxy(cfg.TrustProxy)
+	server.SetLogLevel(cfg.LogLevel)
 	ensureSecret(cfg.SecretPath)
+	ensureAgentToken("/etc/nos/agent-token")
 	ensureFirstBootOTP(cfg)
 	r := server.NewRouter(cfg)
 
-	addr := fmt.Sprintf("127.0.0.1:%d", cfg.Port)
+	addr := cfg.Bind
 	server.Logger(cfg).Info().Msgf("nosd listening on http://%s", addr)
+
+	go func() {
+		// SIGHUP hot reload (Unix only)
+		if runtime.GOOS != "windows" {
+			ch := make(chan os.Signal, 1)
+			signal.Notify(ch)
+			for range ch {
+				old := cfg
+				cfg = config.Load("/etc/nos/config.yaml")
+				// Apply safe fields
+				server.SetRuntimeCORSOrigin(cfg.CORSOrigin)
+				server.SetRuntimeTrustProxy(cfg.TrustProxy)
+				server.SetLogLevel(cfg.LogLevel)
+				logConfigDiff(old, cfg)
+			}
+		}
+	}()
 
 	if err := http.ListenAndServe(addr, r); err != nil {
 		server.Logger(cfg).Fatal().Err(err).Msg("server exited")
+	}
+}
+
+// indirection to avoid importing os/signal in tests that don't need it
+var signalNotify = func(c chan<- os.Signal, sig ...os.Signal) { signalNotifyImpl(c, sig...) }
+
+func signalNotifyImpl(c chan<- os.Signal, sig ...os.Signal) { /* set by init on non-windows */ }
+
+func logConfigDiff(old, cur config.Config) {
+	// minimal diff of hot-reloadable fields
+	if old.CORSOrigin != cur.CORSOrigin {
+		server.Logger(cur).Info().Str("event", "config.reload").Str("field", "cors.origin").Str("old", old.CORSOrigin).Str("new", cur.CORSOrigin).Msg("")
+	}
+	if old.TrustProxy != cur.TrustProxy {
+		server.Logger(cur).Info().Str("event", "config.reload").Str("field", "trustProxy").Bool("old", old.TrustProxy).Bool("new", cur.TrustProxy).Msg("")
+	}
+	if old.LogLevel != cur.LogLevel {
+		server.Logger(cur).Info().Str("event", "config.reload").Str("field", "logLevel").Str("old", old.LogLevel.String()).Str("new", cur.LogLevel.String()).Msg("")
 	}
 }
 
@@ -82,7 +125,7 @@ func ensureFirstBootOTP(cfg config.Config) {
 			if json.Unmarshal(b, &st) == nil && !st.Used {
 				st.Used = true
 				_ = os.MkdirAll(filepath.Dir(cfg.FirstBootPath), 0o755)
-				_ = os.WriteFile(cfg.FirstBootPath, mustJSON(st), 0o600)
+				_ = fsatomic.SaveJSON(context.TODO(), cfg.FirstBootPath, st, 0o600)
 			}
 		}
 		return
@@ -109,7 +152,7 @@ func ensureFirstBootOTP(cfg config.Config) {
 		st.CreatedAt = time.Now().UTC().Format(time.RFC3339)
 		st.Used = false
 		_ = os.MkdirAll(filepath.Dir(cfg.FirstBootPath), 0o755)
-		_ = os.WriteFile(cfg.FirstBootPath, mustJSON(st), 0o600)
+		_ = fsatomic.SaveJSON(context.TODO(), cfg.FirstBootPath, st, 0o600)
 	}
 	msg := fmt.Sprintf("First-boot OTP: %s (valid 15m)", st.OTP)
 	fmt.Println(msg)
@@ -128,4 +171,21 @@ func generateOTP6() string {
 	}
 	n := (uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3])) % 1000000
 	return fmt.Sprintf("%06d", n)
+}
+
+func ensureAgentToken(path string) {
+	if path == "" {
+		return
+	}
+	if _, err := os.Stat(path); err == nil {
+		return
+	}
+	if dir := dirOf(path); dir != "" {
+		_ = os.MkdirAll(dir, 0o755)
+	}
+	var b [32]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return
+	}
+	_ = os.WriteFile(path, b[:], 0o600)
 }

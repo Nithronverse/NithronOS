@@ -30,6 +30,12 @@ Local-first storage management (Btrfs/ZFS*), snapshots, shares, backups, and a m
 - **Reverse proxy** (Caddy): TLS, headers, rate limits; backend bound to loopback.
 - **Jobs**: systemd timers for snapshots/prune and scheduled maintenance.
 
+**Docs:**
+- API Versioning, Typed Errors, OpenAPI: [docs/api/versioning-and-errors.md](docs/api/versioning-and-errors.md)
+- Config and Safe Hot Reload (YAML + env): [docs/dev/config-and-reload.md](docs/dev/config-and-reload.md)
+- Recovery Mode (Admin Access): [docs/dev/recovery-mode.md](docs/dev/recovery-mode.md)
+- Pre-Alpha Recovery Checklist: [RECOVERY-CHECKLIST.md](RECOVERY-CHECKLIST.md)
+
 **Remote access (opt-in):**
 1) VPN (WireGuard/Tailscale) — recommended  
 2) Cloudflare Tunnel — no port-forward, requires 2FA  
@@ -240,20 +246,34 @@ sudo fail2ban-client status caddy-nithronos
 ## Roadmap
 
 ### Pre-M1 (Hardening & Quality)
-- [ ] Run nosd as system user + hardened systemd unit (least-privilege).
-- [ ] Robust auth storage (atomic writes / optional SQLite).
-- [ ] Session/refresh hardening (server-side session IDs, rotate refresh, reuse detection).
-- [ ] Rate limits persisted across restarts + proxy awareness (X-Forwarded-For when trusted).
-- [ ] API versioning `/api/v1`, typed error shape, initial OpenAPI spec.
-- [ ] Config system `/etc/nos/config.yaml` + env overrides + safe hot reload (SIGHUP).
-- [ ] Observability: request IDs, structured logs, `/metrics` (Prometheus), gated `/debug/pprof`.
-- [ ] Security headers (CSP, HSTS, Referrer-Policy, X-Content-Type-Options, COOP/COEP).
-- [ ] Frontend resilience & a11y (CSRF/refresh guard, toasts, focus, contrast).
-- [ ] CI upgrades (linters, govulncheck, TypeScript check, stronger ISO smoke).
-- [ ] Packaging polish (sysusers/tmpfiles/postinst/postrm, console OTP visibility).
-- [ ] Agent ↔ daemon trust bootstrap (token or mTLS, rotation).
-- [ ] Recovery paths (console/TUI: reset admin/2FA, `nos.recovery=1`).
-- [ ] Threat model doc + fuzz/property tests.
+- [x] Run nosd as system user + hardened systemd unit (least-privilege).
+- [x] Robust auth storage (atomic writes / optional SQLite).
+- [x] Session/refresh hardening (server-side session IDs, rotate refresh, reuse detection).
+- [x] Rate limits persisted across restarts + proxy awareness (X-Forwarded-For when trusted).
+- [x] API versioning `/api/v1`, typed error shape, initial OpenAPI spec.
+- [x] Config system `/etc/nos/config.yaml` + env overrides + safe hot reload (SIGHUP).
+- [x] Observability: request IDs, structured logs, `/metrics` (Prometheus), gated `/debug/pprof`.
+- [x] Security headers (CSP, HSTS, Referrer-Policy, X-Content-Type-Options, COOP/COEP).
+- [x] Frontend resilience & a11y (CSRF/refresh guard, toasts, focus, contrast).
+- [x] CI upgrades (linters, govulncheck, TypeScript check, stronger ISO smoke).
+- [x] Packaging polish (sysusers/tmpfiles/postinst/postrm, console OTP visibility).
+- [x] Agent ↔ daemon trust bootstrap (token or mTLS, rotation).
+- [x] Recovery paths (console/TUI: reset admin/2FA, `nos.recovery=1`).
+- [x] Threat model doc + fuzz/property tests.
+
+Highlights delivered:
+- [Auth & Sessions](docs/admin/login-and-sessions.md)
+- [Config & Hot Reload](docs/admin/config.md)
+- [Security Model](docs/dev/security-model.md)
+- [Metrics & Debug](docs/dev/observability.md)
+- [Recovery](docs/admin/recovery.md)
+
+Docs:
+- [First Boot](docs/admin/first-boot.md)
+- [API](docs/dev/api.md)
+- [Build & Packaging](docs/dev/build-and-packaging.md)
+- [CI](docs/dev/ci.md)
+- [Branching & Release](docs/dev/branching-release.md)
 
 ### Milestones to v1
 - [ ] M1 — Storage Foundation (Btrfs + Health): Pool wizard (create/import), optional LUKS-on-Btrfs, SMART, scrub/repair, schedules.

@@ -46,6 +46,9 @@ func TestSetupFullFlowAnd410(t *testing.T) {
 	_ = os.Setenv("NOS_SECRET_PATH", secretPath)
 	_ = os.Setenv("NOS_FIRSTBOOT_PATH", firstbootPath)
 	_ = os.Setenv("NOS_USERS_PATH", usersPath)
+	// Relax rate limits for this flow test to avoid incidental 429s
+	_ = os.Setenv("NOS_RATE_LOGIN_PER_15M", "1000")
+	_ = os.Setenv("NOS_RATE_OTP_PER_MIN", "1000")
 
 	cfg := config.FromEnv()
 	r := NewRouter(cfg)
@@ -130,13 +133,52 @@ func TestSetupFullFlowAnd410(t *testing.T) {
 				csrf = c.Value
 			}
 		}
-		// debug: can we decode nos_session?
+		// verify cookie presence
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		for _, c := range cookies {
 			req.AddCookie(c)
 		}
 		if uid, ok := decodeSessionUID(req, cfg); !ok || uid == "" {
 			t.Fatalf("nos_session did not decode; cookies=%v", cookies)
+		}
+	}
+
+	// sessions list
+	{
+		t.Log("sessions-list")
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/sessions", nil)
+		for _, c := range cookies {
+			req.AddCookie(c)
+		}
+		res := httptest.NewRecorder()
+		r.ServeHTTP(res, req)
+		if res.Code != 200 {
+			t.Fatalf("sessions list: %d", res.Code)
+		}
+		var arr []map[string]any
+		_ = json.Unmarshal(res.Body.Bytes(), &arr)
+		if len(arr) == 0 {
+			t.Fatalf("expected at least one session")
+		}
+	}
+
+	// revoke current session
+	{
+		t.Log("revoke-current")
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/sessions/revoke", bytes.NewReader(mustJSON(map[string]string{"scope": "current"})))
+		for _, c := range cookies {
+			req.AddCookie(c)
+		}
+		res := httptest.NewRecorder()
+		r.ServeHTTP(res, req)
+		if res.Code != 200 {
+			t.Fatalf("revoke current: %d", res.Code)
+		}
+		// me should now be unauthorized
+		res2 := httptest.NewRecorder()
+		r.ServeHTTP(res2, httptest.NewRequest(http.MethodGet, "/api/auth/me", nil))
+		if res2.Code != http.StatusUnauthorized {
+			t.Fatalf("me after revoke current: %d", res2.Code)
 		}
 	}
 

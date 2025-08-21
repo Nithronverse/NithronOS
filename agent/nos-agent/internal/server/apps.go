@@ -16,6 +16,8 @@ type ComposeReq struct {
 }
 
 func handleComposeUp(w http.ResponseWriter, r *http.Request) {
+	// Best-effort read of stored agent auth (future outbound use)
+	_, _ = os.ReadFile("/var/lib/nos/agent-auth.json")
 	var req ComposeReq
 	_ = json.NewDecoder(r.Body).Decode(&req)
 	if !validID(req.ID) || !validDir(req.Dir) {

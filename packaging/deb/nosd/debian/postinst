@@ -1,6 +1,13 @@
 #!/bin/sh
 set -e
 
+case "$1" in
+    configure)
+        # Ensure ownership of configuration and data directories
+        chown -R nos:nos /etc/nos /var/lib/nos || true
+        ;;
+esac
+
 systemctl daemon-reload || true
 systemctl enable nosd.service || true
 systemctl restart nosd.service || true

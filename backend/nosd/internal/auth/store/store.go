@@ -1,7 +1,7 @@
 package store
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"nithronos/backend/nosd/internal/fsatomic"
 )
 
 type User struct {
@@ -38,6 +40,7 @@ type Store struct {
 	path  string
 	users map[string]User // by username
 	mu    sync.RWMutex
+	ioMu  sync.Mutex // serialize writers within this process
 }
 
 func New(path string) (*Store, error) {
@@ -52,13 +55,14 @@ func New(path string) (*Store, error) {
 func (s *Store) load() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	b, err := os.ReadFile(s.path)
+	// Clean any crash artifact and load
+	var f dbFile
+	ok, err := fsatomic.LoadJSON(s.path, &f)
 	if err != nil {
 		return err
 	}
-	var f dbFile
-	if err := json.Unmarshal(b, &f); err != nil {
-		return err
+	if !ok {
+		return nil
 	}
 	if f.Version != 1 {
 		return fmt.Errorf("unsupported users db version: %d", f.Version)
@@ -71,19 +75,16 @@ func (s *Store) load() error {
 
 // writeUsers persists the given snapshot without holding s.mu.
 func (s *Store) writeUsers(list []User) error {
-	data, err := json.MarshalIndent(dbFile{Version: 1, Users: list}, "", "  ")
-	if err != nil {
-		return err
-	}
+	data := dbFile{Version: 1, Users: list}
 	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
 		return err
 	}
-	lock, err := acquireLock(s.path + ".lock")
-	if err != nil {
-		return err
-	}
-	defer lock.release()
-	return os.WriteFile(s.path, data, fs.FileMode(0o600))
+	// In-process serialize
+	s.ioMu.Lock()
+	defer s.ioMu.Unlock()
+	return fsatomic.WithLock(s.path, func() error {
+		return fsatomic.SaveJSON(context.Background(), s.path, data, fs.FileMode(0o600))
+	})
 }
 
 func (s *Store) HasAdmin() bool {
@@ -137,31 +138,4 @@ func (s *Store) UpsertUser(u User) error {
 	s.mu.Unlock()
 	// Persist snapshot without holding the lock
 	return s.writeUsers(list)
-}
-
-// simple file lock using create-excl; kept for the duration of the lock struct
-type fileLock struct {
-	path string
-	f    *os.File
-}
-
-func (l *fileLock) release() {
-	if l.f != nil {
-		_ = l.f.Close()
-	}
-	_ = os.Remove(l.path)
-}
-
-func acquireLock(lockPath string) (*fileLock, error) {
-	// try a few times with backoff
-	var f *os.File
-	var err error
-	for i := 0; i < 50; i++ { // ~5s total
-		f, err = os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0o600)
-		if err == nil {
-			return &fileLock{path: lockPath, f: f}, nil
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	return nil, fmt.Errorf("lock timeout for %s: %w", lockPath, err)
 }

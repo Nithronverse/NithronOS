@@ -1,9 +1,11 @@
 package shares
 
 import (
-	"encoding/json"
-	"os"
+	"context"
+	"io/fs"
 	"sync"
+
+	"nithronos/backend/nosd/internal/fsatomic"
 )
 
 type Share struct {
@@ -30,13 +32,13 @@ func NewStore(path string) *Store {
 func (s *Store) load() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	b, err := os.ReadFile(s.path)
+	var list []Share
+	ok, err := fsatomic.LoadJSON(s.path, &list)
 	if err != nil {
 		return err
 	}
-	var list []Share
-	if err := json.Unmarshal(b, &list); err != nil {
-		return err
+	if !ok {
+		list = nil
 	}
 	s.list = list
 	return nil
@@ -60,11 +62,9 @@ func (s *Store) Add(sh Share) error {
 	data := make([]Share, len(s.list))
 	copy(data, s.list)
 	s.mu.Unlock()
-	b, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(s.path, b, 0o600)
+	return fsatomic.WithLock(s.path, func() error {
+		return fsatomic.SaveJSON(context.TODO(), s.path, data, fs.FileMode(0o600))
+	})
 }
 
 func (s *Store) GetByID(id string) (Share, bool) {
@@ -90,9 +90,7 @@ func (s *Store) Delete(id string) error {
 	data := make([]Share, len(s.list))
 	copy(data, s.list)
 	s.mu.Unlock()
-	b, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(s.path, b, 0o600)
+	return fsatomic.WithLock(s.path, func() error {
+		return fsatomic.SaveJSON(context.TODO(), s.path, data, fs.FileMode(0o600))
+	})
 }

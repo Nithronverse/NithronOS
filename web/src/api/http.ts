@@ -1,3 +1,5 @@
+import { pushToast } from '@/components/ui/toast'
+
 export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
 	return request<T>(path, { method: 'GET', ...(init || {}) })
 }
@@ -30,6 +32,7 @@ async function request<T>(path: string, init: RequestInit, retried = false): Pro
 	})
 	// Handle setup 410 gracefully: let callers treat as non-firstBoot
 	if (isSetup && res.status === 410) {
+		pushToast('Setup already completed. You can sign in.', 'error')
 		throw new Error('HTTP 410')
 	}
 	if (res.status === 401 && !retried) {
@@ -44,19 +47,35 @@ async function request<T>(path: string, init: RequestInit, retried = false): Pro
 		if (r.ok) {
 			return request<T>(path, init, true)
 		}
+		// refresh failed — log out
+		window.location.href = '/login'
 	}
 	if (!res.ok) {
 		const ct = res.headers.get('content-type') || ''
-		let detail = ''
+		let message = ''
+		let retryAfterSec = 0
 		try {
 			if (ct.includes('application/json')) {
 				const j = await res.json()
-				detail = (j as any)?.error || JSON.stringify(j)
+				const err = (j as any)?.error
+				if (err) {
+					message = String(err.message || '')
+					retryAfterSec = Number(err.retryAfterSec || 0)
+				}
 			} else {
-				detail = await res.text()
+				message = await res.text()
 			}
 		} catch {}
-		const msg = detail ? `HTTP ${res.status}: ${detail}` : `HTTP ${res.status}`
+		// Global toasts for common statuses
+		if (res.status === 429) {
+			const ra = retryAfterSec || parseInt(res.headers.get('Retry-After') || '0', 10) || 0
+			pushToast(ra > 0 ? `Rate limited. Try again in ${ra}s` : 'Rate limited. Please try again shortly.', 'error')
+		} else if (res.status === 423) {
+			pushToast('Account temporarily locked. Please try again later.', 'error')
+		} else if (res.status >= 400) {
+			pushToast(message || `Request failed (${res.status})`, 'error')
+		}
+		const msg = message ? `HTTP ${res.status}: ${message}` : `HTTP ${res.status}`
 		throw new Error(msg)
 	}
 	if (res.status === 204) return undefined as unknown as T

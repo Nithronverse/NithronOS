@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -36,6 +37,9 @@ func Start() error {
 		_ = os.Chmod(SocketPath, 0o660)
 	}
 
+	// Bootstrap: register with nosd on first start (best-effort)
+	go func() { _ = registerWithNosd() }()
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/btrfs/create", handleBtrfsCreate)
 	mux.HandleFunc("/v1/btrfs/mount", handleBtrfsMount)
@@ -58,6 +62,52 @@ func Start() error {
 	mux.HandleFunc("/v1/updates/plan", handleUpdatesPlan)
 
 	return http.Serve(l, mux)
+}
+
+// Registration with nosd using bootstrap token on disk
+func registerWithNosd() error {
+	// Read bootstrap token
+	bootTok, err := os.ReadFile("/etc/nos/agent-token")
+	if err != nil || len(bootTok) == 0 {
+		return err
+	}
+	// Identify
+	node, _ := os.Hostname()
+	arch := runtime.GOARCH
+	osname := runtime.GOOS
+	payload := map[string]string{
+		"token": strings.TrimSpace(string(bootTok)),
+		"node":  node,
+		"arch":  arch,
+		"os":    osname,
+	}
+	b, _ := json.Marshal(payload)
+	// nosd default bind is 127.0.0.1:9000
+	req, err := http.NewRequest("POST", "http://127.0.0.1:9000/api/v1/agents/register", strings.NewReader(string(b)))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		io.Copy(io.Discard, resp.Body)
+		return fmt.Errorf("register status %d", resp.StatusCode)
+	}
+	var out struct{ ID, Token string }
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return err
+	}
+	if out.Token == "" {
+		return fmt.Errorf("no token returned")
+	}
+	// Persist per-agent token for future calls
+	_ = os.MkdirAll("/var/lib/nos", 0o755)
+	return os.WriteFile("/var/lib/nos/agent-auth.json", []byte(fmt.Sprintf("{\n\t\"id\": \"%s\",\n\t\"token\": \"%s\"\n}\n", out.ID, out.Token)), 0o600)
 }
 
 type PlanResponse struct {

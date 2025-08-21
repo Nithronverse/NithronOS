@@ -2,24 +2,43 @@ package server
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog"
+
+	"nithronos/backend/nosd/internal/config"
 )
 
-func zerologMiddleware(logger *zerolog.Logger) func(next http.Handler) http.Handler {
+func zerologMiddleware(logger *zerolog.Logger, cfg config.Config) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 			ww := &statusWriter{ResponseWriter: w, status: 200}
 			next.ServeHTTP(ww, r)
 			dur := time.Since(start)
-			logger.Info().
+			reqID := middleware.GetReqID(r.Context())
+			uid := r.Header.Get("X-UID")
+			ip := clientIP(r, cfg)
+			evt := logger.Info().
 				Str("method", r.Method).
 				Str("path", r.URL.Path).
 				Int("status", ww.status).
 				Dur("duration", dur).
-				Msg("http")
+				Str("ip", ip)
+			if reqID != "" {
+				evt = evt.Str("request_id", reqID)
+			}
+			if uid != "" {
+				evt = evt.Str("uid", uid)
+			}
+			if cl := r.Header.Get("Content-Length"); cl != "" {
+				if n, err := strconv.Atoi(cl); err == nil {
+					evt = evt.Int("content_length", n)
+				}
+			}
+			evt.Msg("http")
 		})
 	}
 }

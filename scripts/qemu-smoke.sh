@@ -22,17 +22,25 @@ stdbuf -oL -eL timeout 480s qemu-system-x86_64 \
   -cdrom "$ISO" \
   -boot d 2>&1 | tee "$LOG" >/dev/null || true
 
-# Did it actually boot? Look for a broad set of common markers on serial.
-if grep -Ei "Linux version|systemd|Debian GNU/Linux|Welcome to|Starting systemd|initramfs| init:|Kernel command line" "$LOG" >/dev/null 2>&1; then
+# Prefer active health check if nosd binds a known port in smoke images
+if command -v curl >/dev/null 2>&1; then
+  if curl -fsS --retry 10 --retry-connrefused --retry-delay 2 http://127.0.0.1:18080/health >/dev/null 2>&1; then
+    echo "[smoke] nosd health endpoint reachable"
+    exit 0
+  fi
+fi
+
+# Fallback: inspect serial output for startup marker
+if grep -Ei "nosd listening|nosd started|Linux version|systemd|Debian GNU/Linux|Welcome to|Starting systemd|initramfs| init:|Kernel command line" "$LOG" >/dev/null 2>&1; then
   echo "[smoke] Boot output detected on serial console:"
   sed -n '1,200p' "$LOG" | sed -e 's/^/[serial] /'
   exit 0
-else
-  echo "::error::No boot output detected on serial console. First 200 lines:"
-  sed -n '1,200p' "$LOG" || true
-  echo "[smoke] Last 100 lines (tail):"
-  tail -n 100 "$LOG" || true
-  exit 1
 fi
+
+echo "::error::Smoke failed. First 200 lines of serial:"
+sed -n '1,200p' "$LOG" || true
+echo "[smoke] Last 100 lines (tail):"
+tail -n 100 "$LOG" || true
+exit 1
 
 
