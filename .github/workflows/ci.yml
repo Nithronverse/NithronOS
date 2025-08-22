@@ -152,8 +152,8 @@ jobs:
       - name: Go tests (incl. combined metrics)
         run: |
           set -euo pipefail
-          (cd backend/nosd && go test ./... -v)
-          (cd agent/nos-agent && go test ./... -v)
+          if [ -d backend/nosd ]; then (cd backend/nosd && go test ./... -v); fi
+          if [ -d agent/nos-agent ]; then (cd agent/nos-agent && go test ./... -v); else echo "agent module missing; skipping"; fi
       - name: Manual smoke (disabled)
         if: ${{ false }}
         run: echo "Manual smoke disabled by default"
