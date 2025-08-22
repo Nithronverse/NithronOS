@@ -1,37 +1,54 @@
-//go:build prommetrics
-
 package server
 
 import (
 	"context"
-	"io"
 	"net/http"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	prom "github.com/prometheus/client_golang/prometheus"
-
-	"nithronos/backend/nosd/internal/config"
-	"nithronos/backend/nosd/internal/observability"
-	"nithronos/backend/nosd/pkg/agentclient"
+	"github.com/prometheus/client_golang/prometheus"
+	expfmt "github.com/prometheus/common/expfmt"
 )
 
-// mountCombinedMetricsRoutes registers /metrics/all that concatenates nosd and agent metrics.
-func mountCombinedMetricsRoutes(cfg config.Config, r chi.Router) {
-	type agentFetcher struct{ client *agentclient.Client }
-	func (a agentFetcher) FetchMetrics(ctx context.Context) ([]byte, error) {
-		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "http://unix/metrics", nil)
-		res, err := a.client.HTTP.Do(req)
-		if err != nil {
-			return nil, err
-		}
-		defer res.Body.Close()
-		if res.StatusCode >= 300 {
-			return nil, io.ErrUnexpectedEOF
-		}
-		return io.ReadAll(res.Body)
-	}
+// AgentMetricsClient fetches Prometheus text-format metrics from the agent.
+type AgentMetricsClient interface {
+	FetchMetrics(ctx context.Context) ([]byte, error)
+}
 
-	h := observability.NewCombinedMetricsHandler(prom.DefaultGatherer, agentFetcher{client: agentclient.New(cfg.AgentSocket())})
-	r.Get("/metrics/all", h.ServeHTTP)
+// NewCombinedMetricsHandler serves nosd metrics and appends agent metrics.
+// Content-Type follows Prometheus text exposition format.
+func NewCombinedMetricsHandler(g prometheus.Gatherer, agent AgentMetricsClient) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Prometheus text format content type
+		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+
+		// Gather nosd metrics
+		mfs, err := g.Gather()
+		if err != nil {
+			http.Error(w, "gather metrics failed: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		for _, mf := range mfs {
+			if _, err := expfmt.MetricFamilyToText(w, mf); err != nil {
+				return
+			}
+		}
+
+		// Separator
+		_, _ = w.Write([]byte("\n# --- agent metrics below ---\n"))
+
+		// Append agent metrics (best-effort)
+		if agent == nil {
+			_, _ = w.Write([]byte("# agent metrics unavailable: no client\n"))
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 500*time.Millisecond)
+		defer cancel()
+
+		b, err := agent.FetchMetrics(ctx)
+		if err != nil {
+			_, _ = w.Write([]byte("# agent metrics unavailable: " + err.Error() + "\n"))
+			return
+		}
+		_, _ = w.Write(b)
+	})
 }

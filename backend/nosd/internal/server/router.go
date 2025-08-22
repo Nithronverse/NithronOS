@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
@@ -42,6 +44,20 @@ import (
 
 	"github.com/gorilla/securecookie"
 )
+
+// agentMetricsClient implements AgentMetricsClient to fetch text metrics from nos-agent
+type agentMetricsClient struct{ socket string }
+
+func (a agentMetricsClient) FetchMetrics(ctx context.Context) ([]byte, error) {
+	cli := agentclient.New(a.socket)
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "http://unix/metrics", nil)
+	res, err := cli.HTTP.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	return io.ReadAll(res.Body)
+}
 
 func Logger(cfg config.Config) *zerolog.Logger {
 	zerolog.TimeFieldFormat = time.RFC3339
@@ -122,8 +138,10 @@ func NewRouter(cfg config.Config) http.Handler {
 			}
 			_, _ = w.Write([]byte(b.String()))
 		})
-		// Mount combined metrics endpoint (implementation depends on build tags)
-		mountCombinedMetricsRoutes(cfg, r)
+		// Combined metrics endpoint: nosd + agent
+		r.Get("/metrics/all", func(w http.ResponseWriter, r *http.Request) {
+			NewCombinedMetricsHandler(prom.DefaultGatherer, agentMetricsClient{socket: cfg.AgentSocket()}).ServeHTTP(w, r)
+		})
 	}
 
 	if cfg.PprofEnabled {
