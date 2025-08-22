@@ -101,13 +101,7 @@ func NowUTC() string { return time.Now().UTC().Format(time.RFC3339) }
 
 // List returns a snapshot of sessions.
 func (s *Store) List() []Session {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	out := make([]Session, 0, len(s.mem))
-	for _, v := range s.mem {
-		out = append(out, v)
-	}
-	return out
+	return s.snapshot()
 }
 
 // DeleteByUserID removes all sessions for the given user and persists the change.

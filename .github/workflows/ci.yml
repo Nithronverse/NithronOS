@@ -13,8 +13,48 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lint:
+    name: Lint & Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          check-latest: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install linters
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.60.3
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+      - name: Go linters (backend)
+        working-directory: backend/nosd
+        run: |
+          golangci-lint run ./...
+          staticcheck ./...
+          govulncheck ./...
+      - name: Go linters (agent)
+        working-directory: agent/nos-agent
+        run: |
+          golangci-lint run ./...
+          staticcheck ./...
+          govulncheck ./...
+      - name: Web typecheck + audit
+        working-directory: web
+        run: |
+          npm ci
+          npm run typecheck
+          npm audit --omit=dev --audit-level=high
+      - name: Property test (TOTP window)
+        run: |
+          cd backend/nosd && go test ./pkg/auth -run TestTOTPWindowPlusMinusOne -v
+
   build:
     name: Build (backend, agent, web)
+    needs: lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

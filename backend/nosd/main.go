@@ -54,11 +54,6 @@ func main() {
 	}
 }
 
-// indirection to avoid importing os/signal in tests that don't need it
-var signalNotify = func(c chan<- os.Signal, sig ...os.Signal) { signalNotifyImpl(c, sig...) }
-
-func signalNotifyImpl(c chan<- os.Signal, sig ...os.Signal) { /* set by init on non-windows */ }
-
 func logConfigDiff(old, cur config.Config) {
 	// minimal diff of hot-reloadable fields
 	if old.CORSOrigin != cur.CORSOrigin {
@@ -157,11 +152,6 @@ func ensureFirstBootOTP(cfg config.Config) {
 	msg := fmt.Sprintf("First-boot OTP: %s (valid 15m)", st.OTP)
 	fmt.Println(msg)
 	server.Logger(cfg).Info().Msg(msg)
-}
-
-func mustJSON(v any) []byte {
-	b, _ := json.MarshalIndent(v, "", "  ")
-	return b
 }
 
 func generateOTP6() string {

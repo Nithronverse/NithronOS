@@ -525,8 +525,7 @@ func NewRouter(cfg config.Config) http.Handler {
 		// persist session record (best-effort)
 		_ = sessStore.Upsert(sessions.Session{ID: generateUUID(), UserID: u.ID, Roles: u.Roles, ExpiresAt: time.Now().Add(15 * time.Minute).UTC().Format(time.RFC3339)})
 		// bind server-side session
-		var ua string
-		ua = r.Header.Get("User-Agent")
+		ua := r.Header.Get("User-Agent")
 		ip = clientIP(r, cfg)
 		rec, _ := mgr.Create(u.ID, ua, ip, 15*time.Minute)
 		_ = issueSessionCookiesSID(w, cfg, u.ID, rec.SID, body.RememberMe)

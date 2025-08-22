@@ -104,14 +104,6 @@ func (s *Store) Flush() error {
 	return s.persistLocked()
 }
 
-func (s *Store) persist() error {
-	st := s.st
-	_ = os.MkdirAll(filepath.Dir(s.path), 0o755)
-	return fsatomic.WithLock(s.path, func() error {
-		return fsatomic.SaveJSON(context.TODO(), s.path, st, fs.FileMode(0o600))
-	})
-}
-
 func (s *Store) persistLocked() error {
 	st := s.st
 	_ = os.MkdirAll(filepath.Dir(s.path), 0o755)

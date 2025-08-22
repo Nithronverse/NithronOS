@@ -1,61 +1,12 @@
-name: Lint and Typecheck
+name: (deprecated) Lint and Typecheck
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
+  workflow_dispatch:
 
 jobs:
-  go-lint:
+  note:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.23'
-      - name: Install linters
-        run: |
-          go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.60.3
-          go install honnef.co/go/tools/cmd/staticcheck@latest
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-      - name: golangci-lint (backend)
-        working-directory: backend/nosd
-        run: golangci-lint run ./...
-      - name: staticcheck (backend)
-        working-directory: backend/nosd
-        run: staticcheck ./...
-      - name: govulncheck (backend)
-        working-directory: backend/nosd
-        run: govulncheck ./...
-      - name: golangci-lint (agent)
-        working-directory: agent/nos-agent
-        run: golangci-lint run ./...
-      - name: staticcheck (agent)
-        working-directory: agent/nos-agent
-        run: staticcheck ./...
-      - name: govulncheck (agent)
-        working-directory: agent/nos-agent
-        run: govulncheck ./...
-
-      - name: Run property test (TOTP window)
-        run: |
-          cd backend/nosd && go test ./pkg/auth -run TestTOTPWindowPlusMinusOne -v
-
-  web-typecheck:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Install deps
-        working-directory: web
-        run: npm ci
-      - name: Typecheck
-        working-directory: web
-        run: npm run typecheck
-      - name: npm audit
-        working-directory: web
-        run: npm audit --omit=dev --audit-level=high
+      - run: echo "Lint is consolidated into CI workflow. This job is a placeholder."
 
 

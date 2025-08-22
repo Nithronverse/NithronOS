@@ -60,10 +60,7 @@ func writeTarFileIfExists(tw *tar.Writer, hostPath, name string) {
 
 func writeCmdOutput(tw *tar.Writer, name string, cmd string, args ...string) {
 	c := exec.Command(cmd, args...)
-	out, err := c.CombinedOutput()
-	if err != nil {
-		// include stderr/output anyway for diagnostics
-	}
+	out, _ := c.CombinedOutput()
 	_ = writeTarFile(tw, name, strings.NewReader(string(out)))
 }
 

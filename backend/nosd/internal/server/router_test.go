@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -113,7 +112,7 @@ func TestDisksShape(t *testing.T) {
 }
 
 func TestLsblkFixture(t *testing.T) {
-	data, err := ioutil.ReadFile("testdata/lsblk.json")
+	data, err := os.ReadFile("testdata/lsblk.json")
 	if err != nil {
 		t.Skip("fixture not present")
 	}

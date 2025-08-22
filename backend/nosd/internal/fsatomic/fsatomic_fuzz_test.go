@@ -1,6 +1,7 @@
 package fsatomic
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,7 +16,7 @@ func FuzzLoadJSON_Truncated(f *testing.F) {
 	dir := f.TempDir()
 	path := filepath.Join(dir, "state.json")
 	// seed with valid
-	_ = SaveJSON(nil, path, dummy{A: "x", B: 1}, 0o600)
+	_ = SaveJSON(context.TODO(), path, dummy{A: "x", B: 1}, 0o600)
 	f.Add([]byte("{"))
 	f.Add([]byte("{\n\"a\":"))
 	f.Fuzz(func(t *testing.T, partial []byte) {
