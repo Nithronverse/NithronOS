@@ -7,7 +7,7 @@ require (
 	github.com/gorilla/securecookie v1.1.2
 	github.com/pquerna/otp v1.4.0
 	github.com/prometheus/client_golang v1.19.0
-	github.com/prometheus/common v0.53.0
+	github.com/prometheus/common v0.53.0 // indirect
 	github.com/rs/zerolog v1.34.0
 )
 
