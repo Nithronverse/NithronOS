@@ -49,9 +49,7 @@ HAVE_TREE:
 		if d.Type != "disk" {
 			continue
 		}
-		if d.Rota != nil && !*d.Rota {
-			// accept both SSD and HDD; rota filter will be used by caller if needed
-		}
+		// accept both SSD and HDD; rota filter will be used by caller if needed
 		if d.Removable != nil && *d.Removable {
 			continue
 		}

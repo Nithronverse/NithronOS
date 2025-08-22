@@ -346,17 +346,6 @@ func handleApplyDevice(cfg config.Config) http.HandlerFunc {
 	}
 }
 
-func parseBalancePercent(out string) string {
-	// crude parse for e.g. "completed: 17 %" or "% done"
-	for _, line := range strings.Split(out, "\n") {
-		l := strings.ToLower(strings.TrimSpace(line))
-		if strings.Contains(l, "%") && (strings.Contains(l, "done") || strings.Contains(l, "completed")) {
-			return line
-		}
-	}
-	return out
-}
-
 func parseProfiles(out string) (data string, meta string) {
 	s := strings.ToLower(out)
 	for _, line := range strings.Split(s, "\n") {

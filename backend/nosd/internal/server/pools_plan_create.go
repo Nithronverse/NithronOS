@@ -21,12 +21,6 @@ type planCreateRequest struct {
 	MountOptions string `json:"mountOptions"`
 }
 
-type planCreateResponse struct {
-	Plan     pools.CreatePlan `json:"plan"`
-	Fstab    []string         `json:"fstab"`
-	Warnings []string         `json:"warnings,omitempty"`
-}
-
 func handlePlanCreateV1(w http.ResponseWriter, r *http.Request) {
 	var req planCreateRequest
 	_ = json.NewDecoder(r.Body).Decode(&req)
