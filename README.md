@@ -113,7 +113,7 @@ Pre-update snapshots and rollback are **built-in and enabled**.
 - A transaction index is appended at `/var/lib/nos/snapshots/index.json`.
 - Retention: newest **N=5** per target by default (daily prune timer).
 
-See `docs/updates.md` for workflow and CLI.
+See [docs/updates.md](docs/updates.md) for workflow and CLI.
 
 ---
 
@@ -213,18 +213,18 @@ Filters/jails under `deploy/fail2ban/`; see comments inside for enabling.
 
 ## Contributing
 We welcome issues and PRs! Please read:
-- CONTRIBUTING.md
-- SECURITY.md
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [SECURITY.md](SECURITY.md)
 
-All contributions are made under the **NithronOS Community License (NCL)**; see `LICENSE`.
+All contributions are made under the **NithronOS Community License (NCL)**; see [LICENSE](LICENSE).
 
 ---
 
 ## Licensing & Commercial Use
-- **Source code:** LICENSE (NithronOS Community License — non-commercial, source-available)  
-- **Commercial & MSP terms:** COMMERCIAL.md  
-- **Official builds (ISOs/packages/updates):** BINARIES-EULA.md  
-- **Trademarks:** TRADEMARK_POLICY.md
+- **Source code:** [LICENSE](LICENSE) (NithronOS Community License — non-commercial, source-available)  
+- **Commercial & MSP terms:** [COMMERCIAL.md](COMMERCIAL.md)  
+- **Official builds (ISOs/packages/updates):** [BINARIES-EULA.md](BINARIES-EULA.md)  
+- **Trademarks:** [TRADEMARK_POLICY.md](TRADEMARK_POLICY.md)
 
 > TL;DR — read/modify/contribute freely; selling/hosting/redistributing binaries requires a commercial agreement.
 
@@ -232,7 +232,7 @@ All contributions are made under the **NithronOS Community License (NCL)**; see 
 
 ## Branding
 Colors align with Nithron’s palette (dark UI, electric blue `#2D7FF9`, lime `#A4F932`).  
-“Nithron”, “NithronOS”, and “nOS” are trademarks of Nithron — see `TRADEMARK_POLICY.md`.
+“Nithron”, “NithronOS”, and “nOS” are trademarks of Nithron — see [TRADEMARK_POLICY.md](TRADEMARK_POLICY.md).
 
 ---
 
