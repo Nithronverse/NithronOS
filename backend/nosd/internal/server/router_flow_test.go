@@ -246,12 +246,6 @@ func TestSetupFullFlowAnd410(t *testing.T) {
 			t.Fatalf("login with code: %d", res.Code)
 		}
 		cookies = res.Result().Cookies()
-		csrf = ""
-		for _, c := range cookies {
-			if c.Name == "nos_csrf" {
-				csrf = c.Value
-			}
-		}
 	}
 
 	// me

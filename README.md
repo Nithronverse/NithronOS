@@ -49,10 +49,10 @@ Local-first storage management (Btrfs/ZFS*), snapshots, shares, backups, and a m
 - **Jobs**: systemd timers for snapshots/prune & scheduled maintenance.
 
 **Related docs:**  
-API/versioning & typed errors → docs/api/versioning-and-errors.md  
-Config & safe hot reload → docs/dev/config-and-reload.md  
-Recovery mode (admin access) → docs/dev/recovery-mode.md  
-Pre-Alpha Recovery Checklist → RECOVERY-CHECKLIST.md
+API/versioning & typed errors → [docs/api/versioning-and-errors.md](docs/api/versioning-and-errors.md)  
+Config & safe hot reload → [docs/dev/config-and-reload.md](docs/dev/config-and-reload.md)  
+Recovery mode (admin access) → [docs/dev/recovery-mode.md](docs/dev/recovery-mode.md)  
+Pre-Alpha Recovery Checklist → [RECOVERY-CHECKLIST.md](RECOVERY-CHECKLIST.md)
 
 ---
 
@@ -203,11 +203,11 @@ Filters/jails under `deploy/fail2ban/`; see comments inside for enabling.
 ---
 
 ## Docs
-- API versioning & typed errors → docs/api/versioning-and-errors.md  
-- Config & hot reload → docs/dev/config-and-reload.md  
-- Recovery mode → docs/dev/recovery-mode.md  
-- Updates & rollback → docs/updates.md  
-- Pre-Alpha Recovery Checklist → RECOVERY-CHECKLIST.md
+- API versioning & typed errors → [docs/api/versioning-and-errors.md](docs/api/versioning-and-errors.md)  
+- Config & hot reload → [docs/dev/config-and-reload.md](docs/dev/config-and-reload.md)  
+- Recovery mode → [docs/dev/recovery-mode.md](docs/dev/recovery-mode.md)  
+- Updates & rollback → [docs/updates.md](docs/updates.md)  
+- Pre-Alpha Recovery Checklist → [RECOVERY-CHECKLIST.md](RECOVERY-CHECKLIST.md)
 
 ---
 

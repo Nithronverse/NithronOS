@@ -23,7 +23,7 @@ func TestEnsureDirAndAppendList(t *testing.T) {
 	}
 	// index path should be under temp dir
 	if _, err := os.Stat(filepath.Join(os.Getenv("NOS_SNAPDB_DIR"), "index.json")); !os.IsNotExist(err) {
-		// it's okay if not exists yet; Append will create it
+		// no-op; presence is fine, Append will create if missing
 	}
 
 	now := time.Now().UTC()
