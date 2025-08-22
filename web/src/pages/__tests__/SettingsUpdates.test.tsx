@@ -3,6 +3,10 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { SettingsUpdates } from '../../pages/SettingsUpdates'
 import * as toast from '@/components/ui/toast'
 
+vi.mock('@/components/ui/toast', () => ({
+  pushToast: vi.fn(),
+}))
+
 function mockFetchSequence() {
   const original = global.fetch
   const fn = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
@@ -46,7 +50,7 @@ describe('SettingsUpdates', () => {
     // wait initial load
     await screen.findByText(/Available updates/i)
     const btn = screen.getByRole('button', { name: /Apply Updates/i }) as HTMLButtonElement
-    const toastSpy = vi.spyOn(toast, 'pushToast')
+    const toastSpy = (toast as any).pushToast as ReturnType<typeof vi.fn>
     fireEvent.click(btn)
     expect(btn.disabled).toBe(true)
     await waitFor(()=> {
