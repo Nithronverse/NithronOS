@@ -1,0 +1,11 @@
+packaging/deb/nithronos/report-deps.sh usr/lib/nithronos/
+packaging/deb/nithronos/nithronos-deps-report.service lib/systemd/system/
+packaging/deb/nithronos/nos-smart-scan.service lib/systemd/system/
+packaging/deb/nithronos/nos-smart-scan.timer lib/systemd/system/
+packaging/deb/nithronos/smart-scan.sh usr/lib/nithronos/
+packaging/deb/nithronos/nos-btrfs-scrub@.service lib/systemd/system/
+packaging/deb/nithronos/nos-btrfs-scrub@.timer lib/systemd/system/
+packaging/deb/nithronos/nos-fstrim.service lib/systemd/system/
+packaging/deb/nithronos/nos-fstrim.timer lib/systemd/system/
+
+

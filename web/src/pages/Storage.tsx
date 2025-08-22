@@ -12,6 +12,8 @@ export function Storage() {
 	const [sortAsc, setSortAsc] = useState(true)
 	const [showCreate, setShowCreate] = useState(false)
 	const [showImport, setShowImport] = useState(false)
+	const [scrubLoading, setScrubLoading] = useState<Record<string, boolean>>({})
+	const [scrubStatus, setScrubStatus] = useState<Record<string, string>>({})
 
 	useEffect(() => {
 		Promise.all([
@@ -31,6 +33,31 @@ export function Storage() {
 		})
 		return rows
 	}, [disks, sortKey, sortAsc])
+
+	async function startScrub(mount: string, key: string) {
+		setScrubLoading((m) => ({ ...m, [key]: true }))
+		try {
+			await api.pools.scrubStart(mount)
+			const st = await api.pools.scrubStatus(mount)
+			setScrubStatus((m) => ({ ...m, [key]: summarizeScrub(st?.status || '') }))
+			try { const { pushToast } = await import('../components/ui/toast'); pushToast('Scrub started') } catch {}
+		} catch (e: any) {
+			setScrubStatus((m) => ({ ...m, [key]: 'error' }))
+			try { const { pushToast } = await import('../components/ui/toast'); pushToast(`Scrub failed: ${e?.message || e}`, 'error') } catch {}
+		} finally {
+			setScrubLoading((m) => ({ ...m, [key]: false }))
+		}
+	}
+
+	async function checkScrub(mount: string, key: string) {
+		setScrubLoading((m) => ({ ...m, [key]: true }))
+		try {
+			const st = await api.pools.scrubStatus(mount)
+			setScrubStatus((m) => ({ ...m, [key]: summarizeScrub(st?.status || '') }))
+		} finally {
+			setScrubLoading((m) => ({ ...m, [key]: false }))
+		}
+	}
 
 	return (
 		<div className="space-y-6">
@@ -72,7 +99,7 @@ export function Storage() {
 										<td className="uppercase">{d.tran || '-'}</td>
 										<td>{d.mountpoint || '-'}</td>
 										<td>{d.fstype || '-'}</td>
-										<td>{healthDot(d.smart?.healthy)}</td>
+										<td>{healthBadge(d.smart)}</td>
 									</tr>
 								))}
 							</tbody>
@@ -106,19 +133,37 @@ export function Storage() {
 								<th>Size</th>
 								<th>Used</th>
 								<th>Free</th>
+								<th>Maintenance</th>
 							</tr>
 						</thead>
 						<tbody>
-							{pools.map((p: any) => (
-								<tr key={p.uuid || p.label} className="border-t border-muted/20">
-									<td className="py-2">{p.label || '-'}</td>
-									<td className="font-mono text-xs">{p.uuid || '-'}</td>
-									<td className="uppercase">{p.raid || '-'}</td>
-									<td>{formatBytes(p.size)}</td>
-									<td>{formatBytes(p.used)}</td>
-									<td>{formatBytes(p.free)}</td>
-								</tr>
-							))}
+							{pools.map((p: any) => {
+								const key = p.uuid || p.label || p.mount || ''
+								const mount: string | undefined = p.mount || undefined
+								return (
+									<tr key={key} className="border-t border-muted/20">
+										<td className="py-2">{p.label || '-'}</td>
+										<td className="font-mono text-xs">{p.uuid || '-'}</td>
+										<td className="uppercase">{p.raid || '-'}</td>
+										<td>{formatBytes(p.size)}</td>
+										<td>{formatBytes(p.used)}</td>
+										<td>{formatBytes(p.free)}</td>
+										<td className="whitespace-nowrap">
+											{mount ? (
+												<div className="flex items-center gap-2">
+													<button className="rounded border border-muted/30 px-2 py-0.5 text-xs" disabled={!!scrubLoading[key]} onClick={() => startScrub(mount, key)}>
+														{scrubLoading[key] ? 'Starting…' : 'Start scrub'}
+													</button>
+													<button className="rounded border border-muted/30 px-2 py-0.5 text-xs" onClick={() => checkScrub(mount, key)}>Status</button>
+													{scrubStatus[key] && <span className="text-xs text-muted-foreground">{scrubStatus[key]}</span>}
+												</div>
+											) : (
+												<span className="text-xs text-muted-foreground">-</span>
+											)}
+										</td>
+									</tr>
+								)
+							})}
 						</tbody>
 					</table>
 				)}
@@ -145,9 +190,27 @@ function formatBytes(n: number): string {
 	return `${v.toFixed(1)} ${units[i]}`
 }
 
-function healthDot(healthy?: boolean) {
-	const color = healthy === true ? 'bg-green-500' : 'bg-muted'
-	return <span className={`inline-block h-2.5 w-2.5 rounded-full ${color}`} />
+function healthBadge(smart?: any) {
+	if (!smart) return <span className="text-muted-foreground">-</span>
+	const passed = smart.healthy === true
+	const temp = typeof smart.temp_c === 'number' ? smart.temp_c : undefined
+	let label = 'WARN'
+	let color = 'bg-yellow-600'
+	if (passed === true) { label = 'PASS'; color = 'bg-green-600' }
+	if (passed === false) { label = 'FAIL'; color = 'bg-red-600' }
+	return (
+		<span className={`inline-flex items-center gap-2 rounded px-2 py-0.5 text-xs text-white ${color}`}>
+			{label}{typeof temp === 'number' ? ` · ${temp}°C` : ''}
+		</span>
+	)
+}
+
+function summarizeScrub(text: string): string {
+	const s = text.toLowerCase()
+	if (s.includes('running')) return 'running'
+	if (s.includes('no stats available')) return 'idle'
+	if (s.includes('total bytes scrubbed') || s.includes('scrub status for')) return 'done'
+	return text.split('\n')[0]?.slice(0, 80) || 'unknown'
 }
 
 function usePools() {

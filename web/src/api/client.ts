@@ -16,6 +16,7 @@ export type PoolCandidates = GetResponse<'/api/pools/candidates'>
 export type Shares = GetResponse<'/api/shares'>
 export type Apps = GetResponse<'/api/apps'>
 export type RemoteStatus = GetResponse<'/api/remote/status'>
+
 type PostResponse<Path extends keyof paths> = paths[Path] extends { post: any }
 	? paths[Path]['post'] extends {
 			responses: { 200: { content: { 'application/json': infer T } } }
@@ -33,10 +34,18 @@ export const api = {
 	},
 	pools: {
 		get: () => apiGet<Pools>('/api/pools'),
+		planCreateV1: (body: any) => apiPost<any>('/api/v1/pools/plan-create', body),
+		applyCreateV1: (body: any) => apiPost<any>('/api/v1/pools/apply-create', body),
+		txStatus: (id: string) => apiGet<any>(`/api/v1/pools/tx/${id}/status`),
+		txLog: (id: string, cursor = 0, max = 1000) => apiGet<any>(`/api/v1/pools/tx/${id}/log?cursor=${cursor}&max=${max}`),
 		planCreate: (body: any) => apiPost<PostResponse<'/api/pools/plan-create'>>('/api/pools/plan-create', body),
 		create: (body: any) => apiPost<PostResponse<'/api/pools/create'>>('/api/pools/create', body),
 		candidates: () => apiGet<PoolCandidates>('/api/pools/candidates'),
 		import: (deviceOrUuid: string) => apiPost<PostResponse<'/api/pools/import'>>('/api/pools/import', { device_or_uuid: deviceOrUuid }),
+		discoverV1: () => apiGet<any>('/api/v1/pools/discover'),
+		importV1: (body: { uuid: string; label?: string; mountpoint: string }) => apiPost<any>('/api/v1/pools/import', body),
+		scrubStart: (mount: string) => apiPost<any>('/api/v1/pools/scrub/start', { mount }),
+		scrubStatus: (mount: string) => apiGet<any>(`/api/v1/pools/scrub/status?mount=${encodeURIComponent(mount)}`),
 	},
 	shares: {
 		get: () => apiGet<Shares>('/api/shares'),

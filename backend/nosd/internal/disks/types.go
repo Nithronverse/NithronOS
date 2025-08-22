@@ -4,6 +4,8 @@ type SmartSummary struct {
 	Healthy      *bool `json:"healthy,omitempty"`
 	TempCelsius  *int  `json:"temp_c,omitempty"`
 	PowerOnHours *int  `json:"power_on_hours,omitempty"`
+	Reallocated  *int  `json:"reallocated_sectors,omitempty"`
+	MediaErrors  *int  `json:"media_errors,omitempty"`
 }
 
 type Disk struct {

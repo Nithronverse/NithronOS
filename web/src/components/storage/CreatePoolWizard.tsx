@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { api, type Disks } from '../../api/client'
 import { Steps } from '../ui/steps'
+import { Dialog, DialogHeader, DialogTitle } from '../ui/dialog'
 
 const schema = z.object({
   label: z.string().regex(/^[A-Za-z0-9_-]{1,32}$/),
@@ -12,10 +13,20 @@ const schema = z.object({
 })
 type FormValues = z.infer<typeof schema>
 
+type TxStatus = {
+  id: string
+  startedAt: string
+  finishedAt?: string
+  ok: boolean
+  error?: string
+  steps: { id: string; name: string; cmd: string; destructive: boolean; status: 'pending'|'running'|'ok'|'error'; startedAt?: string; finishedAt?: string; err?: string }[]
+}
+
 export function CreatePoolWizard({ onCreated }: { onCreated?: () => void }) {
   const [step, setStep] = useState(1)
   const [disks, setDisks] = useState<Disks | null>(null)
-  const [plan, setPlan] = useState<string>('')
+  const [plan, setPlan] = useState<any>(null)
+  const [planText, setPlanText] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormValues>({
@@ -24,6 +35,15 @@ export function CreatePoolWizard({ onCreated }: { onCreated?: () => void }) {
   })
   const values = watch()
   const reqError = useMemo(() => validateDevicesForRaid(values.raid, values.devices.length), [values.raid, values.devices])
+
+  // tx modal state
+  const [txId, setTxId] = useState<string | null>(null)
+  const [tx, setTx] = useState<TxStatus | null>(null)
+  const [logCursor, setLogCursor] = useState(0)
+  const [logLines, setLogLines] = useState<string[]>([])
+  const logEndRef = useRef<HTMLDivElement | null>(null)
+  const sseRef = useRef<EventSource | null>(null)
+  const pollingRef = useRef<number | null>(null)
 
   useEffect(() => { api.disks.get().then(setDisks).catch(() => {}) }, [])
 
@@ -43,18 +63,19 @@ export function CreatePoolWizard({ onCreated }: { onCreated?: () => void }) {
   }
 
   useEffect(() => {
-    // enforce device count based on raid
     const n = values.devices.length
-    if (values.raid === 'raid1' && n < 2) setPlan('')
-    if (values.raid === 'raid10' && (n < 4 || n % 2 !== 0)) setPlan('')
+    if (values.raid === 'raid1' && n < 2) { setPlan(null); setPlanText('') }
+    if (values.raid === 'raid10' && (n < 4 || n % 2 !== 0)) { setPlan(null); setPlanText('') }
   }, [values.devices, values.raid])
 
   async function doPlan() {
     setLoading(true)
     setError(null)
     try {
-      const res: any = await api.pools.planCreate({ label: values.label, devices: values.devices, raid: values.raid })
-      setPlan(JSON.stringify(res, null, 2))
+      const mountpoint = `/mnt/${values.label || 'pool'}`
+      const res: any = await api.pools.planCreateV1({ name: values.label, mountpoint, devices: values.devices, raidData: values.raid, raidMeta: values.raid })
+      setPlan(res)
+      setPlanText(JSON.stringify(res, null, 2))
       setStep(4)
     } catch (e: any) {
       setError(e?.message || String(e))
@@ -67,9 +88,13 @@ export function CreatePoolWizard({ onCreated }: { onCreated?: () => void }) {
     setLoading(true)
     setError(null)
     try {
-      await fetch('/api/pools/create', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCSRF(), 'Confirm': 'yes' }, body: JSON.stringify({ label: values.label, devices: values.devices, raid: values.raid }) })
-      try { const { pushToast } = await import('../ui/toast'); pushToast('Pool created') } catch {}
-      onCreated?.()
+      const res: any = await api.pools.applyCreateV1({ plan: plan?.plan || plan, fstab: plan?.fstab || [], confirm: 'CREATE' })
+      const id = res?.tx_id
+      if (id) {
+        setTxId(id)
+        startSSE(id)
+        startPolling(id)
+      }
     } catch (e: any) {
       setError(e?.message || String(e))
       try { const { pushToast } = await import('../ui/toast'); pushToast(`Create failed: ${e?.message || e}`, 'error') } catch {}
@@ -77,6 +102,62 @@ export function CreatePoolWizard({ onCreated }: { onCreated?: () => void }) {
       setLoading(false)
     }
   }
+
+  // Poll tx status and log
+  useEffect(() => {
+    return () => { stopSSE(); stopPolling() }
+  }, [])
+
+  function startPolling(id: string) {
+    stopPolling()
+    pollingRef.current = window.setInterval(() => { pollOnce(id, logCursor) }, 1000)
+  }
+  function stopPolling() {
+    if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null }
+  }
+
+  async function pollOnce(id: string, cursor: number) {
+    try {
+      const st = await api.pools.txStatus(id)
+      setTx(st)
+      const log = await api.pools.txLog(id, cursor, 200)
+      if (Array.isArray(log?.lines) && log.lines.length > 0) {
+        setLogLines((prev) => [...prev, ...log.lines])
+        setLogCursor(log.nextCursor ?? cursor)
+      }
+      queueMicrotask(() => { logEndRef.current?.scrollIntoView({ behavior: 'smooth' }) })
+      if (st?.finishedAt) {
+        if (st.ok) {
+          try { const { pushToast } = await import('../ui/toast'); pushToast('Pool created') } catch {}
+          setTimeout(() => { setTxId(null); setTx(null); onCreated?.() }, 500)
+        } else {
+          try { const { pushToast } = await import('../ui/toast'); pushToast(`Create failed: ${st.error || 'unknown error'}`, 'error') } catch {}
+        }
+        stopSSE(); stopPolling()
+      }
+    } catch {
+      // ignore transient poll errors
+    }
+  }
+
+  function startSSE(id: string) {
+    stopSSE()
+    try {
+      const es = new EventSource(`/api/v1/pools/tx/${id}/stream`)
+      sseRef.current = es
+      es.addEventListener('open', () => { stopPolling() })
+      es.addEventListener('error', () => { startPolling(id) })
+      es.addEventListener('log', (ev: MessageEvent) => {
+        const line = (ev as any).data as string
+        setLogLines((prev) => [...prev, line])
+        queueMicrotask(() => { logEndRef.current?.scrollIntoView({ behavior: 'smooth' }) })
+      })
+      es.addEventListener('step', () => { /* future: push step deltas */ })
+    } catch {
+      // if SSE fails, keep polling
+    }
+  }
+  function stopSSE() { if (sseRef.current) { sseRef.current.close(); sseRef.current = null } }
 
   return (
     <div className="space-y-4">
@@ -116,6 +197,12 @@ export function CreatePoolWizard({ onCreated }: { onCreated?: () => void }) {
           <div className="text-xs text-muted-foreground">
             Estimated capacity: {estimateCapacity(values.raid, values.devices.length, rows)}
           </div>
+          <div className="rounded border border-muted/30 p-2 text-xs space-y-1">
+            <label className="inline-flex items-center gap-2">
+              <input type="checkbox" {...register('encrypt' as any)} disabled />
+              <span>Encrypt devices with LUKS (coming soon in UI)</span>
+            </label>
+          </div>
           <div>
             <label className="block text-sm">RAID</label>
             <select className="mt-1 w-full rounded border border-muted/30 bg-background px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/50" {...register('raid')}>
@@ -134,8 +221,8 @@ export function CreatePoolWizard({ onCreated }: { onCreated?: () => void }) {
             {loading && <span className="h-3 w-3 animate-spin rounded-full border-2 border-background border-t-transparent" />}
             Fetch Plan
           </button>
-          {plan && <pre className="text-xs text-muted-foreground overflow-auto max-h-60 whitespace-pre-wrap">{plan}</pre>}
-          <div className="flex gap-2"><button className="rounded border border-muted/30 px-3 py-1 text-sm" onClick={() => setStep(2)}>Back</button><button className="rounded bg-primary px-3 py-1 text-sm text-background disabled:opacity-50" onClick={() => setStep(4)} disabled={!plan}>Next</button></div>
+          {planText && <pre className="text-xs text-muted-foreground overflow-auto max-h-60 whitespace-pre-wrap">{planText}</pre>}
+          <div className="flex gap-2"><button className="rounded border border-muted/30 px-3 py-1 text-sm" onClick={() => setStep(2)}>Back</button><button className="rounded bg-primary px-3 py-1 text-sm text-background disabled:opacity-50" onClick={() => setStep(4)} disabled={!planText}>Next</button></div>
         </div>
       )}
       {step === 4 && (
@@ -148,6 +235,33 @@ export function CreatePoolWizard({ onCreated }: { onCreated?: () => void }) {
         </div>
       )}
       {error && <div className="rounded border border-red-500/30 bg-red-500/10 p-2 text-red-400 text-xs">{error}</div>}
+
+      <Dialog open={!!txId} onOpenChange={(o) => { if (!o) { setTxId(null); stopSSE(); stopPolling() } }}>
+        <DialogHeader>
+          <DialogTitle>Running plan…</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 p-4">
+          {tx ? (
+            <div className="space-y-2">
+              <div className="text-sm text-muted-foreground">Transaction: <span className="font-mono">{tx.id}</span></div>
+              <div className="space-y-1">
+                {tx.steps?.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between text-sm">
+                    <div className="truncate mr-2">{s.name || s.id}</div>
+                    <span className={`rounded px-2 py-0.5 text-xs ${s.status==='ok'?'bg-green-600 text-white':s.status==='running'?'bg-yellow-600 text-white':s.status==='error'?'bg-red-600 text-white':'bg-muted text-foreground'}`}>{s.status}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="h-40 overflow-auto rounded border border-muted/30 bg-background p-2 text-xs font-mono">
+                {logLines.map((ln, i) => <div key={i}>{ln}</div>)}
+                <div ref={logEndRef} />
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">Starting…</div>
+          )}
+        </div>
+      </Dialog>
     </div>
   )
 }

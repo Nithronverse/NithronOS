@@ -126,3 +126,6 @@ func fsyncDir(dir string) error {
 	defer d.Close()
 	return d.Sync()
 }
+
+// FsyncDir is an exported helper for callers needing to sync a directory.
+func FsyncDir(dir string) error { return fsyncDir(dir) }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
 import QRCode from 'qrcode'
+import { getSchedules, updateSchedules, type Schedules } from '@/api/schedules'
 
 export function Settings() {
 	const [me, setMe] = useState<any | null>(null)
@@ -10,9 +11,12 @@ export function Settings() {
 	const [code, setCode] = useState('')
 	const [error, setError] = useState<string | null>(null)
 	const [downloading, setDownloading] = useState(false)
+	const [schedules, setSchedules] = useState<Schedules | null>(null)
+	const [schedSaving, setSchedSaving] = useState(false)
 
 	useEffect(() => {
 		api.auth.me().then(setMe).finally(() => setLoading(false))
+		getSchedules().then(setSchedules).catch(() => {})
 	}, [])
 
 	async function startTotp() {
@@ -142,6 +146,35 @@ export function Settings() {
 				>
 					{downloading ? 'Preparing…' : 'Download Support Bundle'}
 				</button>
+			</div>
+
+			<div className="rounded-lg bg-card p-4 space-y-3">
+				<h2 className="text-lg font-medium">Schedules</h2>
+				<div className="grid gap-3 md:grid-cols-2">
+					<div>
+						<label className="block text-sm mb-1">SMART Scan (OnCalendar)</label>
+						<input className="w-full rounded border border-muted/30 bg-background px-2 py-1" value={schedules?.smartScan || ''} onChange={(e) => setSchedules((s) => ({ ...(s || { smartScan: '', btrfsScrub: '' }), smartScan: e.target.value }))} />
+					</div>
+					<div>
+						<label className="block text-sm mb-1">Btrfs Scrub (OnCalendar)</label>
+						<input className="w-full rounded border border-muted/30 bg-background px-2 py-1" value={schedules?.btrfsScrub || ''} onChange={(e) => setSchedules((s) => ({ ...(s || { smartScan: '', btrfsScrub: '' }), btrfsScrub: e.target.value }))} />
+					</div>
+				</div>
+				<div>
+					<button className="rounded bg-primary px-3 py-1 text-sm text-background disabled:opacity-50" disabled={!schedules || schedSaving} onClick={async () => {
+						if (!schedules) return
+						setSchedSaving(true)
+						try {
+							const res = await updateSchedules({ smartScan: schedules.smartScan, btrfsScrub: schedules.btrfsScrub })
+							setSchedules(res)
+							try { const { pushToast } = await import('../components/ui/toast'); pushToast('Schedules updated') } catch {}
+						} catch (e: any) {
+							try { const { pushToast } = await import('../components/ui/toast'); pushToast(`Update failed: ${e?.message || e}`, 'error') } catch {}
+						} finally {
+							setSchedSaving(false)
+						}
+					}}>Save</button>
+				</div>
 			</div>
 		</div>
 	)

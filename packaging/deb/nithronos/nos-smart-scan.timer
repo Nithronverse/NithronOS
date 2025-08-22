@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly SMART health scan timer
+
+[Timer]
+OnCalendar=weekly
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+
+

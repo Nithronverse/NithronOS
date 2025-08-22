@@ -47,6 +47,19 @@ export const api = {
   pools: {
     list: () => req<Pool[]>('/api/pools'),
     roots: () => req<PoolsRootsResp>('/api/pools/roots').then(r => (r as any).roots as string[]),
+    getMountOptions: (id: string) => req<{ mountOptions: string }>(`/api/v1/pools/${encodeURIComponent(id)}/options`),
+    setMountOptions: (id: string, mountOptions: string) =>
+      req<{ ok: boolean; mountOptions: string; rebootRequired?: boolean }>(
+        `/api/v1/pools/${encodeURIComponent(id)}/options`,
+        { method: 'POST', body: JSON.stringify({ mountOptions }) },
+      ),
+    planDevice: (id: string, body: any) => req<{ planId: string; steps: any[]; warnings: string[]; requiresBalance?: boolean }>(`/api/v1/pools/${encodeURIComponent(id)}/plan-device`, { method:'POST', body: JSON.stringify(body) }),
+    applyDevice: (id: string, steps: { id:string; description:string; command:string }[], confirm?: 'ADD'|'REMOVE'|'REPLACE') =>
+      req<{ ok:boolean; tx_id:string }>(`/api/v1/pools/${encodeURIComponent(id)}/apply-device`, { method:'POST', body: JSON.stringify({ steps, confirm }) }),
+  },
+  health: {
+    alerts: () => req<{ alerts: Array<{ id:string; severity:'warn'|'crit'; kind:string; device:string; messages:string[]; createdAt:string }> }>(`/api/v1/alerts`),
+    scan: () => req<{ ok:boolean }>(`/api/v1/health/scan`, { method:'POST', body: JSON.stringify({}) }),
   },
   smb: {
     usersList: () => req<SmbUsersGet>('/api/smb/users').catch(()=>[] as SmbUsersGet),

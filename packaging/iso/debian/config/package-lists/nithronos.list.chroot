@@ -1,6 +1,8 @@
 linux-image-amd64
 btrfs-progs
 smartmontools
+mdadm
+lvm2
 samba
 nfs-kernel-server
 docker.io
@@ -8,5 +10,10 @@ wireguard
 caddy
 fail2ban
 nftables
+cryptsetup
+util-linux
+coreutils
+findutils
+nvme-cli
 
 

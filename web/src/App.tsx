@@ -5,6 +5,7 @@ import { Storage } from './pages/Storage'
 import SharesIndex from './routes/shares/index'
 import { Apps } from './pages/Apps'
 import { Settings } from './pages/Settings'
+import SettingsSchedules from './routes/settings/schedules'
 import { Remote } from './pages/Remote'
 import { Login } from './pages/Login'
 import { PoolsCreate } from './pages/PoolsCreate'
@@ -40,6 +41,7 @@ const router = createBrowserRouter([
 			{ path: 'shares', element: <SharesIndex /> },
 			{ path: 'apps', element: <Apps /> },
 			{ path: 'settings', element: <Settings /> },
+			{ path: 'settings/schedules', element: <SettingsSchedules /> },
 			{ path: 'settings/updates', element: <SettingsUpdates /> },
 			{ path: 'remote', element: <Remote /> },
 			{ path: 'storage/create', element: <PoolsCreate /> },

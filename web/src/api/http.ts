@@ -54,10 +54,11 @@ async function request<T>(path: string, init: RequestInit, retried = false): Pro
 		const ct = res.headers.get('content-type') || ''
 		let message = ''
 		let retryAfterSec = 0
+		let body: any = undefined
 		try {
 			if (ct.includes('application/json')) {
-				const j = await res.json()
-				const err = (j as any)?.error
+				body = await res.json()
+				const err = (body as any)?.error
 				if (err) {
 					message = String(err.message || '')
 					retryAfterSec = Number(err.retryAfterSec || 0)
@@ -72,11 +73,14 @@ async function request<T>(path: string, init: RequestInit, retried = false): Pro
 			pushToast(ra > 0 ? `Rate limited. Try again in ${ra}s` : 'Rate limited. Please try again shortly.', 'error')
 		} else if (res.status === 423) {
 			pushToast('Account temporarily locked. Please try again later.', 'error')
-		} else if (res.status >= 400) {
+		} else if (res.status >= 500) {
 			pushToast(message || `Request failed (${res.status})`, 'error')
 		}
 		const msg = message ? `HTTP ${res.status}: ${message}` : `HTTP ${res.status}`
-		throw new Error(msg)
+		const error: any = new Error(msg)
+		error.status = res.status
+		if (body !== undefined) error.data = body
+		throw error
 	}
 	if (res.status === 204) return undefined as unknown as T
 	return (await res.json()) as T

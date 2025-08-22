@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os/exec"
 	"strconv"
+	"strings"
 	"time"
 
 	"nithronos/backend/nosd/pkg/shell"
@@ -107,14 +108,46 @@ func SmartSummaryFor(ctx context.Context, devicePath string) *SmartSummary {
 		}
 	}
 	var poh *int
+	var reallocated *int
+	var mediaErr *int
 	if a, ok := parsed["power_on_time"].(map[string]any); ok {
 		if h, ok := a["hours"].(float64); ok {
 			v := int(h)
 			poh = &v
 		}
 	}
+	// try vendor tables for extended info
+	if table, ok := parsed["ata_smart_attributes"].(map[string]any); ok {
+		if jv, ok2 := table["table"].([]any); ok2 {
+			for _, row := range jv {
+				if m, ok3 := row.(map[string]any); ok3 {
+					if name, ok4 := m["name"].(string); ok4 {
+						ln := strings.ToLower(name)
+						if strings.Contains(ln, "reallocated") {
+							if raw, ok5 := m["raw"].(map[string]any); ok5 {
+								if val, ok6 := raw["value"].(float64); ok6 {
+									x := int(val)
+									reallocated = &x
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	if nvme, ok := parsed["nvme_smart_health_information_log"].(map[string]any); ok {
+		if me, ok2 := nvme["media_errors"].(float64); ok2 {
+			v := int(me)
+			mediaErr = &v
+		}
+		if t, ok2 := nvme["temperature"].(float64); ok2 && temp == nil {
+			vv := int(t)
+			temp = &vv
+		}
+	}
 	if healthy == nil && temp == nil && poh == nil {
 		return nil
 	}
-	return &SmartSummary{Healthy: healthy, TempCelsius: temp, PowerOnHours: poh}
+	return &SmartSummary{Healthy: healthy, TempCelsius: temp, PowerOnHours: poh, Reallocated: reallocated, MediaErrors: mediaErr}
 }

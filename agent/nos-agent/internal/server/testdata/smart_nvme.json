@@ -1,0 +1,9 @@
+{
+  "smart_status": {"passed": true},
+  "nvme_smart_health_information_log": {
+    "media_errors": 1,
+    "temperature": 45
+  }
+}
+
+

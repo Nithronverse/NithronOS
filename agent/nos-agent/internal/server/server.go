@@ -40,10 +40,15 @@ func Start() error {
 	// Bootstrap: register with nosd on first start (best-effort)
 	go func() { _ = registerWithNosd() }()
 
+	// init prometheus registry
+	initMetrics()
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/btrfs/create", handleBtrfsCreate)
 	mux.HandleFunc("/v1/btrfs/mount", handleBtrfsMount)
 	mux.HandleFunc("/v1/btrfs/snapshot", handleBtrfsSnapshot)
+	mux.HandleFunc("/v1/btrfs/balance/status", handleBtrfsBalanceStatus)
+	mux.HandleFunc("/v1/btrfs/replace/status", handleBtrfsReplaceStatus)
 	mux.HandleFunc("/v1/service/reload", handleServiceReload)
 	mux.HandleFunc("/v1/app/compose-up", handleComposeUp)
 	mux.HandleFunc("/v1/app/compose-down", handleComposeDown)
@@ -51,6 +56,15 @@ func Start() error {
 	mux.HandleFunc("/v1/firewall/apply", handleFirewallApply)
 	mux.HandleFunc("/v1/fs/write", handleFSWrite)
 	mux.HandleFunc("/v1/fs/mkdir", handleFSMkdir)
+	mux.HandleFunc("/v1/run", handleRun)
+	mux.HandleFunc("/v1/fstab/ensure", handleFstabEnsure)
+	mux.HandleFunc("/v1/fstab/remove", handleFstabRemove)
+	mux.HandleFunc("/v1/crypttab/ensure", handleCrypttabEnsure)
+	mux.HandleFunc("/v1/crypttab/remove", handleCrypttabRemove)
+	mux.HandleFunc("/v1/btrfs/scrub/start", handleBtrfsScrubStart)
+	mux.HandleFunc("/v1/btrfs/scrub/status", handleBtrfsScrubStatus)
+	mux.HandleFunc("/v1/btrfs/check-repair", handleBtrfsCheckRepair)
+	mux.HandleFunc("/v1/btrfs/usage", handleBtrfsUsage)
 	mux.HandleFunc("/v1/smb/user-create", handleSMBUserCreate)
 	mux.HandleFunc("/v1/smb/users", handleSMBUsersList)
 	mux.HandleFunc("/v1/snapshot/create", handleSnapshotCreate)
@@ -60,6 +74,10 @@ func Start() error {
 	mux.HandleFunc("/v1/updates/apply", handleUpdatesApply)
 	mux.HandleFunc("/v1/snapshot/prune", handleSnapshotPrune)
 	mux.HandleFunc("/v1/updates/plan", handleUpdatesPlan)
+	mux.HandleFunc("/v1/storage/lsblk", handleStorageLsblk)
+	mux.HandleFunc("/v1/smart", handleSmartSummary)
+	// Prometheus metrics on the same unix socket
+	mux.Handle("/metrics", metricsHandler())
 
 	return http.Serve(l, mux)
 }

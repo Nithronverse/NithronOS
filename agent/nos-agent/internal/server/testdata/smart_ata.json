@@ -1,0 +1,12 @@
+{
+  "smart_status": {"passed": true},
+  "temperature": {"current": 35},
+  "power_on_time": {"hours": 1234},
+  "ata_smart_attributes": {
+    "table": [
+      {"name": "Reallocated_Sector_Ct", "raw": {"value": 0}}
+    ]
+  }
+}
+
+

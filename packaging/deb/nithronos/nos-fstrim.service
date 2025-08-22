@@ -1,0 +1,19 @@
+[Unit]
+Description=Weekly SSD TRIM (fstrim -av)
+Documentation=man:fstrim(8)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/fstrim -av
+ExecStartPost=/bin/sh -c 'mkdir -p /var/lib/nos; date -Is > /var/lib/nos/last_fstrim'
+Nice=10
+IOSchedulingClass=idle
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
+
+

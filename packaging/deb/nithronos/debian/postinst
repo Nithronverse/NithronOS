@@ -1,0 +1,34 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure)
+        # Verify required binaries exist; log to journal
+        REQUIRED_CMDS="btrfs smartctl cryptsetup lsblk mount mdadm lvm"
+        for cmd in $REQUIRED_CMDS; do
+            if command -v "$cmd" >/dev/null 2>&1; then
+                logger -t nithronos-deps "found $cmd: $(command -v "$cmd")"
+            else
+                logger -t nithronos-deps "MISSING $cmd - please install required runtime tools"
+            fi
+        done
+
+        # Log versions on first install
+        if command -v btrfs >/dev/null 2>&1; then logger -t nithronos-deps "$(btrfs --version)"; fi
+        if command -v smartctl >/dev/null 2>&1; then logger -t nithronos-deps "$(smartctl -V | head -1)"; fi
+        if command -v cryptsetup >/dev/null 2>&1; then logger -t nithronos-deps "$(cryptsetup --version)"; fi
+        if command -v lsblk >/dev/null 2>&1; then logger -t nithronos-deps "$(lsblk --version | head -1)"; fi
+
+        # Install-time: ensure systemd sees our unit; enable for first boot
+        systemctl daemon-reload || true
+        chmod 0755 /usr/lib/nithronos/report-deps.sh || true
+        systemctl enable nithronos-deps-report.service || true
+        chmod 0755 /usr/lib/nithronos/smart-scan.sh || true
+        systemctl enable --now nos-smart-scan.timer || true
+        systemctl enable --now nos-fstrim.timer || true
+        ;;
+esac
+
+exit 0
+
+

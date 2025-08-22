@@ -52,7 +52,10 @@ Local-first storage management (Btrfs/ZFS*), snapshots, shares, backups, and a m
 API/versioning & typed errors → [docs/api/versioning-and-errors.md](docs/api/versioning-and-errors.md)  
 Config & safe hot reload → [docs/dev/config-and-reload.md](docs/dev/config-and-reload.md)  
 Recovery mode (admin access) → [docs/dev/recovery-mode.md](docs/dev/recovery-mode.md)  
-Pre-Alpha Recovery Checklist → [RECOVERY-CHECKLIST.md](RECOVERY-CHECKLIST.md)
+Pre-Alpha Recovery Checklist → [RECOVERY-CHECKLIST.md](RECOVERY-CHECKLIST.md)  
+Storage pools (create/import/encrypt & device ops) → [docs/storage/pools.md](docs/storage/pools.md)  
+Storage health (SMART, scrub, schedules) → [docs/storage/health.md](docs/storage/health.md)
+Observability → [docs/dev/observability.md](docs/dev/observability.md) (scrape combined metrics via `/metrics/all`)
 
 ---
 
@@ -188,7 +191,7 @@ Filters/jails under `deploy/fail2ban/`; see comments inside for enabling.
 - [x] Threat model doc + fuzz/property tests.
 
 ### Milestones to v1
-- [ ] **M1 — Storage Foundation (Btrfs + Health)**: create/import, SMART, scrub/repair, schedules.
+- [x] **M1 — Storage Foundation (Btrfs + Health)**: create/import, SMART, scrub/repair, schedules, device ops, destroy, support bundle. (complete)
 - [ ] **M2 — Shares & Permissions**: SMB/NFS with simple ACLs, guest toggle, recycle bin, Time Machine (fruit).
 - [ ] **M3 — App Catalog v1 (Docker/Compose)**: one-click apps, lifecycle, health checks, pre-snapshot + rollback.
 - [ ] **M4 — Networking & Remote**: Remote Access Wizard (LAN-only, WireGuard, reverse tunnel), HTTPS (LE), plan/apply/rollback firewall with 2FA for non-LAN.
@@ -207,6 +210,8 @@ Filters/jails under `deploy/fail2ban/`; see comments inside for enabling.
 - Config & hot reload → [docs/dev/config-and-reload.md](docs/dev/config-and-reload.md)  
 - Recovery mode → [docs/dev/recovery-mode.md](docs/dev/recovery-mode.md)  
 - Updates & rollback → [docs/updates.md](docs/updates.md)  
+- Storage pools (device add/remove/replace, destroy, mount options) → [docs/storage/pools.md](docs/storage/pools.md)  
+- Storage health (SMART alerts & thresholds, schedules, fstrim) → [docs/storage/health.md](docs/storage/health.md)  
 - Pre-Alpha Recovery Checklist → [RECOVERY-CHECKLIST.md](RECOVERY-CHECKLIST.md)
 
 ---

@@ -64,6 +64,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify packaging runtime deps
+        run: |
+          chmod +x scripts/verify-runtime-deps.sh
+          bash scripts/verify-runtime-deps.sh
+
       - name: Set up Go (with cache for both modules)
         uses: actions/setup-go@v5
         with:
@@ -143,6 +148,45 @@ jobs:
           npm ci
           npm test -- --run || echo "no web tests configured"
           cd -
+
+      - name: Combined metrics smoke (nosd + agent)
+        env:
+          GOFLAGS: -tags=prommetrics
+        run: |
+          set -euo pipefail
+          # Build nosd (test binary) and agent HTTP handlers with prommetrics tag
+          (cd agent/nos-agent && go build ./...)
+          (cd backend/nosd && go build ./...)
+          # Start a tiny nosd that mounts /metrics/all using the real router
+          cat > /tmp/metrics-main.go <<'EOF'
+          package main
+          import (
+            "log"
+            "net/http"
+            "nithronos/backend/nosd/internal/config"
+            "nithronos/backend/nosd/internal/server"
+          )
+          func main(){
+            cfg := config.FromEnv()
+            cfg.MetricsEnabled = true
+            mux := server.NewRouter(cfg)
+            go func(){ log.Fatal(http.ListenAndServe("127.0.0.1:9000", mux)) }()
+            select{}
+          }
+          EOF
+          # Run ephemeral agent metrics handler with prom tag using httptest
+          # For simplicity in CI, curl nosd /metrics/all which will handle agent failure gracefully
+          nohup bash -c 'GOFLAGS="-tags=prommetrics" go run /tmp/metrics-main.go' >/dev/null 2>&1 &
+          # Wait for nosd to bind
+          for i in $(seq 1 50); do curl -sf http://127.0.0.1:9000/metrics || { sleep 0.1; continue; }; break; done
+          # Hit combined endpoint
+          curl -sf http://127.0.0.1:9000/metrics/all | tee metrics.out
+          # Assert nosd metric prefix exists
+          grep -E '^nosd_' metrics.out || grep -E '^pool_total_bytes' metrics.out || (echo 'missing nosd metrics' && exit 1)
+          # Agent prefix may be present if an agent is running with prommetrics; otherwise a comment should appear
+          if ! grep -E '^nithronos_agent_' metrics.out > /dev/null; then
+            grep -F '# agent metrics' metrics.out >/dev/null || (echo 'missing agent section separator' && exit 1)
+          fi
 
   debs:
     name: Build Debian packages

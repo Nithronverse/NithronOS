@@ -73,8 +73,9 @@ func handleSupportBundle(cfg config.Config) http.HandlerFunc {
 		tw := tar.NewWriter(gz)
 		defer tw.Close()
 
-		// Journals and logs (last 2 days)
-		writeCmdOutput(tw, "logs/journal_nosd.txt", "journalctl", "-u", "nosd", "--since", "2 days ago")
+		// Journals (last 2000 lines)
+		writeCmdOutput(tw, "logs/journal_nosd.txt", "journalctl", "-u", "nosd", "-n", "2000")
+		writeCmdOutput(tw, "logs/journal_nos_agent.txt", "journalctl", "-u", "nos-agent", "-n", "2000")
 		writeTarFileIfExists(tw, "/var/log/caddy/access.log", "logs/caddy_access.log")
 		writeTarFileIfExists(tw, "/var/log/caddy/error.log", "logs/caddy_error.log")
 
@@ -97,18 +98,39 @@ func handleSupportBundle(cfg config.Config) http.HandlerFunc {
 			}
 		}
 
-		// Config files with redaction
-		nosConfDir := filepath.Join(cfg.EtcDir, "nos")
-		if matches, _ := filepath.Glob(filepath.Join(nosConfDir, "*.conf")); len(matches) > 0 {
+		// Config files (redacted): /etc/nos/*.yaml, pools.json, schedules.yaml; fstab/crypttab
+		nosDir := filepath.Join(cfg.EtcDir, "nos")
+		if matches, _ := filepath.Glob(filepath.Join(nosDir, "*.yaml")); len(matches) > 0 {
 			for _, p := range matches {
 				name := filepath.Base(p)
-				writeTarFileIfExists(tw, p, filepath.Join("configs/nos", name))
+				writeTarFileIfExists(tw, filepath.Join(nosDir, name), filepath.Join("configs/nos", name))
 			}
 		}
-		if matches, _ := filepath.Glob("/etc/samba/smb.conf.d/*.conf"); len(matches) > 0 {
+		writeTarFileIfExists(tw, filepath.Join(nosDir, "pools.json"), "configs/nos/pools.json")
+		writeTarFileIfExists(tw, filepath.Join(cfg.EtcDir, "fstab"), "system/fstab")
+		writeTarFileIfExists(tw, filepath.Join(cfg.EtcDir, "crypttab"), "system/crypttab")
+
+		// SMART snapshots
+		if matches, _ := filepath.Glob(filepath.Join("/var/lib/nos/health/smart", "*.json")); len(matches) > 0 {
 			for _, p := range matches {
 				name := filepath.Base(p)
-				writeTarFileIfExists(tw, p, filepath.Join("configs/samba", name))
+				writeTarFileIfExists(tw, p, filepath.Join("health/smart", name))
+			}
+		}
+
+		// Pool transactions (last N=10)
+		txDir := filepath.Join("/var/lib/nos", "pools", "tx")
+		if entries, err := os.ReadDir(txDir); err == nil {
+			files := make([]string, 0, len(entries))
+			for _, e := range entries {
+				files = append(files, e.Name())
+			}
+			start := 0
+			if len(files) > 10 {
+				start = len(files) - 10
+			}
+			for _, name := range files[start:] {
+				writeTarFileIfExists(tw, filepath.Join(txDir, name), filepath.Join("pools/tx", name))
 			}
 		}
 	}
