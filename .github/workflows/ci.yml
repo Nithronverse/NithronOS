@@ -152,10 +152,8 @@ jobs:
       - name: Go tests (incl. combined metrics)
         run: |
           set -euo pipefail
-          cd backend/nosd
-          go test ./... -v
-          cd ../../agent/nos-agent
-          go test ./... -v
+          (cd backend/nosd && go test ./... -v)
+          (cd agent/nos-agent && go test ./... -v)
       - name: Manual smoke (disabled)
         if: ${{ false }}
         run: echo "Manual smoke disabled by default"
