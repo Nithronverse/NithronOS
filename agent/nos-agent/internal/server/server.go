@@ -95,7 +95,9 @@ func registerWithNosd() error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		io.Copy(io.Discard, resp.Body)
+		if _, copyErr := io.Copy(io.Discard, resp.Body); copyErr != nil {
+			return fmt.Errorf("register status %d and read error: %w", resp.StatusCode, copyErr)
+		}
 		return fmt.Errorf("register status %d", resp.StatusCode)
 	}
 	var out struct{ ID, Token string }

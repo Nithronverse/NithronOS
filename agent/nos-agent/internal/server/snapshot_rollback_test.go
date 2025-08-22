@@ -91,7 +91,7 @@ func TestSnapshotRollback_Btrfs_Success(t *testing.T) {
 	if out, err := exec.Command("btrfs", "subvolume", "create", sv).CombinedOutput(); err != nil {
 		t.Skipf("cannot create subvolume here: %s", string(out))
 	}
-	defer exec.Command("btrfs", "subvolume", "delete", sv).Run()
+	defer func() { _ = exec.Command("btrfs", "subvolume", "delete", sv).Run() }()
 
 	file := filepath.Join(sv, "data.txt")
 	_ = os.WriteFile(file, []byte("before"), 0o644)
