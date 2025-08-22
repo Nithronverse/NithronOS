@@ -6,7 +6,7 @@ import api from '@/lib/api'
 export function PoolDetails() {
   const { id } = useParams()
   const [pools, setPools] = useState<any[]>([])
-  const pool = useMemo(() => pools.find((p) => (p.mount || p.id) === id || p.uuid === id), [pools, id])
+  const pool = useMemo(() => pools.find((p) => p.id === id || p.mount === id || p.uuid === id), [pools, id])
   const [tab, setTab] = useState<'overview'|'snapshots'|'devices'>('overview')
 
   useEffect(() => {
@@ -43,7 +43,7 @@ export function PoolDetails() {
       )}
 
       {tab==='overview' && pool && (
-        <MountOptionsCard pool={pool} id={id!} onSaved={() => { fetch('/api/pools').then((r)=>r.json()).then(setPools) }} />
+        <MountOptionsCard pool={pool} id={id!} onSaved={() => { /* no refetch needed here */ }} />
       )}
 
       {tab==='snapshots' && (
@@ -115,7 +115,10 @@ function MountOptionsCard({ pool, id, onSaved }: { pool: any; id: string; onSave
 
   useEffect(() => {
     let ignore = false
-    api.pools.getMountOptions(id).then(r => { if (!ignore) setCurrent(r.mountOptions) }).catch(()=>{})
+    Promise
+      .resolve((api as any).pools?.getMountOptions ? api.pools.getMountOptions(id) : undefined)
+      .then((r:any) => { if (!ignore && r && typeof r.mountOptions === 'string') setCurrent(r.mountOptions) })
+      .catch(()=>{})
     return () => { ignore = true }
   }, [id])
 

@@ -274,7 +274,7 @@ func validDevice(p string) bool {
 }
 
 func isAllowedMountPath(p string) bool {
-	if p == "" || !filepath.IsAbs(p) || strings.ContainsAny(p, " \t\n\r\x00") {
+	if p == "" || !strings.HasPrefix(p, "/") || strings.ContainsAny(p, " \t\n\r\x00") {
 		return false
 	}
 	// ensure trailing slash comparison is safe for exact prefix

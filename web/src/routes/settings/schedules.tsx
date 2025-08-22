@@ -9,7 +9,6 @@ export default function SettingsSchedules() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<{ smartScan?: string; btrfsScrub?: string }>({})
-  const [dirty, setDirty] = useState(false)
   const nav = useNavigate()
   const smartRef = useRef<HTMLInputElement>(null)
   const scrubRef = useRef<HTMLInputElement>(null)
@@ -20,7 +19,6 @@ export default function SettingsSchedules() {
 
   const onChange = (field: 'smartScan'|'btrfsScrub', val: string) => {
     setDraft((d) => ({ ...d, [field]: val }))
-    setDirty(true)
     setFieldErrors((fe) => ({ ...fe, [field]: undefined }))
   }
 
@@ -54,13 +52,12 @@ export default function SettingsSchedules() {
       if (firstClientErr === 'smartScan') smartRef.current?.focus()
       else if (firstClientErr === 'btrfsScrub') scrubRef.current?.focus()
       setSaving(false)
-      if (import.meta.env.DEV) console.debug('[schedules] client validation failed', clientErrors)
+      if ((globalThis as any).__DEV__) console.debug('[schedules] client validation failed', clientErrors)
       return
     }
     try {
       const res = await updateSchedules(draft)
       setSched(res)
-      setDirty(false)
       setFieldErrors({})
       try { const { pushToast } = await import('@/components/ui/toast'); pushToast('Schedules saved') } catch {}
     } catch (e: any) {
@@ -78,10 +75,10 @@ export default function SettingsSchedules() {
         const first = newFieldErrors.smartScan ? 'smartScan' : newFieldErrors.btrfsScrub ? 'btrfsScrub' : ''
         if (first === 'smartScan') smartRef.current?.focus()
         if (first === 'btrfsScrub') scrubRef.current?.focus()
-        if (import.meta.env.DEV) console.debug('[schedules] save 4xx', { status: e.status, body: e.data })
+        if ((globalThis as any).__DEV__) console.debug('[schedules] save 4xx', { status: e.status, body: e.data })
       } else {
         try { const { pushToast } = await import('@/components/ui/toast'); pushToast('Failed to save schedules', 'error') } catch {}
-        if (import.meta.env.DEV) console.debug('[schedules] save 5xx/other', e)
+        if ((globalThis as any).__DEV__) console.debug('[schedules] save 5xx/other', e)
       }
     } finally {
       setSaving(false)
@@ -90,7 +87,6 @@ export default function SettingsSchedules() {
 
   function onRestoreDefaults() {
     setDraft({ smartScan: 'Sun 03:00', btrfsScrub: 'Sun *-*-01..07 03:00' })
-    setDirty(true)
   }
 
   return (

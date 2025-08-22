@@ -56,7 +56,7 @@ describe('Devices wizard warnings and confirm gating', () => {
 
     await screen.findByText(/Warnings:/i)
     const applyBtn = screen.getByRole('button', { name:/Apply/i }) as HTMLButtonElement
-    expect(applyBtn).toBeDisabled()
+    expect(applyBtn.disabled).toBe(true)
 
     const confirmInput = screen.getByLabelText(/Confirm code/i)
     fireEvent.change(confirmInput, { target: { value: 'ADD' } })

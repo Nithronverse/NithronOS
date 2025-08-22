@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '../api/client'
 import { useNavigate } from 'react-router-dom'
 
@@ -19,8 +19,6 @@ export function PoolsCreate() {
     api.disks.get().then((d: any) => setDiskList(d.disks || []))
   }, [])
 
-  const selectedRows = useMemo(() => diskList.filter((d) => devices.includes(d.path || d.name)), [diskList, devices])
-
   async function doPlan() {
     setError(null)
     try {
@@ -35,7 +33,7 @@ export function PoolsCreate() {
   async function doCreate() {
     setError(null)
     try {
-      const res: any = await api.pools.applyCreateV1({ plan: plan?.plan, fstab: plan?.fstab, confirm: 'CREATE' })
+      await api.pools.applyCreateV1({ plan: plan?.plan, fstab: plan?.fstab, confirm: 'CREATE' })
       const id = label
       nav(`/storage/${encodeURIComponent(id)}?mount=${encodeURIComponent(mountpoint)}`)
     } catch (e: any) {
@@ -146,11 +144,6 @@ function formatBytes(n: number): string {
   let v = n
   while (v >= 1024 && i < units.length - 1) { v/=1024; i++ }
   return `${v.toFixed(1)} ${units[i]}`
-}
-
-function getCSRF(): string {
-  const m = document.cookie.match(/(?:^|; )nos_csrf=([^;]*)/)
-  return m ? decodeURIComponent(m[1]) : ''
 }
 
 

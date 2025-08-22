@@ -266,7 +266,6 @@ export function CreatePoolWizard({ onCreated }: { onCreated?: () => void }) {
   )
 }
 
-function getCSRF(): string { const m = document.cookie.match(/(?:^|; )nos_csrf=([^;]*)/); return m ? decodeURIComponent(m[1]) : '' }
 function formatBytes(n: number): string { if (!n || Number.isNaN(n)) return '-'; const u = ['B','KB','MB','GB','TB','PB']; let i=0,v=n; while(v>=1024 && i<u.length-1){v/=1024;i++} return `${v.toFixed(1)} ${u[i]}` }
 function validateDevicesForRaid(raid: string, count: number): string | null {
   if (raid === 'single' && count < 1) return 'Select at least one device'
