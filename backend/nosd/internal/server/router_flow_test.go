@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -89,8 +90,8 @@ func TestSetupFullFlowAnd410(t *testing.T) {
 		req.Header.Set("Authorization", "Bearer "+expTok)
 		res := httptest.NewRecorder()
 		r.ServeHTTP(res, req)
-		if res.Code != http.StatusUnauthorized {
-			t.Fatalf("expired token expected 401, got %d", res.Code)
+		if res.Code != http.StatusBadRequest {
+			t.Fatalf("expired token expected 400, got %d", res.Code)
 		}
 	}
 
@@ -280,6 +281,19 @@ func TestSetupFullFlowAnd410(t *testing.T) {
 		if res.Code != http.StatusUnauthorized {
 			t.Fatalf("me after logout: %d", res.Code)
 		}
+	}
+}
+
+func TestSetupVerifyOTP_TypedErrors(t *testing.T) {
+	cfg := config.Defaults()
+	r := NewRouter(cfg)
+	res := httptest.NewRecorder()
+	r.ServeHTTP(res, httptest.NewRequest(http.MethodPost, "/api/setup/verify-otp", bytes.NewBufferString(`{"otp":"1"}`)))
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", res.Code)
+	}
+	if !strings.Contains(res.Body.String(), "setup.otp.invalid") {
+		t.Fatalf("expected code setup.otp.invalid, got %s", res.Body.String())
 	}
 }
 

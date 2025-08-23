@@ -54,6 +54,7 @@ async function request<T>(path: string, init: RequestInit, retried = false): Pro
 		const ct = res.headers.get('content-type') || ''
 		let message = ''
 		let retryAfterSec = 0
+		let code = ''
 		let body: any = undefined
 		try {
 			if (ct.includes('application/json')) {
@@ -62,13 +63,22 @@ async function request<T>(path: string, init: RequestInit, retried = false): Pro
 				if (err) {
 					message = String(err.message || '')
 					retryAfterSec = Number(err.retryAfterSec || 0)
+					code = String(err.code || '')
 				}
 			} else {
 				message = await res.text()
 			}
 		} catch {}
-		// Global toasts for common statuses
-		if (res.status === 429) {
+		// Global toasts for common statuses and typed codes
+		if (code === 'setup.write_failed') {
+			pushToast('Service cannot write /etc/nos; see Admin → Logs.', 'error')
+		} else if (code === 'setup.otp.expired') {
+			pushToast('Your setup code expired. Request a new one.', 'error')
+		} else if (code === 'setup.otp.invalid') {
+			pushToast('Invalid setup code. Check and try again.', 'error')
+		} else if (code === 'auth.csrf.missing' || code === 'auth.csrf.invalid') {
+			pushToast('Your session expired. Please sign in again.', 'error')
+		} else if (res.status === 429) {
 			const ra = retryAfterSec || parseInt(res.headers.get('Retry-After') || '0', 10) || 0
 			pushToast(ra > 0 ? `Rate limited. Try again in ${ra}s` : 'Rate limited. Please try again shortly.', 'error')
 		} else if (res.status === 423) {

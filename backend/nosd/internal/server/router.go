@@ -355,15 +355,15 @@ func NewRouter(cfg config.Config) http.Handler {
 			}
 			ok1, rem1, reset1 := rlStore.Allow("otp:ip:"+ip, cfg.RateOTPPerMin, otpWin)
 			if !ok1 {
-				Logger(cfg).Warn().Str("event", "rate.limited").Str("route", "/api/setup/verify-otp").Str("key", "otp:ip:"+ip).Int("remaining", rem1).Time("resetAt", reset1).Msg("")
-				w.Header().Set("Retry-After", strconv.Itoa(int(time.Until(reset1).Seconds())))
-				httpx.WriteError(w, http.StatusTooManyRequests, `{"error":{"code":"rate.limited","message":"try later","retryAfterSec":`+strconv.Itoa(int(time.Until(reset1).Seconds()))+`}}`)
+				retry := int(time.Until(reset1).Seconds())
+				Logger(cfg).Warn().Str("event", "rate.limited").Str("route", "/api/setup/verify-otp").Str("key", "otp:ip:"+ip).Int("remaining", rem1).Int("retryAfterSec", retry).Msg("")
+				httpx.WriteTypedError(w, http.StatusTooManyRequests, "rate.limited", "Too many attempts. Try later.", retry)
 				return
 			}
 			var body struct{ OTP string }
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			if len(body.OTP) != 6 {
-				httpx.WriteError(w, http.StatusBadRequest, "otp required")
+				httpx.WriteTypedError(w, http.StatusBadRequest, "setup.otp.invalid", "Enter the 6-digit code", 0)
 				return
 			}
 			var st struct {
@@ -375,18 +375,19 @@ func NewRouter(cfg config.Config) http.Handler {
 				_ = json.Unmarshal(b, &st)
 			}
 			if st.Used || st.OTP == "" || st.OTP != body.OTP {
-				httpx.WriteError(w, http.StatusUnauthorized, "invalid otp")
+				httpx.WriteTypedError(w, http.StatusBadRequest, "setup.otp.invalid", "Invalid one-time code", 0)
 				return
 			}
 			if t, err := time.Parse(time.RFC3339, st.CreatedAt); err != nil || time.Since(t) >= 15*time.Minute {
-				httpx.WriteError(w, http.StatusUnauthorized, "otp expired")
+				httpx.WriteTypedError(w, http.StatusBadRequest, "setup.otp.expired", "Your code expired. Request a new one.", 0)
 				return
 			}
 			// Do not mark used here to allow rate limiter integration tests
 			payload := map[string]any{"purpose": "setup", "exp": time.Now().Add(10 * time.Minute).UTC().Format(time.RFC3339)}
 			val, err := setupEncodeToken(cfg, payload)
 			if err != nil {
-				httpx.WriteError(w, http.StatusInternalServerError, "token error")
+				Logger(cfg).Error().Str("event", "setup.token.error").Err(err).Msg("")
+				httpx.WriteTypedError(w, http.StatusInternalServerError, "store.atomic_fail", "Could not issue setup token", 0)
 				return
 			}
 			writeJSON(w, map[string]any{"ok": true, "token": val})
@@ -394,32 +395,32 @@ func NewRouter(cfg config.Config) http.Handler {
 
 		sr.Post("/create-admin", func(w http.ResponseWriter, r *http.Request) {
 			if users == nil {
-				httpx.WriteError(w, http.StatusInternalServerError, "user store unavailable")
+				httpx.WriteTypedError(w, http.StatusInternalServerError, "store.lock", "User store unavailable", 0)
 				return
 			}
 			authz := r.Header.Get("Authorization")
 			const prefix = "Bearer "
 			if !strings.HasPrefix(authz, prefix) {
-				httpx.WriteError(w, http.StatusUnauthorized, "missing bearer")
+				httpx.WriteTypedError(w, http.StatusUnauthorized, "auth.csrf.missing", "Missing setup bearer token", 0)
 				return
 			}
 			tok := strings.TrimSpace(authz[len(prefix):])
 			claims, err := setupDecodeToken(cfg, tok)
 			if err != nil {
-				httpx.WriteError(w, http.StatusUnauthorized, "invalid token")
+				httpx.WriteTypedError(w, http.StatusUnauthorized, "auth.csrf.invalid", "Invalid setup token", 0)
 				return
 			}
 			if claims["purpose"] != "setup" {
-				httpx.WriteError(w, http.StatusUnauthorized, "invalid token")
+				httpx.WriteTypedError(w, http.StatusUnauthorized, "auth.csrf.invalid", "Invalid setup token", 0)
 				return
 			}
 			if expStr, ok := claims["exp"].(string); ok {
 				if t, err := time.Parse(time.RFC3339, expStr); err != nil || time.Now().After(t) {
-					httpx.WriteError(w, http.StatusUnauthorized, "token expired")
+					httpx.WriteTypedError(w, http.StatusBadRequest, "setup.otp.expired", "Setup token expired", 0)
 					return
 				}
 			} else {
-				httpx.WriteError(w, http.StatusUnauthorized, "invalid token")
+				httpx.WriteTypedError(w, http.StatusUnauthorized, "auth.csrf.invalid", "Invalid setup token", 0)
 				return
 			}
 			var body struct {
@@ -430,20 +431,21 @@ func NewRouter(cfg config.Config) http.Handler {
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			uname := strings.TrimSpace(body.Username)
 			if !validUsername(uname) {
-				httpx.WriteError(w, http.StatusBadRequest, "invalid username")
+				httpx.WriteTypedError(w, http.StatusBadRequest, "input.invalid", "Invalid username", 0)
 				return
 			}
 			if !validPassword(body.Password) {
-				httpx.WriteError(w, http.StatusBadRequest, "weak password")
+				httpx.WriteTypedError(w, http.StatusBadRequest, "input.weak_password", "Choose a stronger password", 0)
 				return
 			}
 			if _, err := users.FindByUsername(uname); err == nil {
-				httpx.WriteError(w, http.StatusConflict, "username taken")
+				httpx.WriteTypedError(w, http.StatusConflict, "input.username_taken", "Username is taken", 0)
 				return
 			}
 			phc, err := pwhash.HashPassword(body.Password)
 			if err != nil {
-				httpx.WriteError(w, http.StatusInternalServerError, "hash error")
+				Logger(cfg).Error().Str("event", "setup.hash.error").Err(err).Msg("")
+				httpx.WriteTypedError(w, http.StatusInternalServerError, "store.atomic_fail", "Internal error", 0)
 				return
 			}
 			now := time.Now().UTC().Format(time.RFC3339)
@@ -452,7 +454,12 @@ func NewRouter(cfg config.Config) http.Handler {
 				u.TOTPEnc = "pending"
 			}
 			if err := users.UpsertUser(u); err != nil {
-				httpx.WriteError(w, http.StatusInternalServerError, "persist error")
+				code := "store.atomic_fail"
+				if os.IsPermission(err) || os.IsNotExist(err) {
+					code = "setup.write_failed"
+				}
+				Logger(cfg).Error().Str("event", "setup.persist.error").Str("code", code).Err(err).Msg("")
+				httpx.WriteErrorWithDetails(w, http.StatusInternalServerError, code, "Failed to write configuration", map[string]any{"path": cfg.UsersPath})
 				return
 			}
 			writeJSON(w, map[string]any{"ok": true})

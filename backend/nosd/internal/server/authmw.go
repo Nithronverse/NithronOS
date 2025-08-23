@@ -6,6 +6,7 @@ import (
 
 	"nithronos/backend/nosd/internal/config"
 	"nithronos/backend/nosd/pkg/auth"
+	"nithronos/backend/nosd/pkg/httpx"
 )
 
 type ctxKey string
@@ -47,11 +48,11 @@ func requireCSRF(next http.Handler) http.Handler {
 		}
 		ck, err := r.Cookie(auth.CSRFCookieName)
 		if err != nil {
-			w.WriteHeader(http.StatusForbidden)
+			httpx.WriteTypedError(w, http.StatusUnauthorized, "auth.csrf.missing", "Missing CSRF token", 0)
 			return
 		}
 		if r.Header.Get("X-CSRF-Token") != ck.Value {
-			w.WriteHeader(http.StatusForbidden)
+			httpx.WriteTypedError(w, http.StatusUnauthorized, "auth.csrf.invalid", "Invalid CSRF token", 0)
 			return
 		}
 		next.ServeHTTP(w, r)
