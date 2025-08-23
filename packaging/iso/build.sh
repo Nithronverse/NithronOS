@@ -14,14 +14,41 @@ PROFILE_DIR="$SCRIPT_DIR/debian"
 OUT_DIR="$SCRIPT_DIR/../../dist/iso"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# Optional: brand Debian Installer splash/logo if PNGs are present
-if [ -f "$REPO_ROOT/assets/brand/nithronos-logo-mark.png" ]; then
+# --- begin logo wiring ---
+LOGO_SRC=""
+for p in \
+  "$REPO_ROOT/assets/nithronos-logo-mark.png" \
+  "$REPO_ROOT/assets/brand/nithronos-logo-mark.png"
+do
+  if [ -f "$p" ]; then LOGO_SRC="$p"; break; fi
+done
+
+if [ -n "$LOGO_SRC" ]; then
+  echo "[iso] branding with logo: $LOGO_SRC"
+
+  # Debian Installer graphics
   mkdir -p "$PROFILE_DIR/config/includes.installer/usr/share/graphics"
-  cp "$REPO_ROOT/assets/brand/nithronos-logo-mark.png" \
-     "$PROFILE_DIR/config/includes.installer/usr/share/graphics/logo_debian.png"
-  cp "$REPO_ROOT/assets/brand/nithronos-logo-mark.png" \
-     "$PROFILE_DIR/config/includes.installer/usr/share/graphics/splash.png"
+  # Logo (light + dark)
+  cp "$LOGO_SRC" "$PROFILE_DIR/config/includes.installer/usr/share/graphics/logo_debian.png"
+  cp "$LOGO_SRC" "$PROFILE_DIR/config/includes.installer/usr/share/graphics/logo_debian_dark.png" || true
+
+  # Splash: try convert to 640x480, fallback to raw
+  SPL_OUT="$PROFILE_DIR/config/includes.installer/usr/share/graphics/splash.png"
+  if command -v convert >/dev/null 2>&1; then
+    convert "$LOGO_SRC" -resize 640x480 -background black -gravity center -extent 640x480 "$SPL_OUT" || cp "$LOGO_SRC" "$SPL_OUT"
+  else
+    cp "$LOGO_SRC" "$SPL_OUT"
+  fi
+
+  # GRUB background (UEFI)
+  mkdir -p "$PROFILE_DIR/config/includes.binary/boot/grub"
+  cp "$SPL_OUT" "$PROFILE_DIR/config/includes.binary/boot/grub/splash.png" || cp "$LOGO_SRC" "$PROFILE_DIR/config/includes.binary/boot/grub/splash.png"
+
+  # ISOLINUX background (BIOS)
+  mkdir -p "$PROFILE_DIR/config/includes.binary/isolinux"
+  cp "$SPL_OUT" "$PROFILE_DIR/config/includes.binary/isolinux/splash.png" || cp "$LOGO_SRC" "$PROFILE_DIR/config/includes.binary/isolinux/splash.png"
 fi
+# --- end logo wiring ---
 
 # Ensure apt includes directories exist for pinned sources
 mkdir -p "$PROFILE_DIR/config/includes.chroot/etc/apt" "$PROFILE_DIR/config/includes.binary/etc/apt"

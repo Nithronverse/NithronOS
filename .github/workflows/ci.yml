@@ -224,7 +224,7 @@ jobs:
       - name: Install ISO build dependencies (container root)
         run: |
           apt-get update
-          apt-get install -y git live-build xorriso squashfs-tools cpio debootstrap genisoimage ca-certificates
+          apt-get install -y git live-build xorriso squashfs-tools cpio debootstrap genisoimage ca-certificates imagemagick
 
       - name: Checkout at commit
         uses: actions/checkout@v4
