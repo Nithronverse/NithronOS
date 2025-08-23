@@ -50,7 +50,7 @@ describe('SettingsUpdates', () => {
     // wait initial load
     await screen.findByText(/Available updates/i)
     const btn = screen.getByRole('button', { name: /Apply Updates/i }) as HTMLButtonElement
-    const toastSpy = (toast as any).pushToast as ReturnType<typeof vi.fn>
+    const toastSpy = vi.spyOn(toast, 'pushToast')
     fireEvent.click(btn)
     expect(btn.disabled).toBe(true)
     await waitFor(()=> {

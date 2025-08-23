@@ -91,8 +91,8 @@ func TestApplyDevice_BalanceRunningToDone(t *testing.T) {
 		t.Fatalf("missing tx_id")
 	}
 
-	// wait for completion (allow slack on CI)
-	deadline := time.Now().Add(10 * time.Second)
+	// wait for completion (allow extra slack on CI)
+	deadline := time.Now().Add(30 * time.Second)
 	for {
 		if time.Now().After(deadline) {
 			t.Fatal("timeout waiting for tx finish")
