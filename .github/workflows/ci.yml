@@ -154,6 +154,13 @@ jobs:
           set -euo pipefail
           if [ -d backend/nosd ]; then (cd backend/nosd && go test ./... -v); fi
           if [ -d agent/nos-agent ]; then (cd agent/nos-agent && go test ./... -v); else echo "agent module missing; skipping"; fi
+
+      - name: Debug failing internal/server tests (verbose)
+        if: ${{ failure() }}
+        run: |
+          echo "[ci] Re-running backend/nosd/internal/server with verbose output for diagnostics"
+          cd backend/nosd
+          go test -count=1 -v ./internal/server || true
       - name: Manual smoke (disabled)
         if: ${{ false }}
         run: echo "Manual smoke disabled by default"
