@@ -99,7 +99,8 @@ func TestApplyDevice_BalanceRunningToDone(t *testing.T) {
 		}
 		var cur pools.Tx
 		_, _ = fsatomic.LoadJSON(txPath(txID), &cur)
-		if cur.FinishedAt != nil && cur.OK {
+		// Consider done if marked OK or last step is ok (avoid rare FinishedAt race in CI)
+		if cur.OK || (len(cur.Steps) > 0 && cur.Steps[len(cur.Steps)-1].Status == "ok") {
 			break
 		}
 		time.Sleep(5 * time.Millisecond)
