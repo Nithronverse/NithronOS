@@ -50,6 +50,15 @@ describe('SettingsUpdates', () => {
     // wait initial load
     await screen.findByText(/Available updates/i)
     const btn = screen.getByRole('button', { name: /Apply Updates/i }) as HTMLButtonElement
+    // Make the apply call resolve after a short delay so we can observe the disabled state
+    const delayedOk = new Response(JSON.stringify({ ok:true, tx_id:'tx-1', snapshots_count:1, updates_count:1 }), { status:200, headers:{'Content-Type':'application/json'} })
+    ;(global.fetch as any).mockImplementationOnce(async (input: RequestInfo) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url.includes('/api/updates/apply')) {
+        return await new Promise<Response>(res => setTimeout(() => res(delayedOk), 60))
+      }
+      return delayedOk
+    })
     fireEvent.click(btn)
     // goes into applying state (allow async state update)
     await waitFor(() => expect(btn.disabled).toBe(true))
