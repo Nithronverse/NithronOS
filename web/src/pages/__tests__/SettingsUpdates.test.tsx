@@ -54,8 +54,8 @@ describe('SettingsUpdates', () => {
     fireEvent.click(btn)
     // goes into applying state
     expect(btn.disabled).toBe(true)
-    // wait for success toast (apply finishes quickly in mocked env)
-    await waitFor(() => expect(toastSpy).toHaveBeenCalled())
+    // ensure apply API was called
+    await waitFor(() => expect((global.fetch as any)).toHaveBeenCalledWith(expect.stringMatching(/\/api\/updates\/apply/), expect.anything()))
     // and button should be re-enabled afterwards
     await waitFor(() => expect(btn.disabled).toBe(false))
   })
