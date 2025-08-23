@@ -51,8 +51,8 @@ describe('SettingsUpdates', () => {
     await screen.findByText(/Available updates/i)
     const btn = screen.getByRole('button', { name: /Apply Updates/i }) as HTMLButtonElement
     fireEvent.click(btn)
-    // goes into applying state
-    expect(btn.disabled).toBe(true)
+    // goes into applying state (allow async state update)
+    await waitFor(() => expect(btn.disabled).toBe(true))
     // ensure apply API was called (search mock.calls for the apply URL)
     await waitFor(() => {
       const calls = ((global.fetch as any).mock?.calls || []) as any[]
