@@ -11,11 +11,24 @@ fi
 
 sudo install -D -m0644 deploy/systemd/nosd.service /etc/systemd/system/nosd.service
 sudo systemctl daemon-reload
-sudo systemd-sysusers || true
-sudo systemd-tmpfiles --create || true
+
+# Ensure service user/group and writable dirs exist on CI hosts
+if ! getent passwd nosd >/dev/null 2>&1; then
+  if command -v useradd >/dev/null 2>&1; then
+    sudo useradd -r -M -s /usr/sbin/nologin nosd || true
+  elif command -v adduser >/dev/null 2>&1; then
+    sudo adduser --system --no-create-home --shell /usr/sbin/nologin nosd || true
+  fi
+fi
+if ! getent group nosd >/dev/null 2>&1; then
+  sudo groupadd -r nosd || true
+fi
+sudo usermod -g nosd nosd || true
+
+sudo install -d -m0750 -o nosd -g nosd /etc/nos
+sudo install -d -m0750 -o nosd -g nosd /var/lib/nos
 
 # Start a transient service that shares the same sandbox constraints and attempts a write.
-sudo mkdir -p /etc/nos
 TMP_FILE="/etc/nos/_ci_sandbox_test"
 sudo systemd-run --unit=nosd-smoke --property=User=nosd --property=Group=nosd \
   --property=ProtectSystem=strict \
