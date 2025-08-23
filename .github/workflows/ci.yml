@@ -272,6 +272,10 @@ jobs:
         run: |
           chmod +x packaging/iso/build.sh
           bash packaging/iso/build.sh packaging/iso/local-debs
+      - name: Install Caddy (container)
+        run: |
+          apt-get update
+          apt-get install -y caddy
       - name: "ISO smoke: caddy + ports"
         run: |
           which caddy || true
