@@ -1,5 +1,5 @@
-nos-agent (0.1.1-1) unstable; urgency=medium
+nos-agent (0.1.3-1) unstable; urgency=medium
 
-  * Initial Debian packaging.
+  * Fix ExecStart path for nos-agent (/usr/bin) and align install paths.
 
- -- NithronOS Maintainers <maintainers@nithron.com>  Wed, 20 Aug 2025 12:00:00 +0000
+ -- NithronOS Maintainers <maintainers@nithron.com>  Sat, 23 Aug 2025 12:00:00 +0000

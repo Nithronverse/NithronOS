@@ -5,13 +5,13 @@ After=network.target
 [Service]
 User=root
 Group=root
-ExecStart=/usr/local/bin/nos-agent
+ExecStart=/usr/bin/nos-agent
 Restart=on-failure
 RestartSec=2s
 # Create and own the socket; group nos can access
 ExecStartPre=/usr/bin/mkdir -p /run
 ExecStartPre=/usr/bin/rm -f /run/nos-agent.sock
-ExecStartPost=/usr/bin/chmod 660 /run/nos-agent.sock
+ExecStartPost=/bin/chmod 660 /run/nos-agent.sock
 ExecStartPost=/usr/bin/chgrp nos /run/nos-agent.sock
 AmbientCapabilities=CAP_SYS_ADMIN CAP_DAC_READ_SEARCH
 NoNewPrivileges=true

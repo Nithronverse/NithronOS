@@ -1,4 +1,3 @@
-debian/nos-agent/usr/sbin/nos-agent usr/sbin/
-debian/nos-agent/etc/systemd/system/nos-agent.service etc/systemd/system/
+debian/nos-agent/usr/bin/nos-agent usr/bin/
 
 

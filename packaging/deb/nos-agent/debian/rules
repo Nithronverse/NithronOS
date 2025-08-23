@@ -10,7 +10,7 @@ override_dh_auto_build:
 	cd ../../../agent/nos-agent && go mod tidy && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o ../../packaging/deb/nos-agent/deb-build/nos-agent .
 
 override_dh_auto_install:
-	install -D -m0755 deb-build/nos-agent debian/nos-agent/usr/sbin/nos-agent
+	install -D -m0755 deb-build/nos-agent debian/nos-agent/usr/bin/nos-agent
 
 override_dh_dwz:
 	@echo "skip dh_dwz for Go binary"
