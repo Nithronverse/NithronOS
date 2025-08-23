@@ -137,6 +137,8 @@ At first boot the system prints the UI URL + one-time OTP to the console.
 
 Boot menu provides **NithronOS Live**, **Install NithronOS (Debian Installer)**, and **failsafe** entries. The installer is functional but lightly branded; full nOS installer UX will come later.
 
+> **Hyper-V:** Use “NithronOS Live”. The “Kernel fallback (no ACPI)” entry is **not** for Hyper-V; use “safe graphics” instead if you only need to disable GPU modesetting.
+
 ---
 
 ## Firewall (LAN-only by default)
