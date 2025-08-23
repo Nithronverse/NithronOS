@@ -280,16 +280,8 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Upload DEB artifacts (non-release)
-        if: ${{ github.event_name != 'release' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: NithronOS - Debian Packages - ${{ github.event.release.tag_name || github.ref_name }}
-          path: |
-            dist/deb/*.deb
-            dist/deb/*.changes
-            dist/deb/*.buildinfo
-            dist/deb/SHA256SUMS
+      # DEB artifacts are already uploaded in the 'debs' job for non-release runs.
+      # Avoid re-upload here to prevent 409 conflicts on the same workflow run.
 
       - name: Upload release assets (ISO + DEBs + checksums)
         if: ${{ github.event_name == 'release' }}
