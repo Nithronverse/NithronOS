@@ -218,6 +218,7 @@ func handleApplyDevice(cfg config.Config) http.HandlerFunc {
 						done := time.Now().UTC()
 						cur.Steps[i].Status = "error"
 						cur.Steps[i].FinishedAt = &done
+						cur.FinishedAt = &done
 						_ = saveTx(cur)
 						appendTxLog(cur.ID, "error", st.ID, out)
 						return nil
