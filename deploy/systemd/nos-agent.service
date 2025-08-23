@@ -5,7 +5,9 @@ After=network.target
 [Service]
 User=root
 Group=root
-ExecStart=/usr/bin/nos-agent
+ExecStart=/usr/sbin/nos-agent
+RuntimeDirectory=nos-agent
+RuntimeDirectoryMode=0750
 Restart=on-failure
 RestartSec=2s
 # Create and own the socket; group nos can access
