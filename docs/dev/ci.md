@@ -5,6 +5,7 @@
 - Build & Test: go build/test, web build, fuzz/property tests
 - Packaging: build .deb, ISO
 - Smoke: QEMU boot, health check; always upload logs
+- Caddyfile Validate: install caddy and run `caddy validate` on `packaging/iso/debian/config/includes.chroot/etc/caddy/Caddyfile`
 
 ## Triggers
 - Push to `main`

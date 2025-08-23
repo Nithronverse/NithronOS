@@ -18,6 +18,8 @@ function mockFetchSequence() {
       return new Response(JSON.stringify([]), { status:200, headers:{'Content-Type':'application/json'} })
     }
     if (url.includes('/api/updates/apply')) {
+      // Add a tiny delay so the UI renders the applying state reliably in CI
+      await new Promise((r) => setTimeout(r, 25))
       return new Response(JSON.stringify({ ok:true, tx_id:'tx-1', snapshots_count:1, updates_count:1 }), { status:200, headers:{'Content-Type':'application/json'} })
     }
     if (url.includes('/api/updates/rollback')) {
