@@ -17,3 +17,10 @@ findutils
 nvme-cli
 
 
+systemd-sysv
+live-boot
+live-config
+live-tools
+ca-certificates
+curl
+hyperv-daemons

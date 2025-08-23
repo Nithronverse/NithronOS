@@ -78,51 +78,16 @@ export LB_MIRROR_CHROOT_SECURITY=""
 export LB_MIRROR_BINARY_SECURITY=""
 export LB_SECURITY="false"
 
-# Ensure serial console output for CI smoke (QEMU serial). Put ttyS0 last so it's primary.
-# Also enable very-early and verbose logging on serial for CI detection.
-SERIAL_ARGS="console=tty0 console=ttyS0,115200 earlyprintk=ttyS0,115200 ignore_loglevel loglevel=7 systemd.log_level=debug systemd.journald.forward_to_console=1"
-export LB_BOOTAPPEND_LIVE="${SERIAL_ARGS}"
-export LB_BOOTAPPEND_INSTALL="${SERIAL_ARGS}"
 # Enable serial for syslinux (BIOS boot menu) so early bootloader output goes to serial
 export LB_SYSLINUX_SERIAL="0 115200"
 
-# Disable live-build's kernel autodetect/linux-image stage
-export LB_LINUX_FLAVOURS=""
-export LB_LINUX_PACKAGES=""
-
-# --- begin: disable live-build linux-image stage ---
-patch_skip_linux_stage() {
-  local f="/usr/lib/live/build/lb_chroot_linux-image"
-  if [ ! -f "$f" ]; then
-    echo "[iso] skip: $f not found"
-    return 0
-  fi
-  # Only patch once
-  if grep -q 'nithronos-skip-linux-image' "$f"; then
-    echo "[iso] linux-image stage already disabled"
-    return 0
-  fi
-  echo "[iso] disabling live-build linux-image stage (we install kernel via package list)"
-  cp -a "$f" "$f.orig" || true
-  cat > "$f" <<'SH'
-#!/bin/sh
-# nithronos-skip-linux-image: live-build kernel autodetect disabled.
-# The kernel is installed explicitly via package lists (linux-image-amd64).
-echo "[iso] skipping lb_chroot_linux-image (kernel provided by package list)"
-exit 0
-SH
-  chmod +x "$f"
-}
-patch_skip_linux_stage
-# --- end: disable live-build linux-image stage ---
+## No kernel stage overrides; rely on package lists (linux-image-amd64) and lb defaults
 
 ${SUDO_CMD} lb config \
   --mode debian \
   --distribution bookworm \
   --architectures "${ARCH}" \
   --binary-images iso-hybrid \
-  --bootappend-live "${LB_BOOTAPPEND_LIVE}" \
-  --bootappend-install "${LB_BOOTAPPEND_INSTALL}" \
   --apt-recommends true \
   --apt-indices false \
   --debian-installer live \
@@ -131,20 +96,14 @@ ${SUDO_CMD} lb config \
   --mirror-chroot   "$DEBIAN_MIRROR" \
   --mirror-binary   "$DEBIAN_MIRROR"
 
-# Persist kernel skip into profile so lb build picks it up even if envs are sanitized
-printf '%s\n' 'LB_LINUX_FLAVOURS=""' 'LB_LINUX_PACKAGES=""' >> "$PROFILE_DIR/config/common"
-printf '%s\n' 'LB_LINUX_FLAVOURS=""' 'LB_LINUX_PACKAGES=""' >> "$PROFILE_DIR/config/chroot"
+## Do not persist LB_LINUX_* overrides; kernel handled via package lists
 
-# Persist serial console boot parameters into profile (clean any prior entries)
+# Persist only LB_SYSLINUX_SERIAL into profile (clean any prior entries)
 for f in "$PROFILE_DIR/config/common" "$PROFILE_DIR/config/chroot"; do
   [ -f "$f" ] && sed -i -E '/^LB_BOOTAPPEND_(LIVE|INSTALL)=/d; /^LB_SYSLINUX_SERIAL=/d' "$f"
 done
 printf '%s\n' 'LB_SYSLINUX_SERIAL="0 115200"' >> "$PROFILE_DIR/config/common"
 printf '%s\n' 'LB_SYSLINUX_SERIAL="0 115200"' >> "$PROFILE_DIR/config/chroot"
-printf '%s\n' 'LB_BOOTAPPEND_LIVE="console=tty0 console=ttyS0,115200 earlyprintk=ttyS0,115200 ignore_loglevel loglevel=7 systemd.log_level=debug systemd.journald.forward_to_console=1"' >> "$PROFILE_DIR/config/common"
-printf '%s\n' 'LB_BOOTAPPEND_INSTALL="console=tty0 console=ttyS0,115200 earlyprintk=ttyS0,115200 ignore_loglevel loglevel=7 systemd.log_level=debug systemd.journald.forward_to_console=1"' >> "$PROFILE_DIR/config/common"
-printf '%s\n' 'LB_BOOTAPPEND_LIVE="console=tty0 console=ttyS0,115200 earlyprintk=ttyS0,115200 ignore_loglevel loglevel=7 systemd.log_level=debug systemd.journald.forward_to_console=1"' >> "$PROFILE_DIR/config/chroot"
-printf '%s\n' 'LB_BOOTAPPEND_INSTALL="console=tty0 console=ttyS0,115200 earlyprintk=ttyS0,115200 ignore_loglevel loglevel=7 systemd.log_level=debug systemd.journald.forward_to_console=1"' >> "$PROFILE_DIR/config/chroot"
 
 # Remove any stale security lines live-build might inject
 sed -i '/security\.debian\.org.*bookworm\/updates/d' "$PROFILE_DIR"/config/* 2>/dev/null || true
@@ -163,7 +122,6 @@ done
 
 # Build ISO (LB assumes non-interactive)
 export DEBIAN_FRONTEND=noninteractive
-echo "[iso] LB_LINUX_FLAVOURS='${LB_LINUX_FLAVOURS}' LB_LINUX_PACKAGES='${LB_LINUX_PACKAGES}' (kernel installed via package list)"
 ${SUDO_CMD} lb build
 
 # Default output path from live-build
