@@ -54,10 +54,10 @@ describe('SettingsUpdates', () => {
     fireEvent.click(btn)
     // goes into applying state
     expect(btn.disabled).toBe(true)
-    await screen.findByText(/Applying…/i)
-    // wait until apply completes and button text flips back
-    await screen.findByText(/Apply Updates/i)
+    // wait for success toast (apply finishes quickly in mocked env)
     await waitFor(() => expect(toastSpy).toHaveBeenCalled())
+    // and button should be re-enabled afterwards
+    await waitFor(() => expect(btn.disabled).toBe(false))
   })
 
   it('calls rollback API', async () => {
