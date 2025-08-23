@@ -12,6 +12,16 @@ DEB_DIR="${1:-packaging/iso/local-debs}"
 SCRIPT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROFILE_DIR="$SCRIPT_DIR/debian"
 OUT_DIR="$SCRIPT_DIR/../../dist/iso"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+# Optional: brand Debian Installer splash/logo if PNGs are present
+if [ -f "$REPO_ROOT/assets/brand/nithronos-logo-mark.png" ]; then
+  mkdir -p "$PROFILE_DIR/config/includes.installer/usr/share/graphics"
+  cp "$REPO_ROOT/assets/brand/nithronos-logo-mark.png" \
+     "$PROFILE_DIR/config/includes.installer/usr/share/graphics/logo_debian.png"
+  cp "$REPO_ROOT/assets/brand/nithronos-logo-mark.png" \
+     "$PROFILE_DIR/config/includes.installer/usr/share/graphics/splash.png"
+fi
 
 # Ensure apt includes directories exist for pinned sources
 mkdir -p "$PROFILE_DIR/config/includes.chroot/etc/apt" "$PROFILE_DIR/config/includes.binary/etc/apt"

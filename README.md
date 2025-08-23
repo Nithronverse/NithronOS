@@ -135,6 +135,8 @@ Build a bootable ISO (Debian live) with NithronOS preinstalled.
 
 At first boot the system prints the UI URL + one-time OTP to the console.
 
+Boot menu provides **NithronOS Live**, **Install NithronOS (Debian Installer)**, and **failsafe** entries. The installer is functional but lightly branded; full nOS installer UX will come later.
+
 ---
 
 ## Firewall (LAN-only by default)
