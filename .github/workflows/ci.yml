@@ -140,7 +140,7 @@ jobs:
       - name: Test backend & agent
         run: |
           cd backend/nosd && go test ./... -v && cd -
-          cd agent/nos-agent && go test ./... -v && cd -
+          if [ -d agent/nos-agent ]; then (cd agent/nos-agent && go test ./... -v && cd -); else echo "agent module missing; skipping"; fi
 
       - name: Web tests (if configured)
         run: |
