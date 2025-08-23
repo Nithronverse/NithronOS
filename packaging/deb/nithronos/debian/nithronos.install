@@ -7,5 +7,9 @@ nos-btrfs-scrub@.service lib/systemd/system/
 nos-btrfs-scrub@.timer lib/systemd/system/
 nos-fstrim.service lib/systemd/system/
 nos-fstrim.timer lib/systemd/system/
+deploy/scripts/gen-local-cert.sh usr/lib/nithronos/
+packaging/deb/nithronos/nithronos-certgen.service etc/systemd/system/
+deploy/systemd/nithronos-firstboot-banner.service etc/systemd/system/
+deploy/caddy/Caddyfile etc/caddy/
 
 

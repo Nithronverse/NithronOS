@@ -1,0 +1,7 @@
+#!/bin/bash
+set -e
+
+systemctl enable nithronos-certgen.service caddy.service nosd.service nos-agent.service || true
+# sanity: print unit files exist and wanted symlinks are created
+systemctl is-enabled nithronos-certgen caddy nosd nos-agent || true
+

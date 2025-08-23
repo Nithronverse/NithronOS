@@ -168,6 +168,28 @@ func NewRouter(cfg config.Config) http.Handler {
 	rlStore := ratelimit.New(filepath.Join("/var/lib/nos", "ratelimit.json"))
 	mgr := session.New(filepath.Join("/var/lib/nos", "sessions.json"))
 
+	// On startup: if first boot and OTP exists/valid, log it
+	func() {
+		// Determine if setup complete by checking users on disk (fresh load)
+		us, _ := userstore.New(cfg.UsersPath)
+		if us == nil || !us.HasAdmin() {
+			// Load first-boot OTP state
+			var st struct {
+				OTP       string `json:"otp"`
+				CreatedAt string `json:"created_at"`
+				Used      bool   `json:"used"`
+			}
+			if b, err := os.ReadFile(cfg.FirstBootPath); err == nil {
+				_ = json.Unmarshal(b, &st)
+				if st.OTP != "" && !st.Used {
+					if t, err := time.Parse(time.RFC3339, st.CreatedAt); err == nil && time.Since(t) < 15*time.Minute {
+						Logger(cfg).Info().Msgf("First-boot OTP: %s (valid 15m)", st.OTP)
+					}
+				}
+			}
+		}
+	}()
+
 	// Session verification middleware for server-side binding (non-enforcing)
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -331,19 +353,40 @@ func NewRouter(cfg config.Config) http.Handler {
 		writeJSON(w, map[string]any{"id": id, "token": tok})
 	})
 
-	// Setup routes mounted only while firstBoot=true (unauthenticated)
+	// Setup routes are always registered, but gated with 410 when setup is complete
 	r.Route("/api/setup", func(sr chi.Router) {
 		sr.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if users != nil && users.HasAdmin() {
-					w.WriteHeader(http.StatusGone)
+				// Evaluate setup completion from disk on every request (robust against file changes)
+				us, _ := userstore.New(cfg.UsersPath)
+				if us != nil && us.HasAdmin() {
+					httpx.WriteTypedError(w, http.StatusGone, "setup.complete", "Setup already completed", 0)
 					return
 				}
 				next.ServeHTTP(w, r)
 			})
 		})
 		sr.Get("/state", func(w http.ResponseWriter, r *http.Request) {
-			writeJSON(w, map[string]any{"firstBoot": true, "otpRequired": true})
+			// Compute firstBoot and whether an OTP is currently required (exists and valid)
+			firstBoot := true
+			if us, _ := userstore.New(cfg.UsersPath); us != nil && us.HasAdmin() {
+				firstBoot = false
+			}
+			otpRequired := false
+			var st struct {
+				OTP       string `json:"otp"`
+				CreatedAt string `json:"created_at"`
+				Used      bool   `json:"used"`
+			}
+			if b, err := os.ReadFile(cfg.FirstBootPath); err == nil {
+				_ = json.Unmarshal(b, &st)
+				if st.OTP != "" && !st.Used {
+					if t, err := time.Parse(time.RFC3339, st.CreatedAt); err == nil && time.Since(t) < 15*time.Minute {
+						otpRequired = true
+					}
+				}
+			}
+			writeJSON(w, map[string]any{"firstBoot": firstBoot, "otpRequired": otpRequired})
 		})
 
 		// Rate limiter (persisted): per-IP cfg.RateOTPPerMin per minute for setup endpoints
@@ -468,6 +511,34 @@ func NewRouter(cfg config.Config) http.Handler {
 		})
 	})
 
+	// Recovery: local-only endpoint to clear first-boot state and optionally users
+	r.Post("/api/setup/recover", func(w http.ResponseWriter, r *http.Request) {
+		// Guard: localhost only
+		ip := r.RemoteAddr
+		if i := strings.LastIndex(ip, ":"); i >= 0 {
+			ip = ip[:i]
+		}
+		if ip != "127.0.0.1" && ip != "::1" {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		var body struct {
+			Confirm     string `json:"confirm"`
+			DeleteUsers bool   `json:"delete_users"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if strings.ToLower(strings.TrimSpace(body.Confirm)) != "yes" {
+			httpx.WriteTypedError(w, http.StatusPreconditionRequired, "confirm.required", "confirm=yes required", 0)
+			return
+		}
+		// Best-effort deletes
+		_ = os.Remove(cfg.FirstBootPath)
+		if body.DeleteUsers {
+			_ = os.Remove(cfg.UsersPath)
+		}
+		writeJSON(w, map[string]any{"ok": true})
+	})
+
 	// Remove legacy login limiter seed (persisted store is the single source of truth)
 	// (intentionally left blank)
 
@@ -478,7 +549,7 @@ func NewRouter(cfg config.Config) http.Handler {
 			return
 		}
 		if users.HasAdmin() {
-			httpx.WriteError(w, http.StatusConflict, "admin already exists")
+			httpx.WriteTypedError(w, http.StatusGone, "setup.complete", "Setup already completed", 0)
 			return
 		}
 		var body struct {

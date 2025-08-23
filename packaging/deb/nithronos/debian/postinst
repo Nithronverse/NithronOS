@@ -23,6 +23,14 @@ case "$1" in
         systemctl daemon-reload || true
         chmod 0755 /usr/lib/nithronos/report-deps.sh || true
         systemctl enable nithronos-deps-report.service || true
+        # Ensure permissions for installed helpers
+        chmod 0755 /usr/lib/nithronos/gen-local-cert.sh || true
+        # Enable TLS generator and core services
+        systemctl enable nithronos-certgen.service || true
+        systemctl enable caddy.service || true
+        systemctl enable nosd.service || true
+        systemctl enable nos-agent.service || true
+        systemctl enable nithronos-firstboot-banner.service || true
         chmod 0755 /usr/lib/nithronos/smart-scan.sh || true
         systemctl enable --now nos-smart-scan.timer || true
         systemctl enable --now nos-fstrim.timer || true

@@ -22,15 +22,21 @@ export default function Setup() {
 
   useEffect(() => {
     (async () => {
+      // Clear any stale cookies server-side; ignore failures
+      try { await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }) } catch {}
       try {
         const st = await get<SetupState>('/api/setup/state')
         if (!st.firstBoot) {
-          setLocalError('Setup already completed. You can sign in.')
-          pushToast('Setup already completed. You can sign in.', 'error')
+          setLocalError('Setup already completed. Sign in.')
         }
       } catch (e: any) {
-        setLocalError('Setup already completed. You can sign in.')
-        pushToast('Setup already completed. You can sign in.', 'error')
+        if (e && e.status === 410 && e.code === 'setup.complete') {
+          setLocalError('Setup already completed. Sign in.')
+        } else if (e && e.status === 404) {
+          setLocalError('Setup endpoint not available.')
+        } else {
+          setLocalError(String(e?.message || e))
+        }
       }
     })()
   }, [])
@@ -42,8 +48,12 @@ export default function Setup() {
         <h1 className="mb-4 text-center text-2xl font-semibold">First-time Setup</h1>
         {error && (
           <div className="mb-4 text-center text-yellow-400">
-            {error}{' '}
-            <button className="underline" onClick={() => nav('/login')}>Go to Sign in</button>
+            {error}
+            {error.includes('Setup already completed') && (
+              <div className="mt-2">
+                <button className="btn bg-primary text-primary-foreground" onClick={() => nav('/login')}>Sign In</button>
+              </div>
+            )}
           </div>
         )}
         <Steps step={step} />
@@ -85,7 +95,14 @@ function StepOTP({ onVerified, setError, setLoading, post }: { onVerified: (toke
       const res = await post<{ ok: boolean; token: string }>("/api/setup/verify-otp", { otp: otp.replace(/\s+/g, '') })
       onVerified(res.token)
     } catch (err: any) {
-      const m = String(err.message || err)
+      let m = String(err?.message || err)
+      if (err && (err.status === 401 || err.status === 403)) {
+        m = 'OTP expired/invalid. Regenerate and try again.'
+      }
+      if (err && err.status === 429) {
+        const sec = typeof err.retryAfterSec === 'number' ? err.retryAfterSec : undefined
+        m = `Too many attempts. Try again${sec ? ` in ${sec}s` : ''}.`
+      }
       setError(m)
       pushToast(m, 'error')
     } finally {
@@ -137,7 +154,14 @@ function StepCreateAdmin({ token, onDone, setError, setLoading, postAuth }: { to
       await postAuth<{ ok: boolean }>("/api/setup/create-admin", token, { username: data.username, password: data.password, enable_totp: !!data.enableTotp })
       onDone(!!data.enableTotp, data.enableTotp ? { username: data.username, password: data.password } : undefined)
     } catch (err: any) {
-      const m = String(err.message || err)
+      let m = String(err?.message || err)
+      if (err && (err.status === 401 || err.status === 403)) {
+        m = 'OTP expired/invalid. Regenerate and try again.'
+      }
+      if (err && err.status === 429) {
+        const sec = typeof err.retryAfterSec === 'number' ? err.retryAfterSec : undefined
+        m = `Too many attempts. Try again${sec ? ` in ${sec}s` : ''}.`
+      }
       setError(m)
       pushToast(m, 'error')
     } finally {

@@ -1,6 +1,6 @@
 [Unit]
 Description=Caddy Web Server for NithronOS
-After=network-online.target
+After=network-online.target nithronos-certgen.service
 Wants=network-online.target
 
 [Service]

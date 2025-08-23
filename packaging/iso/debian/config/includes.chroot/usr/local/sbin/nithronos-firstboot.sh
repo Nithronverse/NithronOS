@@ -2,10 +2,6 @@
 set -euo pipefail
 
 useradd -r -s /usr/sbin/nologin -d /var/lib/nos nos || true
-install -d -m 0755 -o root -g root /etc/nos/tls
-if [ ! -f /etc/nos/tls/cert.pem ]; then
-  openssl req -x509 -newkey rsa:2048 -nodes -days 365 -subj "/CN=nos.local" -keyout /etc/nos/tls/key.pem -out /etc/nos/tls/cert.pem
-fi
 
 systemctl enable --now caddy || true
 systemctl enable --now nftables || true

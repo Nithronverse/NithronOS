@@ -2,7 +2,7 @@
   redir https://{host}{uri}
 }
 :443 {
-  tls internal
+  tls /etc/nithronos/tls/cert.pem /etc/nithronos/tls/key.pem
   encode gzip zstd
   header {
     Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"

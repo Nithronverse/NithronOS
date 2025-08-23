@@ -356,3 +356,123 @@ func TestCreateAdmin_WriteFailThenRetrySameToken(t *testing.T) {
 		t.Fatalf("retry expected 204, got %d (%s)", res2.Code, res2.Body.String())
 	}
 }
+
+func TestSetupState_MissingEmptyInvalid(t *testing.T) {
+    dir := t.TempDir()
+    secretPath := filepath.Join(dir, "secret.key")
+    usersPath := filepath.Join(dir, "users.json")
+    firstbootPath := filepath.Join(dir, "firstboot.json")
+    key := make([]byte, 32)
+    for i := range key { key[i] = byte(1 + i) }
+    if err := os.WriteFile(secretPath, key, 0o600); err != nil { t.Fatal(err) }
+    t.Setenv("NOS_SECRET_PATH", secretPath)
+    t.Setenv("NOS_USERS_PATH", usersPath)
+    t.Setenv("NOS_FIRSTBOOT_PATH", firstbootPath)
+    // Start with empty users.json
+    if err := os.WriteFile(usersPath, []byte(""), 0o600); err != nil { t.Fatal(err) }
+    cfg := config.FromEnv()
+    r := NewRouter(cfg)
+
+    // Missing users.json
+    {
+        res := httptest.NewRecorder()
+        r.ServeHTTP(res, httptest.NewRequest(http.MethodGet, "/api/setup/state", nil))
+        if res.Code != http.StatusOK { t.Fatalf("missing: expected 200, got %d", res.Code) }
+        var st map[string]any
+        _ = json.Unmarshal(res.Body.Bytes(), &st)
+        if fb, _ := st["firstBoot"].(bool); !fb { t.Fatalf("missing: expected firstBoot=true, got %v", st) }
+    }
+
+    // Empty users.json
+    if err := os.WriteFile(usersPath, []byte(""), 0o600); err != nil { t.Fatal(err) }
+    {
+        res := httptest.NewRecorder()
+        r.ServeHTTP(res, httptest.NewRequest(http.MethodGet, "/api/setup/state", nil))
+        if res.Code != http.StatusOK { t.Fatalf("empty: expected 200, got %d", res.Code) }
+        var st map[string]any
+        _ = json.Unmarshal(res.Body.Bytes(), &st)
+        if fb, _ := st["firstBoot"].(bool); !fb { t.Fatalf("empty: expected firstBoot=true, got %v", st) }
+    }
+
+    // Invalid users.json
+    if err := os.WriteFile(usersPath, []byte("{"), 0o600); err != nil { t.Fatal(err) }
+    {
+        res := httptest.NewRecorder()
+        r.ServeHTTP(res, httptest.NewRequest(http.MethodGet, "/api/setup/state", nil))
+        if res.Code != http.StatusOK { t.Fatalf("invalid: expected 200, got %d", res.Code) }
+        var st map[string]any
+        _ = json.Unmarshal(res.Body.Bytes(), &st)
+        if fb, _ := st["firstBoot"].(bool); !fb { t.Fatalf("invalid: expected firstBoot=true, got %v", st) }
+    }
+}
+
+func TestSetupTransition_DeleteUsersRestoresFirstBoot(t *testing.T) {
+    dir := t.TempDir()
+    secretPath := filepath.Join(dir, "secret.key")
+    usersPath := filepath.Join(dir, "users.json")
+    firstbootPath := filepath.Join(dir, "firstboot.json")
+    key := make([]byte, 32)
+    for i := range key { key[i] = byte(1 + i) }
+    if err := os.WriteFile(secretPath, key, 0o600); err != nil { t.Fatal(err) }
+    t.Setenv("NOS_SECRET_PATH", secretPath)
+    t.Setenv("NOS_USERS_PATH", usersPath)
+    t.Setenv("NOS_FIRSTBOOT_PATH", firstbootPath)
+    // seed firstboot otp
+    otp := "654321"
+    fb := map[string]any{"otp": otp, "created_at": time.Now().UTC().Format(time.RFC3339), "used": false}
+    if b, _ := json.MarshalIndent(fb, "", "  "); b != nil {
+        if err := os.WriteFile(firstbootPath, b, 0o600); err != nil { t.Fatal(err) }
+    }
+    // high rate limits
+    t.Setenv("NOS_RATE_LOGIN_PER_15M", "1000")
+    t.Setenv("NOS_RATE_OTP_PER_MIN", "1000")
+
+    cfg := config.FromEnv()
+    r := NewRouter(cfg)
+
+    // Initially: firstBoot=true
+    {
+        res := httptest.NewRecorder()
+        r.ServeHTTP(res, httptest.NewRequest(http.MethodGet, "/api/setup/state", nil))
+        if res.Code != http.StatusOK { t.Fatalf("initial: %d", res.Code) }
+    }
+
+    // Verify OTP to get token
+    var token string
+    {
+        res := httptest.NewRecorder()
+        r.ServeHTTP(res, httptest.NewRequest(http.MethodPost, "/api/setup/verify-otp", bytes.NewBuffer(mustJSON(map[string]string{"otp": otp}))))
+        if res.Code != http.StatusOK { t.Fatalf("verify: %d", res.Code) }
+        var out map[string]any
+        _ = json.Unmarshal(res.Body.Bytes(), &out)
+        token, _ = out["token"].(string)
+        if token == "" { t.Fatal("missing token") }
+    }
+
+    // Create admin
+    {
+        req := httptest.NewRequest(http.MethodPost, "/api/setup/create-admin", bytes.NewBuffer(mustJSON(map[string]any{"username":"root","password":"StrongPassw0rd!"})))
+        req.Header.Set("Authorization", "Bearer "+token)
+        res := httptest.NewRecorder()
+        r.ServeHTTP(res, req)
+        if res.Code != http.StatusNoContent { t.Fatalf("create-admin: %d %s", res.Code, res.Body.String()) }
+    }
+
+    // Now gated: /state returns 410
+    {
+        res := httptest.NewRecorder()
+        r.ServeHTTP(res, httptest.NewRequest(http.MethodGet, "/api/setup/state", nil))
+        if res.Code != http.StatusGone { t.Fatalf("after setup: expected 410, got %d", res.Code) }
+    }
+
+    // Delete users.json; firstBoot should be true again
+    _ = os.Remove(usersPath)
+    {
+        res := httptest.NewRecorder()
+        r.ServeHTTP(res, httptest.NewRequest(http.MethodGet, "/api/setup/state", nil))
+        if res.Code != http.StatusOK { t.Fatalf("after delete users: %d", res.Code) }
+        var st map[string]any
+        _ = json.Unmarshal(res.Body.Bytes(), &st)
+        if fb, _ := st["firstBoot"].(bool); !fb { t.Fatalf("after delete users: expected firstBoot=true, got %v", st) }
+    }
+}

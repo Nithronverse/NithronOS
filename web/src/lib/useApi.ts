@@ -25,7 +25,29 @@ async function request<T>(path: string, init: RequestInit = {}, retried = false)
     })
     if (r.ok) return request<T>(path, init, true)
   }
-  if (!res.ok) throw new Error(await safeDetail(res))
+  if (!res.ok) {
+    // Try to parse structured error
+    let code: string | undefined
+    let message: string | undefined
+    let retryAfterSec: number | undefined
+    let details: any
+    try {
+      const ct = res.headers.get('content-type') || ''
+      if (ct.includes('application/json')) {
+        const j = await res.json()
+        const err = (j as any)?.error
+        if (err && typeof err === 'object') {
+          code = err.code
+          message = err.message
+          retryAfterSec = err.retryAfterSec
+          details = err.details
+        }
+      }
+    } catch {}
+    const msg = message || (await safeDetail(res))
+    const e = Object.assign(new Error(msg), { status: res.status, code, retryAfterSec, details })
+    throw e
+  }
   if (res.status === 204) return undefined as unknown as T
   return (await res.json()) as T
 }
