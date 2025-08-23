@@ -154,6 +154,11 @@ jobs:
           set -euo pipefail
           if [ -d backend/nosd ]; then (cd backend/nosd && go test ./... -v); fi
           if [ -d agent/nos-agent ]; then (cd agent/nos-agent && go test ./... -v); else echo "agent module missing; skipping"; fi
+      - name: Systemd sandbox smoke for nosd (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          chmod +x scripts/systemd-sandbox-smoke.sh
+          sudo -E bash scripts/systemd-sandbox-smoke.sh
 
       - name: Debug failing internal/server tests (verbose)
         if: ${{ failure() }}

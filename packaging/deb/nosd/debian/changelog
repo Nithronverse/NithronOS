@@ -1,3 +1,12 @@
+nosd (0.1.1-2) unstable; urgency=medium
+
+  * Harden service: keep ProtectSystem=strict and NoNewPrivileges=true.
+  * Allow writes via ReadWritePaths=/etc/nos /var/lib/nos /run.
+  * Use StateDirectory=nos and ConfigurationDirectory=nos.
+  * Add sysusers/tmpfiles for nosd user/group and dirs.
+
+ -- NithronOS Maintainers <maintainers@nithron.com>  Sat, 23 Aug 2025 13:00:00 +0000
+
 nosd (0.1.1-1) unstable; urgency=medium
 
   * Initial Debian packaging.

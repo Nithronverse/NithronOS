@@ -4,7 +4,10 @@ set -e
 case "$1" in
     configure)
         # Ensure ownership of configuration and data directories
-        chown -R nos:nos /etc/nos /var/lib/nos || true
+        chown -R nosd:nosd /etc/nos /var/lib/nos || true
+        # Create runtime and state/config directories via systemd helpers
+        systemd-sysusers || true
+        systemd-tmpfiles --create || true
         ;;
 esac
 
