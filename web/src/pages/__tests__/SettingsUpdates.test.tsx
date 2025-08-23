@@ -50,25 +50,22 @@ describe('SettingsUpdates', () => {
     // wait initial load
     await screen.findByText(/Available updates/i)
     const btn = screen.getByRole('button', { name: /Apply Updates/i }) as HTMLButtonElement
-    // Make the apply call resolve after a short delay so we can observe the disabled state
-    const delayedOk = new Response(JSON.stringify({ ok:true, tx_id:'tx-1', snapshots_count:1, updates_count:1 }), { status:200, headers:{'Content-Type':'application/json'} })
-    ;(global.fetch as any).mockImplementationOnce(async (input: RequestInfo) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url.includes('/api/updates/apply')) {
-        return await new Promise<Response>(res => setTimeout(() => res(delayedOk), 60))
-      }
-      return delayedOk
-    })
     fireEvent.click(btn)
-    // goes into applying state (allow async state update)
-    await waitFor(() => expect(btn.disabled).toBe(true))
+    // goes into applying state (allow async state update); re-query by role to handle text change
+    await waitFor(() => {
+      const b = screen.getByRole('button', { name: /Apply/i }) as HTMLButtonElement
+      expect(b.disabled).toBe(true)
+    })
     // ensure apply API was called (search mock.calls for the apply URL)
     await waitFor(() => {
       const calls = ((global.fetch as any).mock?.calls || []) as any[]
       expect(calls.some((args:any[]) => typeof args[0] === 'string' && /\/api\/updates\/apply/.test(args[0]))).toBe(true)
     })
-    // and button should be re-enabled afterwards
-    await waitFor(() => expect(btn.disabled).toBe(false))
+    // and button should be re-enabled afterwards (re-query)
+    await waitFor(() => {
+      const b = screen.getByRole('button', { name: /Apply/i }) as HTMLButtonElement
+      expect(b.disabled).toBe(false)
+    })
   })
 
   it('calls rollback API', async () => {
