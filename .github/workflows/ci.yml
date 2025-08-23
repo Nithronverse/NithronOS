@@ -210,6 +210,8 @@ jobs:
     if: ${{ (github.event_name == 'release' && github.event.action == 'published') || startsWith(github.ref, 'refs/tags/') }}
     needs: debs
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     container:
       image: debian:bookworm
       options: --privileged --security-opt seccomp=unconfined --cap-add=SYS_ADMIN --tmpfs /run --tmpfs /run/lock --tmpfs /tmp
@@ -249,17 +251,53 @@ jobs:
           chmod +x packaging/iso/build.sh
           bash packaging/iso/build.sh packaging/iso/local-debs
 
+      - name: Generate checksums (ISO + DEBs)
+        run: |
+          mkdir -p dist/iso dist/deb
+          shopt -s nullglob
+          (cd dist/iso && ls -1 *.iso >/dev/null 2>&1 && sha256sum *.iso > SHA256SUMS || true)
+          (cd dist/deb && ls -1 *.deb >/dev/null 2>&1 && sha256sum *.deb > SHA256SUMS || true)
+
       - name: "Debug: list built ISO"
         run: |
           ls -lah dist/iso || true
 
-      - name: Upload ISO artifact
+      - name: Upload ISO artifact (non-release)
+        if: ${{ github.event_name != 'release' }}
         uses: actions/upload-artifact@v4
         with:
           name: NithronOS - amd64 - ${{ github.event.release.tag_name || github.ref_name }}
-          path: dist/iso/*.iso
+          path: |
+            dist/iso/*.iso
+            dist/iso/SHA256SUMS
           if-no-files-found: error
           retention-days: 7
+
+      - name: Upload DEB artifacts (non-release)
+        if: ${{ github.event_name != 'release' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: NithronOS - Debian Packages - ${{ github.event.release.tag_name || github.ref_name }}
+          path: |
+            dist/deb/*.deb
+            dist/deb/*.changes
+            dist/deb/*.buildinfo
+            dist/deb/SHA256SUMS
+
+      - name: Upload release assets (ISO + DEBs + checksums)
+        if: ${{ github.event_name == 'release' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/iso/*.iso
+            dist/iso/SHA256SUMS
+            dist/deb/*.deb
+            dist/deb/*.changes
+            dist/deb/*.buildinfo
+            dist/deb/SHA256SUMS
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   smoke:
     name: "Smoke ISO (QEMU: serial)"
