@@ -261,9 +261,9 @@ jobs:
       - name: Generate checksums (ISO + DEBs)
         run: |
           mkdir -p dist/iso dist/deb
-          shopt -s nullglob
-          (cd dist/iso && ls -1 *.iso >/dev/null 2>&1 && sha256sum *.iso > SHA256SUMS || true)
-          (cd dist/deb && ls -1 *.deb >/dev/null 2>&1 && sha256sum *.deb > SHA256SUMS || true)
+          # POSIX sh compatible: expand patterns to args and check
+          (cd dist/iso && set -- *.iso; [ "$1" != "*.iso" ] && sha256sum "$@" > SHA256SUMS || true)
+          (cd dist/deb && set -- *.deb; [ "$1" != "*.deb" ] && sha256sum "$@" > SHA256SUMS || true)
 
       - name: "Debug: list built ISO"
         run: |
