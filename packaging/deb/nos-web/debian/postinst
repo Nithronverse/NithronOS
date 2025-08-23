@@ -1,8 +1,26 @@
 #!/bin/sh
 set -e
 
-install -d -m 0755 /srv/nos-web
-chown root:root /srv/nos-web
+# Assets are installed under /usr/share/nithronos/web via debian/rules
+
+# Ensure Caddy config directory exists
+install -d -m 0755 /etc/caddy
+# Install default Caddyfile if missing (do not overwrite admin changes)
+if [ ! -f /etc/caddy/Caddyfile ]; then
+    install -D -m 0644 /usr/share/doc/nos-web/examples/Caddyfile /etc/caddy/Caddyfile || true
+fi
+
+# Allow binding to 80/443 if needed
+if command -v setcap >/dev/null 2>&1; then
+    setcap -q 'cap_net_bind_service=+ep' /usr/bin/caddy || true
+fi
+
+systemctl daemon-reload || true
+if systemctl is-enabled --quiet caddy 2>/dev/null; then
+    systemctl restart caddy || true
+else
+    systemctl enable --now caddy || true
+fi
 
 exit 0
 

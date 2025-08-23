@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { apiPost } from '../api/http'
 import { useNavigate } from 'react-router-dom'
 import { pushToast } from '@/components/ui/toast'
+import BrandHeader from '@/components/BrandHeader'
 
 export function Login() {
 	const [username, setUsername] = useState('')
@@ -49,7 +50,7 @@ export function Login() {
 	return (
 		<div className="min-h-screen w-full flex items-center justify-center">
 			<div className="relative w-full max-w-sm p-6 pt-20">
-				<img src="/brand/nithronos-logo-mark.svg" alt="NithronOS" className="absolute left-1/2 -translate-x-1/2 -top-28 h-36" />
+				<BrandHeader />
 				<h1 className="mb-4 text-center text-2xl font-semibold">Sign in</h1>
 				{error && <div className="mb-3 text-sm text-red-400">{error}</div>}
 				<form onSubmit={onSubmit} className="space-y-3">

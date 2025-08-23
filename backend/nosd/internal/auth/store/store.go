@@ -79,6 +79,10 @@ func (s *Store) writeUsers(list []User) error {
 	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
 		return err
 	}
+	// Test hook: simulate write failure for transactional tests
+	if os.Getenv("NOS_TEST_SIMULATE_WRITE_FAIL") == "1" {
+		return &fs.PathError{Op: "open", Path: s.path, Err: fs.ErrPermission}
+	}
 	// In-process serialize
 	s.ioMu.Lock()
 	defer s.ioMu.Unlock()
@@ -124,6 +128,7 @@ func (s *Store) FindByID(id string) (User, error) {
 func (s *Store) UpsertUser(u User) error {
 	// Update in-memory under write lock and take a snapshot
 	s.mu.Lock()
+	prev, hadPrev := s.users[u.Username]
 	now := time.Now().UTC().Format(time.RFC3339)
 	if u.CreatedAt == "" {
 		u.CreatedAt = now
@@ -137,5 +142,16 @@ func (s *Store) UpsertUser(u User) error {
 	}
 	s.mu.Unlock()
 	// Persist snapshot without holding the lock
-	return s.writeUsers(list)
+	if err := s.writeUsers(list); err != nil {
+		// Roll back in-memory mutation to keep operation transactional
+		s.mu.Lock()
+		if hadPrev {
+			s.users[u.Username] = prev
+		} else {
+			delete(s.users, u.Username)
+		}
+		s.mu.Unlock()
+		return err
+	}
+	return nil
 }

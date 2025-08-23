@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+
+systemctl enable caddy || true
+systemctl enable nosd || true
+systemctl enable nos-agent || true
+
+

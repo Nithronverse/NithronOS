@@ -71,11 +71,13 @@ async function request<T>(path: string, init: RequestInit, retried = false): Pro
 		} catch {}
 		// Global toasts for common statuses and typed codes
 		if (code === 'setup.write_failed') {
-			pushToast('Service cannot write /etc/nos; see Admin → Logs.', 'error')
+			pushToast('Service cannot write /etc/nos/users.json. See Admin → Logs.', 'error')
 		} else if (code === 'setup.otp.expired') {
 			pushToast('Your setup code expired. Request a new one.', 'error')
 		} else if (code === 'setup.otp.invalid') {
 			pushToast('Invalid setup code. Check and try again.', 'error')
+		} else if (code === 'setup.session.invalid') {
+			pushToast('Setup session invalid. Restart setup from the beginning.', 'error')
 		} else if (code === 'auth.csrf.missing' || code === 'auth.csrf.invalid') {
 			pushToast('Your session expired. Please sign in again.', 'error')
 		} else if (res.status === 429) {

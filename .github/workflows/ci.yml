@@ -207,6 +207,11 @@ jobs:
         run: |
           chmod +x packaging/build-all.sh
           bash packaging/build-all.sh
+      - name: Validate Caddy config
+        run: |
+          sudo apt-get update && sudo apt-get install -y caddy
+          sudo install -D -m0644 deploy/caddy/Caddyfile /etc/caddy/Caddyfile
+          caddy validate --config /etc/caddy/Caddyfile
 
       - name: Upload .deb artifacts
         uses: actions/upload-artifact@v4
@@ -262,6 +267,11 @@ jobs:
         run: |
           chmod +x packaging/iso/build.sh
           bash packaging/iso/build.sh packaging/iso/local-debs
+      - name: "ISO smoke: caddy + ports"
+        run: |
+          which caddy || true
+          caddy validate --config packaging/iso/debian/config/includes.chroot/etc/caddy/Caddyfile
+          ss -lnt || true
 
       - name: Generate checksums (ISO + DEBs)
         run: |

@@ -1,6 +1,6 @@
 # First Boot (Admin)
 
-On first boot, `nosd` generates a one-time 6‑digit OTP and prints it to the console (systemd unit uses `StandardOutput=journal+console`). The web UI detects setup state and routes to `/setup`.
+On first boot, `nosd` ensures a one-time 6‑digit OTP exists and prints it to both console and logs on every `nosd` start while in first‑boot mode (unit uses `StandardOutput=journal+console`). The web UI detects setup state and routes to `/setup`.
 
 ## Flow
 1) OTP: Enter the OTP (valid ~15 minutes). The UI receives a temporary setup token (memory only).
@@ -9,6 +9,9 @@ On first boot, `nosd` generates a one-time 6‑digit OTP and prints it to the co
 4) Finish: You can now sign in at `/login`.
 
 After the first admin is created, `/api/setup/*` endpoints return `410 Gone`.
+
+Regenerate OTP:
+- Delete `/var/lib/nos/state/firstboot.json` and restart `nosd`. A new OTP will be generated, saved atomically, and printed again on startup.
 
 ## Data paths
 - Users: `/etc/nos/users.json`

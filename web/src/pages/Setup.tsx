@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import QRCode from 'qrcode'
+import BrandHeader from '@/components/BrandHeader'
 
 type SetupState = { firstBoot: boolean; otpRequired: boolean }
 
@@ -36,7 +37,8 @@ export default function Setup() {
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center">
-      <div className="w-full max-w-md p-6">
+      <div className="relative w-full max-w-md p-6 pt-20">
+        <BrandHeader />
         <h1 className="mb-4 text-center text-2xl font-semibold">First-time Setup</h1>
         {error && (
           <div className="mb-4 text-center text-yellow-400">

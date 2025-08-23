@@ -93,6 +93,9 @@ func TestSetupFullFlowAnd410(t *testing.T) {
 		if res.Code != http.StatusBadRequest {
 			t.Fatalf("expired token expected 400, got %d", res.Code)
 		}
+		if !strings.Contains(res.Body.String(), "setup.otp.expired") {
+			t.Fatalf("expected setup.otp.expired, got %s", res.Body.String())
+		}
 	}
 
 	// create-admin (without totp)
@@ -102,8 +105,8 @@ func TestSetupFullFlowAnd410(t *testing.T) {
 		req.Header.Set("Authorization", "Bearer "+token)
 		res := httptest.NewRecorder()
 		r.ServeHTTP(res, req)
-		if res.Code != 200 {
-			t.Fatalf("create-admin: %d %s", res.Code, res.Body.String())
+		if res.Code != http.StatusNoContent {
+			t.Fatalf("create-admin: expected 204, got %d %s", res.Code, res.Body.String())
 		}
 	}
 
@@ -305,4 +308,51 @@ func secCodeSecret(t *testing.T, secretPath, usersPath string) string {
 		t.Fatalf("decrypt: %v", err)
 	}
 	return string(pt)
+}
+
+func TestCreateAdmin_WriteFailThenRetrySameToken(t *testing.T) {
+	// Prepare isolated users db and secret
+	dir := t.TempDir()
+	secretPath := filepath.Join(dir, "secret.key")
+	usersPath := filepath.Join(dir, "users.json")
+	key := make([]byte, 32)
+	for i := range key {
+		key[i] = byte(1 + i)
+	}
+	if err := os.WriteFile(secretPath, key, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("NOS_SECRET_PATH", secretPath)
+	t.Setenv("NOS_USERS_PATH", usersPath)
+	cfg := config.FromEnv()
+	r := NewRouter(cfg)
+
+	// Issue a setup token directly
+	sc := securecookie.New(key, nil)
+	claims := map[string]any{"purpose": "setup", "exp": time.Now().Add(10 * time.Minute).UTC().Format(time.RFC3339)}
+	tok, _ := sc.Encode("nos_setup", claims)
+
+	// Simulate write failure
+	t.Setenv("NOS_TEST_SIMULATE_WRITE_FAIL", "1")
+	body := mustJSON(map[string]any{"username": "bob", "password": "StrongPassw0rd!"})
+	req := httptest.NewRequest(http.MethodPost, "/api/setup/create-admin", bytes.NewBuffer(body))
+	req.Header.Set("Authorization", "Bearer "+tok)
+	res := httptest.NewRecorder()
+	r.ServeHTTP(res, req)
+	if res.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", res.Code)
+	}
+	if !strings.Contains(res.Body.String(), "setup.write_failed") {
+		t.Fatalf("expected setup.write_failed, got %s", res.Body.String())
+	}
+
+	// Clear failure flag and retry with SAME token and a fresh request body
+	t.Setenv("NOS_TEST_SIMULATE_WRITE_FAIL", "0")
+	req2 := httptest.NewRequest(http.MethodPost, "/api/setup/create-admin", bytes.NewBuffer(body))
+	req2.Header.Set("Authorization", "Bearer "+tok)
+	res2 := httptest.NewRecorder()
+	r.ServeHTTP(res2, req2)
+	if res2.Code != http.StatusNoContent {
+		t.Fatalf("retry expected 204, got %d (%s)", res2.Code, res2.Body.String())
+	}
 }

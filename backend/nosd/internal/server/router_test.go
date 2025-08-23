@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"nithronos/backend/nosd/internal/config"
 )
@@ -33,7 +32,16 @@ func TestHealth(t *testing.T) {
 }
 
 func TestLoginThrottleLockUnlock(t *testing.T) {
-	_ = os.Setenv("NOS_USERS_PATH", "../../../../devdata/users.json")
+	// Use isolated users DB for this test to avoid cross-test interference
+	dir := t.TempDir()
+	up := filepath.Join(dir, "users.json")
+	seed := `{"version":1,"users":[{"id":"u1","username":"admin@example.com","password_hash":"plain:admin123","roles":["admin"],"created_at":"","updated_at":""}]}`
+	if err := os.WriteFile(up, []byte(seed), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("NOS_USERS_PATH", up)
+	// Make rate limiter permissive so we test account locking, not 429s
+	t.Setenv("NOS_RATE_LOGIN_PER_15M", "1000")
 	cfg := config.FromEnv()
 	r := NewRouter(cfg)
 
@@ -56,9 +64,6 @@ func TestLoginThrottleLockUnlock(t *testing.T) {
 	if res.Code == http.StatusOK {
 		t.Fatalf("expected lock to prevent login")
 	}
-
-	// Simulate lock expiry by sleeping a tiny amount beyond limiter window for test flake safety
-	time.Sleep(100 * time.Millisecond)
 }
 
 func TestDisksShape(t *testing.T) {

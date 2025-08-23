@@ -401,17 +401,17 @@ func NewRouter(cfg config.Config) http.Handler {
 			authz := r.Header.Get("Authorization")
 			const prefix = "Bearer "
 			if !strings.HasPrefix(authz, prefix) {
-				httpx.WriteTypedError(w, http.StatusUnauthorized, "auth.csrf.missing", "Missing setup bearer token", 0)
+				httpx.WriteTypedError(w, http.StatusUnauthorized, "setup.session.invalid", "Missing setup bearer token", 0)
 				return
 			}
 			tok := strings.TrimSpace(authz[len(prefix):])
 			claims, err := setupDecodeToken(cfg, tok)
 			if err != nil {
-				httpx.WriteTypedError(w, http.StatusUnauthorized, "auth.csrf.invalid", "Invalid setup token", 0)
+				httpx.WriteTypedError(w, http.StatusUnauthorized, "setup.session.invalid", "Invalid setup token", 0)
 				return
 			}
 			if claims["purpose"] != "setup" {
-				httpx.WriteTypedError(w, http.StatusUnauthorized, "auth.csrf.invalid", "Invalid setup token", 0)
+				httpx.WriteTypedError(w, http.StatusUnauthorized, "setup.session.invalid", "Invalid setup token", 0)
 				return
 			}
 			if expStr, ok := claims["exp"].(string); ok {
@@ -420,7 +420,7 @@ func NewRouter(cfg config.Config) http.Handler {
 					return
 				}
 			} else {
-				httpx.WriteTypedError(w, http.StatusUnauthorized, "auth.csrf.invalid", "Invalid setup token", 0)
+				httpx.WriteTypedError(w, http.StatusUnauthorized, "setup.session.invalid", "Invalid setup token", 0)
 				return
 			}
 			var body struct {
@@ -459,10 +459,12 @@ func NewRouter(cfg config.Config) http.Handler {
 					code = "setup.write_failed"
 				}
 				Logger(cfg).Error().Str("event", "setup.persist.error").Str("code", code).Err(err).Msg("")
-				httpx.WriteErrorWithDetails(w, http.StatusInternalServerError, code, "Failed to write configuration", map[string]any{"path": cfg.UsersPath})
+				httpx.WriteErrorWithDetails(w, http.StatusInternalServerError, code, "Service cannot write /etc/nos/users.json", map[string]any{"path": cfg.UsersPath})
 				return
 			}
-			writeJSON(w, map[string]any{"ok": true})
+			// Success: remove first-boot state so OTP stops printing on restarts (best-effort)
+			_ = os.Remove(cfg.FirstBootPath)
+			w.WriteHeader(http.StatusNoContent)
 		})
 	})
 
