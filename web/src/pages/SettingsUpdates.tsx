@@ -29,7 +29,6 @@ export function SettingsUpdates(){
   useEffect(()=>{ load() },[])
 
   const apply = async()=>{
-    if (!confirm('Apply system updates now?')) return
     setApplying(true)
     setError('')
     try{
