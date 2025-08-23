@@ -53,8 +53,11 @@ describe('SettingsUpdates', () => {
     fireEvent.click(btn)
     // goes into applying state
     expect(btn.disabled).toBe(true)
-    // ensure apply API was called
-    await waitFor(() => expect((global.fetch as any)).toHaveBeenCalledWith(expect.stringMatching(/\/api\/updates\/apply/), expect.anything()))
+    // ensure apply API was called (search mock.calls for the apply URL)
+    await waitFor(() => {
+      const calls = ((global.fetch as any).mock?.calls || []) as any[]
+      expect(calls.some((args:any[]) => typeof args[0] === 'string' && /\/api\/updates\/apply/.test(args[0]))).toBe(true)
+    })
     // and button should be re-enabled afterwards
     await waitFor(() => expect(btn.disabled).toBe(false))
   })
