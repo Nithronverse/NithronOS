@@ -52,11 +52,12 @@ describe('SettingsUpdates', () => {
     const btn = screen.getByRole('button', { name: /Apply Updates/i }) as HTMLButtonElement
     const toastSpy = vi.spyOn(toast, 'pushToast')
     fireEvent.click(btn)
+    // goes into applying state
     expect(btn.disabled).toBe(true)
-    await waitFor(()=> {
-      // success toast after mocked apply
-      expect(toastSpy).toHaveBeenCalled()
-    })
+    await screen.findByText(/Applying…/i)
+    // wait until apply completes and button text flips back
+    await screen.findByText(/Apply Updates/i)
+    await waitFor(() => expect(toastSpy).toHaveBeenCalled())
   })
 
   it('calls rollback API', async () => {
