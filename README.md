@@ -131,6 +131,8 @@ Build a bootable ISO (Debian live) with NithronOS preinstalled.
 
     # Output -> dist/iso/nithronos-<tag>-<date>-amd64.iso
 
+> **UEFI / Secure Boot:** The preview ISO is not shim-signed yet. **Disable Secure Boot** in your VM/UEFI (e.g., Hyper-V Gen2 → uncheck *Enable Secure Boot*). If your platform can’t disable it, use a legacy/BIOS VM for now.
+
 At first boot the system prints the UI URL + one-time OTP to the console.
 
 ---
