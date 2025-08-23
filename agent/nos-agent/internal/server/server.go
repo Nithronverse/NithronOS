@@ -43,6 +43,12 @@ func Start() error {
 	// init prometheus registry
 	initMetrics()
 
+	h := buildMux()
+	return http.Serve(l, h)
+}
+
+// buildMux constructs the HTTP handler with all routes registered.
+func buildMux() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/btrfs/create", handleBtrfsCreate)
 	mux.HandleFunc("/v1/btrfs/mount", handleBtrfsMount)
@@ -73,13 +79,11 @@ func Start() error {
 	mux.HandleFunc("/v1/updates/plan", handleUpdatesPlan)
 	mux.HandleFunc("/v1/updates/apply", handleUpdatesApply)
 	mux.HandleFunc("/v1/snapshot/prune", handleSnapshotPrune)
-	mux.HandleFunc("/v1/updates/plan", handleUpdatesPlan)
 	mux.HandleFunc("/v1/storage/lsblk", handleStorageLsblk)
 	mux.HandleFunc("/v1/smart", handleSmartSummary)
 	// Prometheus metrics on the same unix socket
 	mux.Handle("/metrics", metricsHandler())
-
-	return http.Serve(l, mux)
+	return mux
 }
 
 // Registration with nosd using bootstrap token on disk
