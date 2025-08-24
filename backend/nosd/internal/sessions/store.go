@@ -97,6 +97,19 @@ func (s *Store) Delete(id string) error {
 	})
 }
 
+// Flush persists the current in-memory sessions to disk.
+func (s *Store) Flush() error {
+	s.mu.RLock()
+	list := make([]Session, 0, len(s.mem))
+	for _, v := range s.mem {
+		list = append(list, v)
+	}
+	s.mu.RUnlock()
+	return fsatomic.WithLock(s.path, func() error {
+		return fsatomic.SaveJSON(context.TODO(), s.path, diskFile{Version: 1, Sessions: list}, fs.FileMode(0o600))
+	})
+}
+
 func NowUTC() string { return time.Now().UTC().Format(time.RFC3339) }
 
 // List returns a snapshot of sessions.

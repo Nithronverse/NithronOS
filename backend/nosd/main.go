@@ -11,12 +11,15 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"syscall"
 	"time"
 
 	userstore "nithronos/backend/nosd/internal/auth/store"
 	"nithronos/backend/nosd/internal/config"
 	"nithronos/backend/nosd/internal/fsatomic"
+	"nithronos/backend/nosd/internal/ratelimit"
 	"nithronos/backend/nosd/internal/server"
+	"nithronos/backend/nosd/internal/sessions"
 	firstboot "nithronos/backend/nosd/internal/setup/firstboot"
 )
 
@@ -40,8 +43,22 @@ func main() {
 	}
 	r := server.NewRouter(cfg)
 
-	addr := cfg.Bind
-	server.Logger(cfg).Info().Msgf("nosd listening on http://%s", addr)
+	// graceful shutdown context
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	// stores to flush on shutdown
+	rl := ratelimit.New(cfg.RateLimitPath)
+	sess := sessions.New(cfg.SessionsPath)
+
+	srv := &http.Server{
+		Addr:              cfg.Bind,
+		Handler:           r,
+		ReadHeaderTimeout: 5 * time.Second,
+		IdleTimeout:       30 * time.Second,
+	}
+
+	server.Logger(cfg).Info().Msgf("nosd listening on http://%s", cfg.Bind)
 
 	go func() {
 		// SIGHUP hot reload (Unix only)
@@ -60,8 +77,27 @@ func main() {
 		}
 	}()
 
-	if err := http.ListenAndServe(addr, r); err != nil {
-		server.Logger(cfg).Fatal().Err(err).Msg("server exited")
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.ListenAndServe() }()
+
+	select {
+	case <-ctx.Done():
+		start := time.Now()
+		server.Logger(cfg).Info().Msg("shutdown: begin")
+		t0 := time.Now()
+		_ = rl.Flush()
+		rlMs := time.Since(t0).Milliseconds()
+		t1 := time.Now()
+		_ = sess.Flush()
+		sessMs := time.Since(t1).Milliseconds()
+		sdCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_ = srv.Shutdown(sdCtx)
+		cancel()
+		server.Logger(cfg).Info().Msgf("shutdown: http done; ratelimit=%dms sessions=%dms total=%dms", rlMs, sessMs, time.Since(start).Milliseconds())
+	case err := <-errCh:
+		if err != nil && err != http.ErrServerClosed {
+			server.Logger(cfg).Fatal().Err(err).Msg("server exited")
+		}
 	}
 }
 
