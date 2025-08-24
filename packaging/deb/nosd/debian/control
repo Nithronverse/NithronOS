@@ -3,7 +3,7 @@ Section: admin
 Priority: optional
 Maintainer: NithronOS Maintainers <maintainers@nithron.com>
 Standards-Version: 4.6.2
-Build-Depends: debhelper-compat (= 13), dh-sequence-systemd
+Build-Depends: debhelper-compat (= 13)
 Rules-Requires-Root: no
 
 Package: nosd
