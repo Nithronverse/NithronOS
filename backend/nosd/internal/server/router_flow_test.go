@@ -27,30 +27,16 @@ func TestSetupFullFlowAnd410(t *testing.T) {
 	// seed secret
 	key := make([]byte, 32)
 	for i := range key {
-		key[i] = byte(1 + i)
+		key[i] = byte(i)
 	}
-	if err := os.WriteFile(secretPath, key, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	// seed empty users file
-	if err := os.WriteFile(usersPath, []byte("{}"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	// seed firstboot otp
-	otp := "123456"
-	fb := map[string]any{"otp": otp, "created_at": time.Now().UTC().Format(time.RFC3339), "used": false}
-	if b, _ := json.MarshalIndent(fb, "", "  "); b != nil {
-		if err := os.WriteFile(firstbootPath, b, 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	_ = os.Setenv("NOS_SECRET_PATH", secretPath)
-	_ = os.Setenv("NOS_FIRSTBOOT_PATH", firstbootPath)
-	_ = os.Setenv("NOS_USERS_PATH", usersPath)
-	// Relax rate limits for this flow test to avoid incidental 429s
-	_ = os.Setenv("NOS_RATE_LOGIN_PER_15M", "1000")
-	_ = os.Setenv("NOS_RATE_OTP_PER_MIN", "1000")
-
+	_ = os.WriteFile(secretPath, key, 0o600)
+	_ = os.WriteFile(usersPath, []byte("{}"), 0o600)
+	_ = os.WriteFile(firstbootPath, []byte(`{"otp":"111111","issued_at":"`+time.Now().UTC().Format(time.RFC3339)+`","expires_at":"`+time.Now().UTC().Add(15*time.Minute).Format(time.RFC3339)+`"}`), 0o600)
+	// Point config/env to temp files
+	t.Setenv("NOS_SECRET_PATH", secretPath)
+	t.Setenv("NOS_USERS_PATH", usersPath)
+	t.Setenv("NOS_FIRSTBOOT_PATH", firstbootPath)
+	t.Setenv("NOS_RL_PATH", filepath.Join(dir, "ratelimit.json"))
 	cfg := config.FromEnv()
 	r := NewRouter(cfg)
 
@@ -66,7 +52,7 @@ func TestSetupFullFlowAnd410(t *testing.T) {
 	var token string
 	{
 		t.Log("verify-otp")
-		body := bytes.NewBuffer(mustJSON(map[string]string{"otp": otp}))
+		body := bytes.NewBuffer(mustJSON(map[string]string{"otp": "111111"}))
 		res := httptest.NewRecorder()
 		r.ServeHTTP(res, httptest.NewRequest(http.MethodPost, "/api/setup/verify-otp", body))
 		if res.Code != 200 {

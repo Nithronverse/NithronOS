@@ -37,8 +37,8 @@ func TestNosdServiceUnitContainsSandboxing(t *testing.T) {
 		"ReadWritePaths=/etc/nos /var/lib/nos /run",
 		"StateDirectory=nos",
 		"ConfigurationDirectory=nos",
-		"User=nosd",
-		"Group=nosd",
+		"User=nos",
+		"Group=nos",
 	} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("unit missing %q", want)

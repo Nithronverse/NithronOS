@@ -16,6 +16,7 @@ import (
 	userstore "nithronos/backend/nosd/internal/auth/store"
 	"nithronos/backend/nosd/internal/config"
 	"nithronos/backend/nosd/internal/fsatomic"
+	firstboot "nithronos/backend/nosd/internal/setup/firstboot"
 	"nithronos/backend/nosd/internal/server"
 )
 
@@ -26,7 +27,17 @@ func main() {
 	server.SetLogLevel(cfg.LogLevel)
 	ensureSecret(cfg.SecretPath)
 	ensureAgentToken("/etc/nos/agent-token")
-	ensureFirstBootOTP(cfg)
+	// First-boot OTP: ensure state dir and reuse or create
+	_ = os.MkdirAll(filepath.Dir(cfg.FirstBootPath), 0o750)
+	fb := firstboot.New(cfg.FirstBootPath)
+	if st, reused, err := fb.NewOrReuse(15*time.Minute, generateOTP6); err == nil && st != nil {
+		msg := "First-boot OTP: " + st.OTP + " (valid 15m)"
+		if reused {
+			msg = "Using existing first-boot OTP: " + st.OTP + " (valid 15m)"
+		}
+		fmt.Println(msg)
+		server.Logger(cfg).Info().Msg(msg)
+	}
 	r := server.NewRouter(cfg)
 
 	addr := cfg.Bind

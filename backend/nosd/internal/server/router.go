@@ -43,6 +43,7 @@ import (
 	"strconv"
 
 	"github.com/gorilla/securecookie"
+	firstboot "nithronos/backend/nosd/internal/setup/firstboot"
 )
 
 // agentMetricsClient implements AgentMetricsClient to fetch text metrics from nos-agent
@@ -165,7 +166,11 @@ func NewRouter(cfg config.Config) http.Handler {
 	codec := auth.NewSessionCodec(cfg.SessionHashKey, cfg.SessionBlockKey)
 	// Disk-backed session and ratelimit stores (paths under /var/lib/nos)
 	sessStore := sessions.New(filepath.Join("/var/lib/nos", "sessions.json"))
-	rlStore := ratelimit.New(filepath.Join("/var/lib/nos", "ratelimit.json"))
+	rlPath := filepath.Join("/var/lib/nos", "ratelimit.json")
+	if p := os.Getenv("NOS_RL_PATH"); p != "" {
+		rlPath = p
+	}
+	rlStore := ratelimit.New(rlPath)
 	mgr := session.New(filepath.Join("/var/lib/nos", "sessions.json"))
 
 	// On startup: if first boot and OTP exists/valid, log it
@@ -373,17 +378,9 @@ func NewRouter(cfg config.Config) http.Handler {
 				firstBoot = false
 			}
 			otpRequired := false
-			var st struct {
-				OTP       string `json:"otp"`
-				CreatedAt string `json:"created_at"`
-				Used      bool   `json:"used"`
-			}
-			if b, err := os.ReadFile(cfg.FirstBootPath); err == nil {
-				_ = json.Unmarshal(b, &st)
-				if st.OTP != "" && !st.Used {
-					if t, err := time.Parse(time.RFC3339, st.CreatedAt); err == nil && time.Since(t) < 15*time.Minute {
-						otpRequired = true
-					}
+			if st, err := firstboot.New(cfg.FirstBootPath).Load(); err == nil && st != nil {
+				if time.Now().Before(st.ExpiresAt) && st.OTP != "" {
+					otpRequired = true
 				}
 			}
 			writeJSON(w, map[string]any{"firstBoot": firstBoot, "otpRequired": otpRequired})
@@ -409,28 +406,28 @@ func NewRouter(cfg config.Config) http.Handler {
 				httpx.WriteTypedError(w, http.StatusBadRequest, "setup.otp.invalid", "Enter the 6-digit code", 0)
 				return
 			}
-			var st struct {
-				OTP       string `json:"otp"`
-				CreatedAt string `json:"created_at"`
-				Used      bool   `json:"used"`
+			st, err := firstboot.New(cfg.FirstBootPath).Load()
+			if err != nil {
+				if os.IsPermission(err) {
+					httpx.WriteTypedError(w, http.StatusInternalServerError, "storage_error", "setup storage not writable", 0)
+					return
+				}
+				w.WriteHeader(http.StatusInternalServerError)
+				return
 			}
-			if b, err := os.ReadFile(cfg.FirstBootPath); err == nil {
-				_ = json.Unmarshal(b, &st)
-			}
-			if st.Used || st.OTP == "" || st.OTP != body.OTP {
+			if st == nil || st.OTP == "" || st.OTP != body.OTP {
 				httpx.WriteTypedError(w, http.StatusBadRequest, "setup.otp.invalid", "Invalid one-time code", 0)
 				return
 			}
-			if t, err := time.Parse(time.RFC3339, st.CreatedAt); err != nil || time.Since(t) >= 15*time.Minute {
-				httpx.WriteTypedError(w, http.StatusBadRequest, "setup.otp.expired", "Your code expired. Request a new one.", 0)
+			if time.Now().After(st.ExpiresAt) {
+				httpx.WriteTypedError(w, http.StatusGone, "setup.otp.expired", "Your code expired. Request a new one.", 0)
 				return
 			}
-			// Do not mark used here to allow rate limiter integration tests
 			payload := map[string]any{"purpose": "setup", "exp": time.Now().Add(10 * time.Minute).UTC().Format(time.RFC3339)}
 			val, err := setupEncodeToken(cfg, payload)
 			if err != nil {
 				Logger(cfg).Error().Str("event", "setup.token.error").Err(err).Msg("")
-				httpx.WriteTypedError(w, http.StatusInternalServerError, "store.atomic_fail", "Could not issue setup token", 0)
+				httpx.WriteTypedError(w, http.StatusInternalServerError, "secret_unreadable", "secret.key not readable", 0)
 				return
 			}
 			writeJSON(w, map[string]any{"ok": true, "token": val})

@@ -22,7 +22,7 @@ func TestOTPAndLoginRateLimitIntegration(t *testing.T) {
 	usersPath := filepath.Join(dir, "users.json")
 	_ = os.WriteFile(secretPath, bytes.Repeat([]byte{1}, 32), 0o600)
 	_ = os.WriteFile(usersPath, []byte("{}"), 0o600)
-	_ = os.WriteFile(firstbootPath, []byte(`{"otp":"111111","created_at":"`+time.Now().UTC().Format(time.RFC3339)+`","used":false}`), 0o600)
+	_ = os.WriteFile(firstbootPath, []byte(`{"otp":"111111","issued_at":"`+time.Now().UTC().Format(time.RFC3339)+`","expires_at":"`+time.Now().UTC().Add(15*time.Minute).Format(time.RFC3339)+`"}`), 0o600)
 	_ = os.Setenv("NOS_SECRET_PATH", secretPath)
 	_ = os.Setenv("NOS_FIRSTBOOT_PATH", firstbootPath)
 	_ = os.Setenv("NOS_USERS_PATH", usersPath)

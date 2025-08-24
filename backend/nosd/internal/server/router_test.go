@@ -43,6 +43,7 @@ func TestLoginThrottleLockUnlock(t *testing.T) {
 	// Make rate limiter permissive so we test account locking, not 429s
 	t.Setenv("NOS_RATE_LOGIN_PER_15M", "1000")
 	cfg := config.FromEnv()
+	_ = os.Setenv("NOS_RL_PATH", filepath.Join(filepath.Dir(up), "ratelimit.json"))
 	r := NewRouter(cfg)
 
 	// Too many bad passwords should increment failures and eventually lock
@@ -74,6 +75,7 @@ func TestDisksShape(t *testing.T) {
 		_ = os.WriteFile(up, []byte(`{"version":1,"users":[{"id":"u1","username":"admin@example.com","password_hash":"plain:admin123","roles":["admin"],"created_at":"","updated_at":""}]}`), 0o600)
 	}
 	cfg := config.FromEnv()
+	_ = os.Setenv("NOS_RL_PATH", filepath.Join(filepath.Dir(cfg.SharesPath), "ratelimit.json"))
 	r := NewRouter(cfg)
 
 	// Login to get cookies
@@ -140,6 +142,7 @@ func TestDeleteShareReturnsNoContent(t *testing.T) {
 		_ = os.WriteFile(up, []byte(`{"version":1,"users":[{"id":"u1","username":"admin@example.com","password_hash":"plain:admin123","roles":["admin"],"created_at":"","updated_at":""}]}`), 0o600)
 	}
 	cfg := config.FromEnv()
+	_ = os.Setenv("NOS_RL_PATH", filepath.Join(filepath.Dir(cfg.SharesPath), "ratelimit.json"))
 	// Seed a store with an entry
 	_ = os.MkdirAll(filepath.Dir(cfg.SharesPath), 0o755)
 	_ = os.WriteFile(cfg.SharesPath, []byte(`[{"id":"media","type":"smb","path":"/srv/pool/media","name":"media","ro":false}]`), 0o600)
