@@ -62,7 +62,7 @@ export function Login() {
 					{needCode && (
 						<input className="w-full rounded bg-card p-2 tracking-widest" placeholder="TOTP or recovery code" value={code} onChange={(e) => setCode(e.target.value)} />
 					)}
-					<button className="btn bg-primary text-primary-foreground w-full" type="submit">
+					<button className="btn bg-primary text-primary-foreground block w-1/2 mx-auto py-3" type="submit">
 						{needCode ? 'Verify and Sign in' : 'Sign in'}
 					</button>
 				</form>

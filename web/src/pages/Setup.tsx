@@ -120,7 +120,7 @@ function StepOTP({ onVerified, setError, setLoading, post, disabled }: { onVerif
     <form onSubmit={submit} className="space-y-3">
       <label htmlFor="otp" className="block text-sm">One-time OTP (6 digits)</label>
       <input id="otp" className="w-full rounded bg-card p-2 tracking-widest" placeholder="123 456" value={otp} onChange={(e) => setOtp(e.target.value)} aria-label="One-time OTP (6 digits)" disabled={disabled} title={disabled? 'Waiting for backend': undefined} />
-      <button className="btn bg-primary text-primary-foreground w-full" type="submit" disabled={disabled} title={disabled? 'Waiting for backend': undefined}>Verify</button>
+      <button className="btn bg-primary text-primary-foreground block w-1/2 mx-auto py-3" type="submit" disabled={disabled} title={disabled? 'Waiting for backend': undefined}>Verify</button>
     </form>
   )
 }
@@ -313,7 +313,7 @@ function StepDone({ onGoLogin, disabled }: { onGoLogin: ()=>void; disabled?: boo
     <div className="text-center mt-6">
       <h2 className="text-lg font-semibold mb-2">Setup Complete</h2>
       <p className="text-sm mb-4">Your admin account is ready. You can now sign in.</p>
-      <button className="btn bg-primary text-primary-foreground" onClick={onGoLogin} disabled={disabled} title={disabled? 'Waiting for backend': undefined}>Go to Sign in</button>
+      <button className="btn bg-primary text-primary-foreground block w-1/2 mx-auto py-3" onClick={onGoLogin} disabled={disabled} title={disabled? 'Waiting for backend': undefined}>Go to Sign in</button>
     </div>
   )
 }
