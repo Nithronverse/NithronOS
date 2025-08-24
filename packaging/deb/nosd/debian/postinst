@@ -7,6 +7,7 @@ case "$1" in
         systemd-sysusers || true
         systemd-tmpfiles --create || true
         chown -R nos:nos /etc/nos /var/lib/nos 2>/dev/null || true
+        chmod 0750 /etc/nos /var/lib/nos 2>/dev/null || true
         [ -f /etc/nos/secret.key ] && chmod 600 /etc/nos/secret.key || true
         ;;
 esac

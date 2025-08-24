@@ -496,7 +496,7 @@ func NewRouter(cfg config.Config) http.Handler {
 			}
 			if err := users.UpsertUser(u); err != nil {
 				code := "store.atomic_fail"
-				if os.IsPermission(err) || os.IsNotExist(err) {
+				if os.IsPermission(err) || os.IsNotExist(err) || strings.Contains(strings.ToLower(err.Error()), "permission denied") {
 					code = "setup.write_failed"
 					// Emit clear hint for permission issues
 					info := dirPermInfo(filepath.Dir(cfg.UsersPath))
