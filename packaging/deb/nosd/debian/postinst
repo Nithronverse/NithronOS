@@ -3,23 +3,22 @@ set -e
 
 case "$1" in
     configure)
-        # Ensure ownership of configuration and data directories
-        if getent passwd nos >/dev/null 2>&1; then
-            chown -R nos:nos /etc/nos /var/lib/nos || true
-        fi
         # Create runtime and state/config directories via systemd helpers
-        if command -v systemd-sysusers >/dev/null 2>&1; then
-            systemd-sysusers || true
-        fi
-        if command -v systemd-tmpfiles >/dev/null 2>&1; then
-            systemd-tmpfiles --create || true
-        fi
+        systemd-sysusers || true
+        systemd-tmpfiles --create || true
+        # Ensure ownership of configuration and data directories (migrate nosd->nos)
+        for d in /etc/nos /var/lib/nos; do
+            if [ -d "$d" ]; then
+                chown -R nos:nos "$d" || true
+            fi
+        done
+        # Secret key permissions
+        [ -f /etc/nos/secret.key ] && chmod 600 /etc/nos/secret.key || true
         ;;
 esac
 
 systemctl daemon-reload || true
-systemctl enable nosd.service || true
-systemctl restart nosd.service || true
+systemctl enable --now nosd.service || true
 
 exit 0
 
