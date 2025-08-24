@@ -307,7 +307,7 @@ jobs:
         if: ${{ github.event_name != 'release' }}
         uses: actions/upload-artifact@v4
         with:
-          name: NithronOS - amd64 - ${{ github.event.release.tag_name || github.ref_name }}
+          name: NithronOS - ISO - amd64 - ${{ github.event.release.tag_name || github.ref_name }}
           path: |
             dist/iso/*.iso
             dist/iso/SHA256SUMS
