@@ -3,8 +3,8 @@ Description=NithronOS API Server (nosd)
 After=network.target
 
 [Service]
-User=nosd
-Group=nosd
+User=nos
+Group=nos
 ExecStart=/usr/bin/nosd
 StateDirectory=nos
 ConfigurationDirectory=nos

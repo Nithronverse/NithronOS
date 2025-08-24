@@ -500,8 +500,12 @@ func NewRouter(cfg config.Config) http.Handler {
 				code := "store.atomic_fail"
 				if os.IsPermission(err) || os.IsNotExist(err) {
 					code = "setup.write_failed"
+					// Emit clear hint for permission issues
+					info := dirPermInfo(filepath.Dir(cfg.UsersPath))
+					Logger(cfg).Error().Str("event", "setup.persist.error").Str("code", code).Str("hint", info).Err(err).Msg("")
+				} else {
+					Logger(cfg).Error().Str("event", "setup.persist.error").Str("code", code).Err(err).Msg("")
 				}
-				Logger(cfg).Error().Str("event", "setup.persist.error").Str("code", code).Err(err).Msg("")
 				httpx.WriteErrorWithDetails(w, http.StatusInternalServerError, code, "Service cannot write /etc/nos/users.json", map[string]any{"path": cfg.UsersPath})
 				return
 			}
@@ -1655,4 +1659,18 @@ func genOTP6() string {
 	}
 	n := (uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3])) % 1000000
 	return fmt.Sprintf("%06d", n)
+}
+
+func dirPermInfo(path string) string {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return ""
+	}
+	st := fi.Mode().Perm()
+	// ls -ld-like summary (very simplified)
+	ownerGid := ""
+	if out, e := exec.Command("/usr/bin/stat", "-c", "%U:%G", path).CombinedOutput(); e == nil {
+		ownerGid = strings.TrimSpace(string(out))
+	}
+	return fmt.Sprintf("ls -ld %s => mode %o owner %s; recommend: chown -R nos:nos %s && chmod 0750 %s", path, st, ownerGid, path, path)
 }
