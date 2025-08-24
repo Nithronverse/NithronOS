@@ -286,8 +286,18 @@ jobs:
           apt-get install -y caddy
       - name: "ISO smoke: caddy + ports"
         run: |
+          set -euxo pipefail
           which caddy || true
+          caddy version || true
+          echo "[ci] ISO Caddyfile (import stub):"
+          sed -n '1,120p' packaging/iso/debian/config/includes.chroot/etc/caddy/Caddyfile || true
+          echo "[ci] Preparing /etc/caddy/Caddyfile.nithronos for import validation"
+          install -d -m 0755 /etc/caddy
+          install -m 0644 packaging/caddy/nithronos.caddy /etc/caddy/Caddyfile.nithronos
+          ls -lah /etc/caddy || true
+          echo "[ci] Validating Caddy config with import target present"
           caddy validate --config packaging/iso/debian/config/includes.chroot/etc/caddy/Caddyfile
+          echo "[ci] Listening TCP sockets (post-validate, informational)"
           ss -lnt || true
 
       - name: Generate checksums (ISO + DEBs)
