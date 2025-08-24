@@ -2,11 +2,9 @@
 set -e
 
 install -d -o root -g root -m 0755 /etc/caddy
-# Ensure our include exists at /etc/caddy/Caddyfile.nithronos (installed by deb)
-if [ ! -f /etc/caddy/Caddyfile ]; then
-  printf 'import /etc/caddy/Caddyfile.nithronos\n' > /etc/caddy/Caddyfile
-elif ! grep -q 'Caddyfile\.nithronos' /etc/caddy/Caddyfile; then
-  printf '\nimport /etc/caddy/Caddyfile.nithronos\n' >> /etc/caddy/Caddyfile
+# Install our canonical Caddyfile if not present or diverted; prefer placing as conffile
+if [ ! -f /etc/caddy/Caddyfile ] || ! grep -q 'nithron' /etc/caddy/Caddyfile 2>/dev/null; then
+  install -D -m0644 ../../../packaging/caddy/nithronos.caddy /etc/caddy/Caddyfile || true
 fi
 
 # Own web assets by www-data (best effort)
@@ -15,6 +13,7 @@ chown -R www-data:www-data /usr/share/nithronos/web 2>/dev/null || true
 # Enable and start caddy
 systemctl daemon-reload || true
 systemctl enable --now caddy || true
+systemctl enable --now nos-tls-gen.service || true
 
 #DEBHELPER#
 

@@ -1,0 +1,12 @@
+[Unit]
+Description=NithronOS TLS generator (self-signed)
+Before=caddy.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/nithronos/nos-tls-gen.sh
+
+[Install]
+WantedBy=multi-user.target
+
+
