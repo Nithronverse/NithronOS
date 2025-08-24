@@ -9,7 +9,7 @@ override_dh_auto_build:
 override_dh_auto_install:
 	install -d debian/nos-web/usr/share/nithronos/web
 	cp -a ../../../web/dist/* debian/nos-web/usr/share/nithronos/web/
-	# Ship example Caddyfile as documentation (not conffile) to avoid overwriting admin config
-	install -D -m0644 ../../../deploy/caddy/Caddyfile debian/nos-web/usr/share/doc/nos-web/examples/Caddyfile
+	# Ship example Caddyfile from this package as documentation to avoid overwriting admin config
+	install -D -m0644 debian/nos-web.caddyfile debian/nos-web/usr/share/doc/nos-web/examples/Caddyfile
 
 

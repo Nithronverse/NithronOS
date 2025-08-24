@@ -1,0 +1,12 @@
+:80 {
+  redir https://{host}{uri}
+}
+:443 {
+  tls /etc/nithronos/tls/cert.pem /etc/nithronos/tls/key.pem
+  @api path /api/* /metrics /debug/* 
+  reverse_proxy @api 127.0.0.1:9000
+  root * /usr/share/nithronos/web
+  try_files {path} /index.html
+  file_server
+  encode zstd gzip
+}
