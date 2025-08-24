@@ -1,6 +1,24 @@
 #!/bin/sh
 set -e
 
+case "$1" in
+    configure)
+        # Ensure group exists for socket access
+        if command -v systemd-sysusers >/dev/null 2>&1; then
+            systemd-sysusers || true
+        fi
+        ;;
+esac
+
+systemctl daemon-reload || true
+systemctl enable nos-agent.service || true
+systemctl restart nos-agent.service || true
+
+exit 0
+
+#!/bin/sh
+set -e
+
 systemctl daemon-reload || true
 systemctl enable nos-agent.service || true
 systemctl restart nos-agent.service || true
