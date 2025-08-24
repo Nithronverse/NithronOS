@@ -158,7 +158,15 @@ func TestApplyDevice_StepErrorStops(t *testing.T) {
 		}
 		var cur pools.Tx
 		_, _ = fsatomic.LoadJSON(txPath(txID), &cur)
-		if cur.FinishedAt != nil || cur.Error != "" || (!cur.OK && len(cur.Steps) > 0 && cur.Steps[1].Status == "error") {
+		// detect any step error to avoid flakiness on index assumptions
+		stepErr := false
+		for _, s := range cur.Steps {
+			if s.Status == "error" {
+				stepErr = true
+				break
+			}
+		}
+		if cur.FinishedAt != nil || cur.Error != "" || (!cur.OK && stepErr) {
 			if cur.OK {
 				t.Fatalf("expected failure, got OK")
 			}
