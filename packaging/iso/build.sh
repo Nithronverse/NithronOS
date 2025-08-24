@@ -92,7 +92,7 @@ cat > "$HOOK" <<'EOS'
 #!/bin/sh
 set -e
 if ls /root/debs/*.deb 1>/dev/null 2>&1; then
-  dpkg -i /root/debs/*.deb || apt-get -y -f install
+  dpkg -i /root/debs/*.deb || apt-get -y -f install || true
   # Try again for nos-web specifically if first pass failed due to conflicts
   if ! dpkg -l | grep -qi '^ii\s\+nos-web'; then
     apt-get -y install ./root/debs/nos-web_*.deb 2>/dev/null || true

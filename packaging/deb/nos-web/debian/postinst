@@ -4,8 +4,6 @@ set -e
 install -d -o root -g root -m 0755 /etc/caddy
 install -d -o root -g root -m 0755 /etc/systemd/system/caddy.service.d
 install -d -o root -g root -m 0755 /usr/share/nithronos/web
-# Install override drop-in
-install -D -m0644 debian/caddy.override.conf /etc/systemd/system/caddy.service.d/override.conf
 
 # Own web assets by www-data (best effort)
 chown -R www-data:www-data /usr/share/nithronos/web 2>/dev/null || true

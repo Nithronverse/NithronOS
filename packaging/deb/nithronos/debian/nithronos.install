@@ -10,6 +10,6 @@ nos-fstrim.timer lib/systemd/system/
 ../../../deploy/scripts/gen-local-cert.sh usr/lib/nithronos/
 nithronos-certgen.service etc/systemd/system/
 ../../../deploy/systemd/nithronos-firstboot-banner.service etc/systemd/system/
-../../../deploy/caddy/Caddyfile etc/caddy/
+# no longer install Caddyfile to avoid dpkg conflict with distro caddy
 
 
