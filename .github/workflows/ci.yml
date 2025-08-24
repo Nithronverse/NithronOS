@@ -304,8 +304,9 @@ jobs:
       - name: Smoke test ISO (QEMU)
         if: ${{ runner.os == 'Linux' }}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y qemu-system-x86 jq curl
+          if command -v sudo >/dev/null 2>&1; then SUDO="sudo"; else SUDO=""; fi
+          $SUDO apt-get update
+          $SUDO apt-get install -y qemu-system-x86 jq curl
           ISO_PATH="$(ls dist/iso/*.iso | head -n1)"
           chmod +x scripts/qemu-smoke.sh
           bash scripts/qemu-smoke.sh "$ISO_PATH"
@@ -370,8 +371,9 @@ jobs:
 
       - name: Install QEMU
         run: |
-          sudo apt-get update
-          sudo apt-get install -y qemu-system-x86
+          if command -v sudo >/dev/null 2>&1; then SUDO="sudo"; else SUDO=""; fi
+          $SUDO apt-get update
+          $SUDO apt-get install -y qemu-system-x86
 
       - name: Locate ISO (and list artifacts on failure)
         id: findiso
@@ -392,7 +394,8 @@ jobs:
       - name: Run smoke test (serial console)
         run: |
           chmod +x scripts/qemu-smoke.sh
-          sudo -E bash scripts/qemu-smoke.sh "${{ steps.findiso.outputs.ISO_PATH }}"
+          if command -v sudo >/dev/null 2>&1; then SUDO="sudo -E"; else SUDO=""; fi
+          $SUDO bash scripts/qemu-smoke.sh "${{ steps.findiso.outputs.ISO_PATH }}"
 
       - name: Upload serial and qemu logs (always)
         if: always()
