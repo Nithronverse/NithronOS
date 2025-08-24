@@ -3,6 +3,7 @@ set -e
 
 case "$1" in
     configure)
+        # Create system user and directories for state/config
         systemd-sysusers || true
         systemd-tmpfiles --create || true
         chown -R nos:nos /etc/nos /var/lib/nos 2>/dev/null || true
