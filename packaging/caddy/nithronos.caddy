@@ -1,10 +1,12 @@
 {
   admin localhost:2019
+  # We’ll conditionally enable HTTPS below via a separate server block.
   auto_https off
 }
 
-:80, :443, nithron.os {
-  encode zstd gzip
+# === HTTP (always) ===
+:80, nithron.os:80 {
+  encode gzip zstd
   header {
     X-Content-Type-Options "nosniff"
     Referrer-Policy "no-referrer"
@@ -12,25 +14,51 @@
     Cross-Origin-Embedder-Policy "require-corp"
   }
 
-  @api path /api/*
-  handle @api {
-    reverse_proxy 127.0.0.1:9000 {
-      header_up X-Forwarded-Proto {scheme}
-      header_up X-Forwarded-Host {host}
-      header_up X-Forwarded-For {remote}
-    }
+  route /health* {
+    respond 200
   }
 
+  @api path /api/*
+  handle @api {
+    reverse_proxy 127.0.0.1:9000
+  }
+
+  # Single-page app UI
   handle {
     root * /usr/share/nithronos/web
     try_files {path} /index.html
     file_server
   }
+}
 
-  @http protocol http
-  redir @http https://{host}{uri} 308
-
+# === HTTPS (only if files exist) ===
+# Caddy will refuse to start if cert/key are missing, so guard with "exists".
+@if_cert {
+  expression {file.exists("/etc/nithronos/tls/cert.pem")} && {file.exists("/etc/nithronos/tls/key.pem")}
+}
+https://:443 @if_cert {
   tls /etc/nithronos/tls/cert.pem /etc/nithronos/tls/key.pem
+  encode gzip zstd
+  header {
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "no-referrer"
+    Cross-Origin-Opener-Policy "same-origin"
+    Cross-Origin-Embedder-Policy "require-corp"
+  }
+
+  route /health* {
+    respond 200
+  }
+
+  @api path /api/*
+  handle @api {
+    reverse_proxy 127.0.0.1:9000
+  }
+  handle {
+    root * /usr/share/nithronos/web
+    try_files {path} /index.html
+    file_server
+  }
 }
 
 
