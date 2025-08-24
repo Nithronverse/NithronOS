@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -40,6 +41,8 @@ func main() {
 		}
 		fmt.Println(msg)
 		server.Logger(cfg).Info().Msg(msg)
+		// Write or update runtime OTP file for systemd announcer
+		_ = writeFirstBootOTP(st.OTP)
 	}
 	r := server.NewRouter(cfg)
 
@@ -208,6 +211,20 @@ func generateOTP6() string {
 	}
 	n := (uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3])) % 1000000
 	return fmt.Sprintf("%06d", n)
+}
+
+// writeFirstBootOTP writes the current 6-digit code to /run/nos/firstboot-otp
+// in a simple format: digits + newline. Best-effort and idempotent.
+func writeFirstBootOTP(otp string) error {
+	if strings.TrimSpace(otp) == "" {
+		return nil
+	}
+	const p = "/run/nos/firstboot-otp"
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		return err
+	}
+	data := []byte(strings.TrimSpace(otp) + "\n")
+	return os.WriteFile(p, data, 0o644)
 }
 
 func ensureAgentToken(path string) {

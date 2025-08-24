@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+# Do nothing destructive; leave Caddy config and assets in place.
+# This prerm intentionally does not modify /etc/caddy/Caddyfile*
+
+exit 0
+
+
+

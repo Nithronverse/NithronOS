@@ -31,6 +31,8 @@ case "$1" in
         systemctl enable nosd.service || true
         systemctl enable nos-agent.service || true
         systemctl enable nithronos-firstboot-banner.service || true
+        # OTP announcer (path-triggered on /run/nos/firstboot-otp)
+        systemctl enable --now nos-announce-otp.path || true
         chmod 0755 /usr/lib/nithronos/smart-scan.sh || true
         systemctl enable --now nos-smart-scan.timer || true
         systemctl enable --now nos-fstrim.timer || true

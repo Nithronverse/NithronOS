@@ -135,3 +135,18 @@ func handleSupportBundle(cfg config.Config) http.HandlerFunc {
 		}
 	}
 }
+
+// writeFirstBootOTPFile writes the current 6-digit code to /run/nos/firstboot-otp
+// in a simple format: digits + newline. Best-effort and idempotent.
+func writeFirstBootOTPFile(otp string) error {
+	otp = strings.TrimSpace(otp)
+	if otp == "" {
+		return nil
+	}
+	const p = "/run/nos/firstboot-otp"
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		return err
+	}
+	data := []byte(otp + "\n")
+	return os.WriteFile(p, data, 0o644)
+}

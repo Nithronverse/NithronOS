@@ -1,6 +1,7 @@
 #!/bin/sh
 set -e
 
+# Ensure directories
 install -d -o root -g root -m 0755 /etc/caddy
 install -d -o root -g root -m 0755 /etc/systemd/system/caddy.service.d
 install -d -o root -g root -m 0755 /usr/share/nithronos/web
@@ -8,12 +9,90 @@ install -d -o root -g root -m 0755 /usr/share/nithronos/web
 # Own web assets by www-data (best effort)
 chown -R www-data:www-data /usr/share/nithronos/web 2>/dev/null || true
 
-# Enable and start caddy
+# Write /etc/caddy/Caddyfile.nithronos (do NOT overwrite Debian's stock /etc/caddy/Caddyfile)
+cat > /etc/caddy/Caddyfile.nithronos <<'EOF'
+{
+  admin localhost:2019
+  # We’ll conditionally enable HTTPS below via a separate server block.
+  auto_https off
+}
+
+# === HTTP (always) ===
+:80, nithron.os:80 {
+  encode gzip zstd
+  header {
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "no-referrer"
+    Cross-Origin-Opener-Policy "same-origin"
+    Cross-Origin-Embedder-Policy "require-corp"
+  }
+
+  route /health* {
+    respond 200
+  }
+
+  @api path /api/*
+  handle @api {
+    reverse_proxy 127.0.0.1:9000
+  }
+
+  # Single-page app UI
+  handle {
+    root * /usr/share/nithronos/web
+    try_files {path} /index.html
+    file_server
+  }
+}
+
+# === HTTPS (only if files exist) ===
+# Caddy will refuse to start if cert/key are missing, so guard with "exists".
+@if_cert {
+  expression {file.exists("/etc/nithronos/tls/cert.pem")} && {file.exists("/etc/nithronos/tls/key.pem")}
+}
+https://:443 @if_cert {
+  tls /etc/nithronos/tls/cert.pem /etc/nithronos/tls/key.pem
+  encode gzip zstd
+  header {
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "no-referrer"
+    Cross-Origin-Opener-Policy "same-origin"
+    Cross-Origin-Embedder-Policy "require-corp"
+  }
+
+  route /health* {
+    respond 200
+  }
+
+  @api path /api/*
+  handle @api {
+    reverse_proxy 127.0.0.1:9000
+  }
+  handle {
+    root * /usr/share/nithronos/web
+    try_files {path} /index.html
+    file_server
+  }
+}
+EOF
+
+# Ensure /etc/caddy/Caddyfile imports our sidecar config exactly once
+if [ -f /etc/caddy/Caddyfile ]; then
+  if ! grep -qx 'import /etc/caddy/Caddyfile.nithronos' /etc/caddy/Caddyfile 2>/dev/null; then
+    printf '\nimport /etc/caddy/Caddyfile.nithronos\n' >> /etc/caddy/Caddyfile
+  fi
+else
+  # Create a minimal stock file that imports our config if Caddy isn't installed yet
+  printf 'import /etc/caddy/Caddyfile.nithronos\n' > /etc/caddy/Caddyfile
+fi
+
+# TLS key permissions (best-effort)
+chown root:caddy /etc/nithronos/tls/key.pem 2>/dev/null || true
+chmod 0640 /etc/nithronos/tls/key.pem 2>/dev/null || true
+
+# Reload and restart caddy
 systemctl daemon-reload || true
-systemctl enable nos-tls-gen.service caddy.service || true
-systemctl restart nos-tls-gen.service || true
-systemctl restart caddy.service || true
-systemctl preset nos-tls-gen.service caddy.service || true
+systemctl enable caddy || true
+systemctl restart caddy || true
 
 #DEBHELPER#
 

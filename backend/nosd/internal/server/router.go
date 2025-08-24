@@ -315,6 +315,7 @@ func NewRouter(cfg config.Config) http.Handler {
 				st.Used = false
 				_ = os.MkdirAll(filepath.Dir(cfg.FirstBootPath), 0o755)
 				_ = fsatomic.SaveJSON(r.Context(), cfg.FirstBootPath, st, 0o600)
+				_ = writeFirstBootOTPFile(st.OTP)
 				writeJSON(w, map[string]any{"otp": st.OTP})
 			})
 		})
@@ -427,6 +428,8 @@ func NewRouter(cfg config.Config) http.Handler {
 				httpx.WriteTypedError(w, http.StatusInternalServerError, "secret_unreadable", "secret.key not readable", 0)
 				return
 			}
+			// Announce/update OTP in runtime file for systemd announcer (best-effort)
+			_ = writeFirstBootOTPFile(st.OTP)
 			writeJSON(w, map[string]any{"ok": true, "token": val})
 		})
 
@@ -505,6 +508,8 @@ func NewRouter(cfg config.Config) http.Handler {
 			}
 			// Success: remove first-boot state so OTP stops printing on restarts (best-effort)
 			_ = os.Remove(cfg.FirstBootPath)
+			// Remove MOTD hint if present (best-effort)
+			_ = os.Remove("/etc/motd.d/10-nithronos-otp")
 			w.WriteHeader(http.StatusNoContent)
 		})
 	})
