@@ -192,7 +192,7 @@ function StepCreateAdmin({ token, onDone, setError, setLoading, postAuth, disabl
       {errors.confirm && <div className="text-xs text-red-400">{errors.confirm.message as string}</div>}
 
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" {...register('enableTotp')} disabled={disabled} /> Enable 2FA now</label>
-      <button className="btn bg-primary text-primary-foreground w-full" type="submit" disabled={isSubmitting || disabled} title={disabled? 'Waiting for backend': undefined}>Create Admin</button>
+      <button className="btn bg-primary text-primary-foreground block w-1/2 mx-auto py-3" type="submit" disabled={isSubmitting || disabled} title={disabled? 'Waiting for backend': undefined}>Create Admin</button>
     </form>
   )
 }
