@@ -7,6 +7,16 @@ vi.mock('@/components/ui/toast', () => ({
   pushToast: vi.fn(),
 }))
 
+// Deferred gate for the apply call to make the test deterministic
+let applyGate: { p: Promise<void>; resolve: () => void } | null = null
+function newApplyGate() {
+  let resolve!: () => void
+  const p = new Promise<void>((r) => (resolve = r))
+  applyGate = { p, resolve }
+  return applyGate
+}
+function clearApplyGate() { applyGate = null }
+
 function mockFetchSequence() {
   const original = global.fetch
   const fn = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
@@ -18,8 +28,12 @@ function mockFetchSequence() {
       return new Response(JSON.stringify([]), { status:200, headers:{'Content-Type':'application/json'} })
     }
     if (url.includes('/api/updates/apply')) {
-      // Add a tiny delay so the UI renders the applying state reliably in CI
-      await new Promise((r) => setTimeout(r, 25))
+      // Gate resolution so we can assert the disabled state deterministically
+      if (applyGate) {
+        await applyGate.p
+      } else {
+        await new Promise((r) => setTimeout(r, 25))
+      }
       return new Response(JSON.stringify({ ok:true, tx_id:'tx-1', snapshots_count:1, updates_count:1 }), { status:200, headers:{'Content-Type':'application/json'} })
     }
     if (url.includes('/api/updates/rollback')) {
@@ -52,6 +66,7 @@ describe('SettingsUpdates', () => {
     // wait initial load
     await screen.findByText(/Available updates/i)
     const btn = screen.getByRole('button', { name: /Apply Updates/i }) as HTMLButtonElement
+    const gate = newApplyGate()
     fireEvent.click(btn)
     // goes into applying state (allow async state update); re-query by role to handle text change
     await waitFor(() => {
@@ -63,11 +78,14 @@ describe('SettingsUpdates', () => {
       const calls = ((global.fetch as any).mock?.calls || []) as any[]
       expect(calls.some((args:any[]) => typeof args[0] === 'string' && /\/api\/updates\/apply/.test(args[0]))).toBe(true)
     })
+    // release the gate so apply resolves
+    gate.resolve()
     // and button should be re-enabled afterwards (re-query)
     await waitFor(() => {
       const b = screen.getByRole('button', { name: /Apply/i }) as HTMLButtonElement
       expect(b.disabled).toBe(false)
     })
+    clearApplyGate()
   })
 
   it('calls rollback API', async () => {
