@@ -31,12 +31,8 @@
   }
 }
 
-# === HTTPS (only if files exist) ===
-# Caddy will refuse to start if cert/key are missing, so guard with "exists".
-@if_cert {
-  expression {file.exists("/etc/nithronos/tls/cert.pem")} && {file.exists("/etc/nithronos/tls/key.pem")}
-}
-https://:443 @if_cert {
+# === HTTPS ===
+https://:443 {
   tls /etc/nithronos/tls/cert.pem /etc/nithronos/tls/key.pem
   encode gzip zstd
   header {

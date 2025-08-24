@@ -5,6 +5,7 @@
 - Build & Test: go build/test, web build, fuzz/property tests
 - Packaging: build .deb, ISO
 - Smoke: QEMU boot, health check; always upload logs
+  - ISO Caddy validation uses the repo sidecar file as import target.
 
 ## Triggers
 - Push to `main`
