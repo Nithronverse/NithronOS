@@ -219,7 +219,7 @@ jobs:
             -addext "subjectAltName=IP:127.0.0.1,DNS:nithronos.local"
           sudo chmod 0600 /etc/nithronos/tls/key.pem
           sudo chmod 0644 /etc/nithronos/tls/cert.pem
-          caddy validate --config /etc/caddy/Caddyfile
+          sudo caddy validate --config /etc/caddy/Caddyfile
       - name: Systemd sandbox smoke for nosd
         if: runner.os == 'Linux'
         run: |
