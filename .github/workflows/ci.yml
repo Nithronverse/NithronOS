@@ -285,8 +285,9 @@ jobs:
           apt-get update
           apt-get install -y caddy
       - name: "ISO smoke: caddy + ports"
+        shell: bash
         run: |
-          set -euxo pipefail
+          set -Eeuo pipefail
           which caddy || true
           caddy version || true
           echo "[ci] ISO Caddyfile (import stub):"
