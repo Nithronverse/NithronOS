@@ -3,7 +3,10 @@ Section: admin
 Priority: optional
 Maintainer: NithronOS Maintainers <maintainers@nithron.com>
 Standards-Version: 4.6.2
-Build-Depends: debhelper-compat (= 13)
+Build-Depends: debhelper-compat (= 13),
+ dh-sequence-systemd,
+ dh-sequence-sysusers,
+ dh-sequence-tmpfiles
 Rules-Requires-Root: no
 
 Package: nos-agent
