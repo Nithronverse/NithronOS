@@ -1,2 +1,2 @@
-deploy/caddy/Caddyfile etc/caddy/
+../../../deploy/caddy/Caddyfile etc/caddy/
 
