@@ -93,11 +93,23 @@ cat > "$HOOK" <<'EOS'
 set -e
 if ls /root/debs/*.deb 1>/dev/null 2>&1; then
   dpkg -i /root/debs/*.deb || apt-get -y -f install
+  # Try again for nos-web specifically if first pass failed due to conflicts
+  if ! dpkg -l | grep -qi '^ii\s\+nos-web'; then
+    apt-get -y install ./root/debs/nos-web_*.deb 2>/dev/null || true
+  fi
 fi
 # Enable Caddy if present
 systemctl enable caddy || true
 # Verify web assets exist
-[ -f /usr/share/nithronos/web/index.html ] || echo "::warning::/usr/share/nithronos/web/index.html missing in chroot"
+if [ ! -f /usr/share/nithronos/web/index.html ]; then
+  echo "::warning::/usr/share/nithronos/web/index.html missing in chroot"
+  echo "[iso] debs staged in chroot:"
+  ls -1 /root/debs || true
+  echo "[iso] dpkg packages matching nos-web:"
+  dpkg -l | grep -i nos-web || true
+  echo "[iso] contents of /usr/share/nithronos (if any):"
+  ls -lah /usr/share/nithronos || true
+fi
 EOS
 chmod +x "$HOOK"
 
