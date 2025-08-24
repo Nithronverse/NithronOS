@@ -1,2 +1,3 @@
-../../../deploy/caddy/Caddyfile etc/caddy/
+../../../web/dist/* usr/share/nithronos/web/
+../../../packaging/caddy/nithronos.caddy etc/caddy/conf.d/
 

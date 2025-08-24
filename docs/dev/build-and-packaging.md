@@ -15,34 +15,19 @@ make web-dev
 - `postinst` chowns `/etc/nos` and `/var/lib/nos` to `nos:nos`
 - `postrm` removes state only on purge
 
-### Web reverse proxy (Caddy)
+### Web reverse proxy (Caddy conf.d)
 
-For pre-alpha LAN preview, the default Caddyfile serves HTTP-only and proxies the API. TLS snippets remain commented for later.
+nos-web ships a snippet to `/etc/caddy/conf.d/nithronos.caddy` (HTTP-only). The package postinst ensures `/etc/caddy/Caddyfile` exists and imports `conf.d/*.caddy` if not already present. This avoids overwriting admin-managed Caddyfiles.
 
-Installed to `/etc/caddy/Caddyfile`:
-
+Snippet content:
 ```
-{
-  admin localhost:2019
-  auto_https off
+@api path /api/* /metrics /debug/*
+handle @api {
+  reverse_proxy 127.0.0.1:9000
 }
-
-:80, nithron.os:80 {
-  encode gzip zstd
-  header {
-    X-Content-Type-Options "nosniff"
-    Referrer-Policy "no-referrer"
-    Cross-Origin-Opener-Policy "same-origin"
-    Cross-Origin-Embedder-Policy "require-corp"
-  }
-  @api path /api/*
-  handle @api { reverse_proxy 127.0.0.1:9000 }
-  handle {
-    root * /usr/share/nithronos/web
-    try_files {path} /index.html
-    file_server
-  }
-}
+root * /usr/share/nithronos/web
+try_files {path} /index.html
+file_server
 ```
 
 Notes:

@@ -94,6 +94,10 @@ set -e
 if ls /root/debs/*.deb 1>/dev/null 2>&1; then
   dpkg -i /root/debs/*.deb || apt-get -y -f install
 fi
+# Enable Caddy if present
+systemctl enable caddy || true
+# Verify web assets exist
+[ -f /usr/share/nithronos/web/index.html ] || echo "::warning::/usr/share/nithronos/web/index.html missing in chroot"
 EOS
 chmod +x "$HOOK"
 

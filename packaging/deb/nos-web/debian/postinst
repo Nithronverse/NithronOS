@@ -1,35 +1,17 @@
 #!/bin/sh
 set -e
 
-# Assets are installed under /usr/share/nithronos/web via debian/rules
-
-# Ensure Caddy config directory exists
-install -d -m 0755 /etc/caddy
-# Caddyfile is shipped by packaging rules; do not overwrite if admin changed it
-
-# Ensure local TLS exists for first boot
-install -d -m 0700 /etc/nithronos/tls
-if [ ! -s /etc/nithronos/tls/cert.pem ] || [ ! -s /etc/nithronos/tls/key.pem ]; then
-    # Try to derive a reasonable CN: primary IPv4 or hostname
-    CN=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '/src/ {for(i=1;i<=NF;i++) if ($i=="src") {print $(i+1); exit}}')
-    [ -z "$CN" ] && CN=$(hostname -I 2>/dev/null | awk '{print $1}')
-    [ -z "$CN" ] && CN=$(hostname)
-    openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
-      -days 3650 -sha256 -nodes -subj "/CN=$CN" \
-      -keyout /etc/nithronos/tls/key.pem -out /etc/nithronos/tls/cert.pem \
-      -addext "subjectAltName=IP:127.0.0.1,DNS:nithronos.local"
-fi
-# Key perms for Caddy
-chown root:caddy /etc/nithronos/tls/key.pem || true
-chmod 640 /etc/nithronos/tls/key.pem || true
-
-# Allow binding to 80/443 if needed
-if command -v setcap >/dev/null 2>&1; then
-    setcap -q 'cap_net_bind_service=+ep' /usr/bin/caddy || true
+install -d -o root -g root -m 0755 /etc/caddy/conf.d
+if [ ! -f /etc/caddy/Caddyfile ]; then
+  printf ':80 {\n\timport /etc/caddy/conf.d/*.caddy\n}\n' > /etc/caddy/Caddyfile
+elif ! grep -q 'conf\.d/\*\.caddy' /etc/caddy/Caddyfile; then
+  printf '\nimport /etc/caddy/conf.d/*.caddy\n' >> /etc/caddy/Caddyfile
 fi
 
-systemctl daemon-reload || true
-systemctl enable --now caddy || true
+# Reload Caddy if running
+if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet caddy; then
+  systemctl reload caddy || systemctl restart caddy || true
+fi
 
 #DEBHELPER#
 

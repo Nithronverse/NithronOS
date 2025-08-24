@@ -9,6 +9,7 @@ Rules-Requires-Root: no
 Package: nos-web
 Architecture: all
 Depends: ${misc:Depends}
+Recommends: caddy
 Description: NithronOS web UI (static assets)
 
 

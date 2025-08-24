@@ -1,0 +1,9 @@
+@api path /api/* /metrics /debug/*
+handle @api {
+  reverse_proxy 127.0.0.1:9000
+}
+root * /usr/share/nithronos/web
+try_files {path} /index.html
+file_server
+
+
