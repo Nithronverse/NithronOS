@@ -301,6 +301,15 @@ jobs:
         run: |
           ls -lah dist/iso || true
 
+      - name: Smoke test ISO (QEMU)
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 jq curl
+          ISO_PATH="$(ls dist/iso/*.iso | head -n1)"
+          chmod +x scripts/qemu-smoke.sh
+          bash scripts/qemu-smoke.sh "$ISO_PATH"
+
       - name: Upload ISO artifact (non-release)
         if: ${{ github.event_name != 'release' }}
         uses: actions/upload-artifact@v4

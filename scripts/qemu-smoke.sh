@@ -1,5 +1,49 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
+ISO=${1:-}
+if [[ -z "${ISO}" || ! -f "${ISO}" ]]; then
+  echo "usage: $0 <iso-path>" >&2
+  exit 2
+fi
+
+LOG_QEMU=/tmp/qemu.log
+SERIAL_LOG=/tmp/nos-serial.log
+rm -f "$LOG_QEMU" "$SERIAL_LOG" || true
+
+echo "[smoke] booting ISO: $ISO"
+qemu-system-x86_64 \
+  -m 2048 -smp 2 -nographic -enable-kvm \
+  -cdrom "$ISO" \
+  -net nic -net user,hostfwd=tcp::8080-:80 \
+  -serial file:"$SERIAL_LOG" \
+  >"$LOG_QEMU" 2>&1 &
+QPID=$!
+trap 'kill "$QPID" 2>/dev/null || true' EXIT
+
+echo "[smoke] waiting for HTTP on 127.0.0.1:8080"
+for i in {1..120}; do
+  if curl -fsS http://127.0.0.1:8080/ >/dev/null 2>&1; then
+    echo "[smoke] UI is up"
+    break
+  fi
+  sleep 1
+done
+
+curl -fsS http://127.0.0.1:8080/ | grep -i "<!doctype" >/dev/null
+echo "[smoke] UI HTML served"
+
+curl -fsS http://127.0.0.1:8080/api/setup/state | jq -e '.firstBoot==true and .otpRequired==true' >/dev/null
+echo "[smoke] /api/setup/state OK"
+
+echo "[smoke] powering off VM"
+kill "$QPID" 2>/dev/null || true
+sleep 2
+
+echo "[smoke] DONE"
+
+#!/usr/bin/env bash
+set -euo pipefail
 if [ "${1:-}" = "" ]; then
   echo "::error::No ISO path passed to qemu-smoke.sh"; exit 1
 fi
