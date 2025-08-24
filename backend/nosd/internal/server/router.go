@@ -166,9 +166,9 @@ func NewRouter(cfg config.Config) http.Handler {
 	users, _ := userstore.New(cfg.UsersPath)
 	codec := auth.NewSessionCodec(cfg.SessionHashKey, cfg.SessionBlockKey)
 	// Disk-backed session and ratelimit stores
-	sessStore := sessions.New(filepath.Join("/var/lib/nos", "sessions.json"))
-	rlStore := ratelimit.New(filepath.Join("/var/lib/nos", "ratelimit.json"))
-	mgr := session.New(filepath.Join("/var/lib/nos", "sessions.json"))
+	sessStore := sessions.New(cfg.SessionsPath)
+	rlStore := ratelimit.New(cfg.RateLimitPath)
+	mgr := session.New(cfg.SessionsPath)
 
 	// On startup: if first boot and OTP exists/valid, log it
 	func() {

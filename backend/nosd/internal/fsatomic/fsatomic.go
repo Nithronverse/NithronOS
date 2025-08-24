@@ -103,7 +103,7 @@ func LoadJSON(path string, v any) (bool, error) {
 // WriteJSONAtomic writes JSON atomically with default permissions (0600).
 // It ensures the parent directory exists with 0770 permissions.
 func WriteJSONAtomic(ctx context.Context, path string, v any) error {
-    return SaveJSON(ctx, path, v, 0)
+	return SaveJSON(ctx, path, v, 0)
 }
 
 // ReadJSON loads JSON and removes any orphan .tmp file first.

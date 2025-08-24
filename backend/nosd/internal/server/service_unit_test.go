@@ -32,7 +32,7 @@ func TestNosdServiceUnitContainsSandboxing(t *testing.T) {
 	}
 	s := string(b)
 	for _, want := range []string{
-		"ProtectSystem=strict",
+		"ProtectSystem=full",
 		"NoNewPrivileges=yes",
 		"ReadWritePaths=/etc/nos /var/lib/nos /run",
 		"StateDirectory=nos",

@@ -15,6 +15,8 @@ type Config struct {
 	UsersPath          string
 	SecretPath         string
 	FirstBootPath      string
+	SessionsPath       string
+	RateLimitPath      string
 	SharesPath         string
 	SessionHashKey     []byte
 	SessionBlockKey    []byte
@@ -71,10 +73,12 @@ func Defaults() Config {
 	return Config{
 		Port:                     9000,
 		LogLevel:                 zerolog.InfoLevel,
-		UsersPath:                "./devdata/users.json",
+		UsersPath:                "/etc/nos/users.json",
 		SecretPath:               "/etc/nos/secret.key",
 		FirstBootPath:            "/var/lib/nos/state/firstboot.json",
-		SharesPath:               "./devdata/shares.json",
+		SessionsPath:             "/var/lib/nos/sessions.json",
+		RateLimitPath:            "/var/lib/nos/ratelimit.json",
+		SharesPath:               "/etc/nos/shares.json",
 		SessionHashKey:           nil,
 		SessionBlockKey:          nil,
 		EtcDir:                   "/etc",
@@ -169,11 +173,17 @@ func applyEnv(cfg Config) Config {
 	if v := os.Getenv("NOS_USERS_PATH"); v != "" {
 		cfg.UsersPath = v
 	}
+	if v := os.Getenv("NOS_SESSIONS_PATH"); v != "" {
+		cfg.SessionsPath = v
+	}
 	if v := os.Getenv("NOS_SECRET_PATH"); v != "" {
 		cfg.SecretPath = v
 	}
 	if v := os.Getenv("NOS_FIRSTBOOT_PATH"); v != "" {
 		cfg.FirstBootPath = v
+	}
+	if v := os.Getenv("NOS_RL_PATH"); v != "" {
+		cfg.RateLimitPath = v
 	}
 	if v := os.Getenv("NOS_SHARES_PATH"); v != "" {
 		cfg.SharesPath = v

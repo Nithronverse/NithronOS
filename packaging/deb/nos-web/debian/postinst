@@ -1,17 +1,20 @@
 #!/bin/sh
 set -e
 
-install -d -o root -g root -m 0755 /etc/caddy/conf.d
+install -d -o root -g root -m 0755 /etc/caddy
+# Ensure our include exists at /etc/caddy/Caddyfile.nithronos (installed by deb)
 if [ ! -f /etc/caddy/Caddyfile ]; then
-  printf ':80 {\n\timport /etc/caddy/conf.d/*.caddy\n}\n' > /etc/caddy/Caddyfile
-elif ! grep -q 'conf\.d/\*\.caddy' /etc/caddy/Caddyfile; then
-  printf '\nimport /etc/caddy/conf.d/*.caddy\n' >> /etc/caddy/Caddyfile
+  printf 'import /etc/caddy/Caddyfile.nithronos\n' > /etc/caddy/Caddyfile
+elif ! grep -q 'Caddyfile\.nithronos' /etc/caddy/Caddyfile; then
+  printf '\nimport /etc/caddy/Caddyfile.nithronos\n' >> /etc/caddy/Caddyfile
 fi
 
-# Reload Caddy if running
-if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet caddy; then
-  systemctl reload caddy || systemctl restart caddy || true
-fi
+# Own web assets by www-data (best effort)
+chown -R www-data:www-data /usr/share/nithronos/web 2>/dev/null || true
+
+# Enable and start caddy
+systemctl daemon-reload || true
+systemctl enable --now caddy || true
 
 #DEBHELPER#
 
