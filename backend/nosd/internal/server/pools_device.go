@@ -211,6 +211,9 @@ func handleApplyDevice(cfg config.Config) http.HandlerFunc {
 					if len(resp.Results) > 0 {
 						code = resp.Results[0].Code
 						out = resp.Results[0].Stdout
+					} else {
+						// Treat a missing result as error to ensure the tx terminates in tests
+						code = 1
 					}
 					if code != 0 {
 						cur.OK = false
