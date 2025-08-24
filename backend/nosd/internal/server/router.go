@@ -42,8 +42,9 @@ import (
 
 	"strconv"
 
-	"github.com/gorilla/securecookie"
 	firstboot "nithronos/backend/nosd/internal/setup/firstboot"
+
+	"github.com/gorilla/securecookie"
 )
 
 // agentMetricsClient implements AgentMetricsClient to fetch text metrics from nos-agent

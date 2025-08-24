@@ -45,7 +45,7 @@ Local-first storage management (Btrfs/ZFS*), snapshots, shares, backups, and a m
 - **`nosd`** (Go): REST API for disks, pools, snapshots, shares, jobs.
 - **`nos-agent`** (Go, root): allow-listed helper for privileged actions.
 - **Web UI** (React + TypeScript): talks to `nosd` via OpenAPI client.
-- **Reverse proxy** (Caddy): TLS, headers, rate limits; backend bound to loopback.
+- **Reverse proxy** (Caddy): serves UI and proxies API. Pre-alpha default is HTTP-only on LAN (no TLS) with security headers; backend bound to loopback. Browsers will show “Not secure” — acceptable for local preview.
 - **Jobs**: systemd timers for snapshots/prune & scheduled maintenance.
 
 **Related docs:**  

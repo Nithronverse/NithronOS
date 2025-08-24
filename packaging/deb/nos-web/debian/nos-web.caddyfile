@@ -1,12 +1,26 @@
-:80 {
-  redir https://{host}{uri}
+{
+  admin localhost:2019
+  auto_https off
 }
-:443 {
-  tls /etc/nithronos/tls/cert.pem /etc/nithronos/tls/key.pem
-  @api path /api/* /metrics /debug/* 
-  reverse_proxy @api 127.0.0.1:9000
-  root * /usr/share/nithronos/web
-  try_files {path} /index.html
-  file_server
-  encode zstd gzip
+
+:80, nithron.os:80 {
+  encode gzip zstd
+
+  header {
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "no-referrer"
+    Cross-Origin-Opener-Policy "same-origin"
+    Cross-Origin-Embedder-Policy "require-corp"
+  }
+
+  @api path /api/*
+  handle @api {
+    reverse_proxy 127.0.0.1:9000
+  }
+
+  handle {
+    root * /usr/share/nithronos/web
+    try_files {path} /index.html
+    file_server
+  }
 }

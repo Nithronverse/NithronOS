@@ -5,3 +5,9 @@ systemctl enable nithronos-certgen.service caddy.service nosd.service nos-agent.
 # sanity: print unit files exist and wanted symlinks are created
 systemctl is-enabled nithronos-certgen caddy nosd nos-agent || true
 
+if command -v curl >/dev/null 2>&1; then
+  # Basic smoke: UI HTML and setup state JSON
+  curl -sf http://127.0.0.1/ >/dev/null || true
+  curl -sf http://127.0.0.1/api/setup/state >/dev/null || true
+fi
+

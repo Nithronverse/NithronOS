@@ -1,18 +1,17 @@
-:80 {
-  redir https://{host}{uri}
+{
+  admin localhost:2019
+  auto_https off
 }
-:443 {
-  tls internal
+
+:80, nithron.os:80 {
   encode gzip zstd
   header {
-    Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
     X-Content-Type-Options "nosniff"
     Referrer-Policy "no-referrer"
-    Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'"
     Cross-Origin-Opener-Policy "same-origin"
     Cross-Origin-Embedder-Policy "require-corp"
   }
-  @api path /api/* /metrics* /debug/*
+  @api path /api/*
   handle @api {
     reverse_proxy 127.0.0.1:9000
   }

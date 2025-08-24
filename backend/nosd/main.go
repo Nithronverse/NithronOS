@@ -16,8 +16,8 @@ import (
 	userstore "nithronos/backend/nosd/internal/auth/store"
 	"nithronos/backend/nosd/internal/config"
 	"nithronos/backend/nosd/internal/fsatomic"
-	firstboot "nithronos/backend/nosd/internal/setup/firstboot"
 	"nithronos/backend/nosd/internal/server"
+	firstboot "nithronos/backend/nosd/internal/setup/firstboot"
 )
 
 func main() {

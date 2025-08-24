@@ -11,7 +11,7 @@ import (
 // sandbox directives we expect. It doesn't require systemd.
 func TestNosdServiceUnitContainsSandboxing(t *testing.T) {
 	candidates := []string{
-		"../../../deploy/systemd/nosd.service",   // from internal/server
+		"../../../deploy/systemd/nosd.service",    // from internal/server
 		"../../../../deploy/systemd/nosd.service", // in case working dir differs
 		"../../deploy/systemd/nosd.service",       // from internal
 		"deploy/systemd/nosd.service",             // repo root (CI)
@@ -45,5 +45,3 @@ func TestNosdServiceUnitContainsSandboxing(t *testing.T) {
 		}
 	}
 }
-
-

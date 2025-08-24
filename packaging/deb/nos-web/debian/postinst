@@ -7,7 +7,12 @@ set -e
 install -d -m 0755 /etc/caddy
 # Install default Caddyfile from package (do not overwrite admin changes)
 if [ ! -f /etc/caddy/Caddyfile ]; then
-    install -D -m 0644 /usr/share/doc/nos-web/examples/Caddyfile /etc/caddy/Caddyfile || true
+    # Our package ships the Caddyfile in doc/examples; copy it into place
+    if [ -f /usr/share/doc/nos-web/examples/Caddyfile ]; then
+        install -D -m 0644 /usr/share/doc/nos-web/examples/Caddyfile /etc/caddy/Caddyfile || true
+    elif [ -f /usr/share/nos-web/Caddyfile ]; then
+        install -D -m 0644 /usr/share/nos-web/Caddyfile /etc/caddy/Caddyfile || true
+    fi
 fi
 
 # Ensure local TLS exists for first boot
@@ -32,11 +37,7 @@ if command -v setcap >/dev/null 2>&1; then
 fi
 
 systemctl daemon-reload || true
-if systemctl is-enabled --quiet caddy 2>/dev/null; then
-    systemctl restart caddy || true
-else
-    systemctl enable --now caddy || true
-fi
+systemctl enable --now caddy || true
 
 exit 0
 
