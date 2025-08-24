@@ -120,7 +120,9 @@ function StepOTP({ onVerified, setError, setLoading, post, disabled }: { onVerif
     <form onSubmit={submit} className="space-y-3">
       <label htmlFor="otp" className="block text-sm">One-time OTP (6 digits)</label>
       <input id="otp" className="w-full rounded bg-card p-2 tracking-widest" placeholder="123 456" value={otp} onChange={(e) => setOtp(e.target.value)} aria-label="One-time OTP (6 digits)" disabled={disabled} title={disabled? 'Waiting for backend': undefined} />
-      <button className="btn bg-primary text-primary-foreground block w-1/2 mx-auto py-3" type="submit" disabled={disabled} title={disabled? 'Waiting for backend': undefined}>Verify</button>
+      <div className="flex justify-center">
+        <button className="btn bg-primary text-primary-foreground w-1/2 py-3" type="submit" disabled={disabled} title={disabled? 'Waiting for backend': undefined}>Verify</button>
+      </div>
     </form>
   )
 }
@@ -192,7 +194,9 @@ function StepCreateAdmin({ token, onDone, setError, setLoading, postAuth, disabl
       {errors.confirm && <div className="text-xs text-red-400">{errors.confirm.message as string}</div>}
 
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" {...register('enableTotp')} disabled={disabled} /> Enable 2FA now</label>
-      <button className="btn bg-primary text-primary-foreground block w-1/2 mx-auto py-3" type="submit" disabled={isSubmitting || disabled} title={disabled? 'Waiting for backend': undefined}>Create Admin</button>
+      <div className="flex justify-center">
+        <button className="btn bg-primary text-primary-foreground w-1/2 py-3" type="submit" disabled={isSubmitting || disabled} title={disabled? 'Waiting for backend': undefined}>Create Admin</button>
+      </div>
     </form>
   )
 }
