@@ -165,13 +165,9 @@ func NewRouter(cfg config.Config) http.Handler {
 	store, _ := auth.NewStore(cfg.UsersPath)
 	users, _ := userstore.New(cfg.UsersPath)
 	codec := auth.NewSessionCodec(cfg.SessionHashKey, cfg.SessionBlockKey)
-	// Disk-backed session and ratelimit stores (paths under /var/lib/nos)
+	// Disk-backed session and ratelimit stores
 	sessStore := sessions.New(filepath.Join("/var/lib/nos", "sessions.json"))
-	rlPath := filepath.Join("/var/lib/nos", "ratelimit.json")
-	if p := os.Getenv("NOS_RL_PATH"); p != "" {
-		rlPath = p
-	}
-	rlStore := ratelimit.New(rlPath)
+	rlStore := ratelimit.New(filepath.Join("/var/lib/nos", "ratelimit.json"))
 	mgr := session.New(filepath.Join("/var/lib/nos", "sessions.json"))
 
 	// On startup: if first boot and OTP exists/valid, log it

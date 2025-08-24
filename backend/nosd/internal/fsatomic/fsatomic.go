@@ -20,7 +20,7 @@ func SaveJSON(ctx context.Context, path string, v any, perm fs.FileMode) error {
 		perm = 0o600
 	}
 	// Ensure parent directory exists
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o770); err != nil {
 		return err
 	}
 	// Marshal with trailing newline
@@ -99,6 +99,15 @@ func LoadJSON(path string, v any) (bool, error) {
 	}
 	return true, nil
 }
+
+// WriteJSONAtomic writes JSON atomically with default permissions (0600).
+// It ensures the parent directory exists with 0770 permissions.
+func WriteJSONAtomic(ctx context.Context, path string, v any) error {
+    return SaveJSON(ctx, path, v, 0)
+}
+
+// ReadJSON loads JSON and removes any orphan .tmp file first.
+func ReadJSON(path string, v any) (bool, error) { return LoadJSON(path, v) }
 
 // WithLock acquires an exclusive advisory lock (path+".lock") for the duration of fn.
 // Lock is released after fn returns. Nested calls in the same process are safe as the
