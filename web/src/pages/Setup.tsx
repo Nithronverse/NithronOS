@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import QRCode from 'qrcode'
 import BrandHeader from '@/components/BrandHeader'
+import { useGlobalNotice } from '@/lib/globalNotice'
 
 type SetupState = { firstBoot: boolean; otpRequired: boolean }
 
@@ -19,6 +20,7 @@ export default function Setup() {
   const [error, setLocalError] = useState<string|undefined>()
   const [token, setToken] = useState<string|undefined>() // setup token (memory only)
   const [creds, setCreds] = useState<Creds | undefined>() // memory-only credentials for TOTP login
+  const { notice } = useGlobalNotice()
 
   useEffect(() => {
     (async () => {
@@ -46,6 +48,11 @@ export default function Setup() {
       <div className="relative w-full max-w-md p-6 pt-20">
         <BrandHeader />
         <h1 className="mb-4 text-center text-2xl font-semibold">First-time Setup</h1>
+        {(notice && notice.title.includes('Backend unreachable')) && (
+          <div className="mb-4 text-center text-red-400 text-sm">
+            The server didn’t return JSON for /api/*. Check reverse proxy config.
+          </div>
+        )}
         {error && (
           <div className="mb-4 text-center text-yellow-400">
             {error}
@@ -57,12 +64,12 @@ export default function Setup() {
           </div>
         )}
         <Steps step={step} />
-        {step === 1 && <StepOTP onVerified={(t) => { setToken(t); setStep(2) }} setError={setLocalError} setLoading={() => {}} post={post} />}
+        {step === 1 && <StepOTP onVerified={(t) => { setToken(t); setStep(2) }} setError={setLocalError} setLoading={() => {}} post={post} disabled={!!notice} />}
         {step === 2 && <StepCreateAdmin token={token!} onDone={(needsTotp, c) => {
           if (needsTotp && c) { setCreds(c); setStep(3) } else { setStep(4) }
-        }} setError={setLocalError} setLoading={() => {}} postAuth={postAuth} />}
-        {step === 3 && <StepTOTPEnroll creds={creds!} onDone={() => setStep(4)} />}
-        {step === 4 && <StepDone onGoLogin={() => nav('/login')} />}
+        }} setError={setLocalError} setLoading={() => {}} postAuth={postAuth} disabled={!!notice} />}
+        {step === 3 && <StepTOTPEnroll creds={creds!} onDone={() => setStep(4)} disabled={!!notice} />}
+        {step === 4 && <StepDone onGoLogin={() => nav('/login')} disabled={!!notice} />}
       </div>
     </div>
   )
@@ -84,7 +91,7 @@ function Steps({ step }: { step: number }) {
   )
 }
 
-function StepOTP({ onVerified, setError, setLoading, post }: { onVerified: (token: string) => void; setError: (s?: string)=>void; setLoading: (b: boolean)=>void; post: <T>(path: string, body?: any) => Promise<T> }) {
+function StepOTP({ onVerified, setError, setLoading, post, disabled }: { onVerified: (token: string) => void; setError: (s?: string)=>void; setLoading: (b: boolean)=>void; post: <T>(path: string, body?: any) => Promise<T>; disabled?: boolean }) {
   const [otp, setOtp] = useState('')
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -112,8 +119,8 @@ function StepOTP({ onVerified, setError, setLoading, post }: { onVerified: (toke
   return (
     <form onSubmit={submit} className="space-y-3">
       <label htmlFor="otp" className="block text-sm">One-time OTP (6 digits)</label>
-      <input id="otp" className="w-full rounded bg-card p-2 tracking-widest" placeholder="123 456" value={otp} onChange={(e) => setOtp(e.target.value)} aria-label="One-time OTP (6 digits)" />
-      <button className="btn bg-primary text-primary-foreground w-full" type="submit">Verify</button>
+      <input id="otp" className="w-full rounded bg-card p-2 tracking-widest" placeholder="123 456" value={otp} onChange={(e) => setOtp(e.target.value)} aria-label="One-time OTP (6 digits)" disabled={disabled} title={disabled? 'Waiting for backend': undefined} />
+      <button className="btn bg-primary text-primary-foreground w-full" type="submit" disabled={disabled} title={disabled? 'Waiting for backend': undefined}>Verify</button>
     </form>
   )
 }
@@ -138,7 +145,7 @@ const CreateAdminSchema = z.object({
 
 type CreateAdminInput = z.infer<typeof CreateAdminSchema>
 
-function StepCreateAdmin({ token, onDone, setError, setLoading, postAuth }: { token: string; onDone: (needsTotp: boolean, creds?: Creds) => void; setError: (s?: string)=>void; setLoading: (b: boolean)=>void; postAuth: <T>(path: string, token: string, body?: any) => Promise<T> }) {
+function StepCreateAdmin({ token, onDone, setError, setLoading, postAuth, disabled }: { token: string; onDone: (needsTotp: boolean, creds?: Creds) => void; setError: (s?: string)=>void; setLoading: (b: boolean)=>void; postAuth: <T>(path: string, token: string, body?: any) => Promise<T>; disabled?: boolean }) {
   const { register, handleSubmit, formState: { errors, isSubmitting }, watch } = useForm<CreateAdminInput>({
     resolver: zodResolver(CreateAdminSchema),
     defaultValues: { username:'', password:'', confirm:'', enableTotp:false },
@@ -172,20 +179,20 @@ function StepCreateAdmin({ token, onDone, setError, setLoading, postAuth }: { to
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 mt-6">
       <label className="block text-sm">Username</label>
-      <input className="w-full rounded bg-card p-2" placeholder="username" {...register('username')} />
+      <input className="w-full rounded bg-card p-2" placeholder="username" {...register('username')} disabled={disabled} title={disabled? 'Waiting for backend': undefined} />
       {errors.username && <div className="text-xs text-red-400">{errors.username.message as string}</div>}
 
       <label className="block text-sm">Password</label>
-      <input className="w-full rounded bg-card p-2" type="password" {...register('password')} />
+      <input className="w-full rounded bg-card p-2" type="password" {...register('password')} disabled={disabled} title={disabled? 'Waiting for backend': undefined} />
       <PasswordMeter strength={strength} />
       {errors.password && <div className="text-xs text-red-400">{errors.password.message as string}</div>}
 
       <label className="block text-sm">Confirm password</label>
-      <input className="w-full rounded bg-card p-2" type="password" {...register('confirm')} />
+      <input className="w-full rounded bg-card p-2" type="password" {...register('confirm')} disabled={disabled} title={disabled? 'Waiting for backend': undefined} />
       {errors.confirm && <div className="text-xs text-red-400">{errors.confirm.message as string}</div>}
 
-      <label className="flex items-center gap-2 text-sm"><input type="checkbox" {...register('enableTotp')} /> Enable 2FA now</label>
-      <button className="btn bg-primary text-primary-foreground w-full" type="submit" disabled={isSubmitting}>Create Admin</button>
+      <label className="flex items-center gap-2 text-sm"><input type="checkbox" {...register('enableTotp')} disabled={disabled} /> Enable 2FA now</label>
+      <button className="btn bg-primary text-primary-foreground w-full" type="submit" disabled={isSubmitting || disabled} title={disabled? 'Waiting for backend': undefined}>Create Admin</button>
     </form>
   )
 }
@@ -204,7 +211,7 @@ function PasswordMeter({ strength }: { strength: number }) {
   )
 }
 
-function StepTOTPEnroll({ creds, onDone }: { creds: Creds; onDone: ()=>void }) {
+function StepTOTPEnroll({ creds, onDone, disabled }: { creds: Creds; onDone: ()=>void; disabled?: boolean }) {
   const { post, get } = useApi()
   const [otpauth, setOtpauth] = useState<string>('')
   const [qr, setQr] = useState<string>('')
@@ -279,8 +286,8 @@ function StepTOTPEnroll({ creds, onDone }: { creds: Creds; onDone: ()=>void }) {
           )}
           <form onSubmit={verify} className="space-y-3">
             <label htmlFor="totp" className="block text-sm">TOTP code</label>
-            <input id="totp" className="w-full rounded bg-card p-2 tracking-widest" placeholder="TOTP code" value={code} onChange={(e)=>setCode(e.target.value)} aria-label="TOTP code" />
-            <button className="btn bg-primary text-primary-foreground w-full" type="submit">Verify</button>
+            <input id="totp" className="w-full rounded bg-card p-2 tracking-widest" placeholder="TOTP code" value={code} onChange={(e)=>setCode(e.target.value)} aria-label="TOTP code" disabled={disabled} title={disabled? 'Waiting for backend': undefined} />
+            <button className="btn bg-primary text-primary-foreground w-full" type="submit" disabled={disabled} title={disabled? 'Waiting for backend': undefined}>Verify</button>
           </form>
         </>
       ) : (
@@ -301,12 +308,12 @@ function StepTOTPEnroll({ creds, onDone }: { creds: Creds; onDone: ()=>void }) {
   )
 }
 
-function StepDone({ onGoLogin }: { onGoLogin: ()=>void }) {
+function StepDone({ onGoLogin, disabled }: { onGoLogin: ()=>void; disabled?: boolean }) {
   return (
     <div className="text-center mt-6">
       <h2 className="text-lg font-semibold mb-2">Setup Complete</h2>
       <p className="text-sm mb-4">Your admin account is ready. You can now sign in.</p>
-      <button className="btn bg-primary text-primary-foreground" onClick={onGoLogin}>Go to Sign in</button>
+      <button className="btn bg-primary text-primary-foreground" onClick={onGoLogin} disabled={disabled} title={disabled? 'Waiting for backend': undefined}>Go to Sign in</button>
     </div>
   )
 }

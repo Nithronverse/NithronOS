@@ -12,6 +12,10 @@ import { PoolsCreate } from './pages/PoolsCreate'
 import { PoolDetails } from './pages/PoolDetails'
 import { SettingsUpdates } from './pages/SettingsUpdates'
 import Setup from './pages/Setup'
+import { ErrProxyMisconfigured, fetchJSON } from './api'
+import { GlobalNoticeProvider, useGlobalNotice } from './lib/globalNotice'
+import Banner from './components/Banner'
+import HelpProxy from './pages/HelpProxy'
 
 const router = createBrowserRouter([
 	{
@@ -19,20 +23,30 @@ const router = createBrowserRouter([
 		loader: async () => {
 			// On init: check setup, then auth
 			try {
-				const stRes = await fetch('/api/setup/state', { credentials: 'include' })
-				if (stRes.status === 200) {
-					const st = await stRes.json()
-					if (st?.firstBoot) return redirect('/setup')
-				} else if (stRes.status === 410) {
-					// setup completed; continue to auth check
+				const st = await fetchJSON<any>('/api/setup/state')
+				if (st?.firstBoot) return redirect('/setup')
+			} catch (e: any) {
+				if (e instanceof ErrProxyMisconfigured) {
+					// Do not navigate; keep current page. Let global notice handle UI
+					return null
 				}
-			} catch {}
+				// If 410: setup completed; continue to auth check
+				if (e && e.status === 410) {
+					// setup completed; continue to auth check
+				} else {
+					// ignore other errors here
+				}
+			}
 			// Auth check
 			try {
-				const me = await fetch('/api/auth/me', { credentials: 'include' })
-				if (me.ok) return null
-			} catch {}
-			return redirect('/login')
+				await fetchJSON<any>('/api/auth/me')
+				return null
+			} catch (e: any) {
+				if (e instanceof ErrProxyMisconfigured) {
+					return null
+				}
+				return redirect('/login')
+			}
 		},
 		element: <Layout />,
 		children: [
@@ -50,10 +64,32 @@ const router = createBrowserRouter([
 	},
 	{ path: '/login', element: <Login /> },
 	{ path: '/setup', element: <Setup /> },
+	{ path: '/help/proxy', element: <HelpProxy /> },
 ])
 
+function AppShell() {
+	const { notice } = useGlobalNotice()
+	return (
+		<div className="min-h-screen">
+			{notice && (
+				<Banner
+					variant={notice.kind}
+					title={notice.title}
+					message={notice.message}
+					action={notice.action}
+				/>
+			)}
+			<RouterProvider router={router} />
+		</div>
+	)
+}
+
 export default function App() {
-	return <RouterProvider router={router} />
+	return (
+		<GlobalNoticeProvider>
+			<AppShell />
+		</GlobalNoticeProvider>
+	)
 }
 
 

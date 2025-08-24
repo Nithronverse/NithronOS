@@ -1,5 +1,55 @@
 import { pushToast } from '@/components/ui/toast'
 
+export class ErrProxyMisconfigured extends Error {
+  status: number
+  contentType: string
+  snippet: string
+  constructor(message: string, status: number, contentType: string, snippet: string) {
+    super(message)
+    this.name = 'ErrProxyMisconfigured'
+    this.status = status
+    this.contentType = contentType
+    this.snippet = snippet
+  }
+}
+
+export async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(path, {
+    ...(init || {}),
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      ...((init && init.headers) || {}),
+    },
+  })
+  const ct = res.headers.get('content-type') || ''
+  // If not JSON at all, raise proxy misconfig, regardless of status
+  if (!ct.includes('application/json')) {
+    let snippet = ''
+    try {
+      const text = await res.text()
+      snippet = text.slice(0, 200)
+    } catch {}
+    throw new ErrProxyMisconfigured('Response is not JSON', res.status, ct, snippet)
+  }
+  if (!res.ok) {
+    // Parse JSON error body similar to request()
+    let message = ''
+    try {
+      const body: any = await res.json()
+      const err = body?.error
+      if (err) {
+        message = String(err.message || '')
+      }
+    } catch {}
+    const msg = message ? `HTTP ${res.status}: ${message}` : `HTTP ${res.status}`
+    const error: any = new Error(msg)
+    error.status = res.status
+    throw error
+  }
+  return (await res.json()) as T
+}
+
 export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
 	return request<T>(path, { method: 'GET', ...(init || {}) })
 }
