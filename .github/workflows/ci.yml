@@ -209,8 +209,16 @@ jobs:
           bash packaging/build-all.sh
       - name: Validate Caddy config
         run: |
-          sudo apt-get update && sudo apt-get install -y caddy
+          sudo apt-get update && sudo apt-get install -y caddy openssl
           sudo install -D -m0644 deploy/caddy/Caddyfile /etc/caddy/Caddyfile
+          # Provide local TLS certs expected by Caddyfile to avoid provision failure during validation
+          sudo install -d -m0700 /etc/nithronos/tls
+          sudo openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
+            -days 1 -sha256 -nodes -subj "/CN=NithronOS CI" \
+            -keyout /etc/nithronos/tls/key.pem -out /etc/nithronos/tls/cert.pem \
+            -addext "subjectAltName=IP:127.0.0.1,DNS:nithronos.local"
+          sudo chmod 0600 /etc/nithronos/tls/key.pem
+          sudo chmod 0644 /etc/nithronos/tls/cert.pem
           caddy validate --config /etc/caddy/Caddyfile
       - name: Systemd sandbox smoke for nosd
         if: runner.os == 'Linux'
