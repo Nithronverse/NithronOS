@@ -301,15 +301,7 @@ jobs:
         run: |
           ls -lah dist/iso || true
 
-      - name: Smoke test ISO (QEMU)
-        if: ${{ runner.os == 'Linux' }}
-        run: |
-          if command -v sudo >/dev/null 2>&1; then SUDO="sudo"; else SUDO=""; fi
-          $SUDO apt-get update
-          $SUDO apt-get install -y qemu-system-x86 jq curl
-          ISO_PATH="$(ls dist/iso/*.iso | head -n1)"
-          chmod +x scripts/qemu-smoke.sh
-          bash scripts/qemu-smoke.sh "$ISO_PATH"
+      # QEMU ISO smoke test removed per request
 
       - name: Upload ISO artifact (non-release)
         if: ${{ github.event_name != 'release' }}
@@ -340,69 +332,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  smoke:
-    name: "Smoke ISO (QEMU: serial)"
-    if: ${{ false }}
-    needs: iso
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - name: Checkout repo (for scripts)
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-
-      - name: Try download ISO artifact (stable name)
-        id: dl_stable
-        uses: actions/download-artifact@v4
-        with:
-          name: NithronOS - amd64 - ${{ github.event.release.tag_name || github.ref_name }}
-          path: dist/iso
-        continue-on-error: true
-
-      - name: "Fallback: download by pattern (merge all)"
-        if: ${{ steps.dl_stable.outcome == 'failure' }}
-        uses: actions/download-artifact@v4
-        with:
-          pattern: NithronOS - * - ${{ github.event.release.tag_name || github.ref_name }}
-          merge-multiple: true
-          path: dist/iso
-        continue-on-error: true
-
-      - name: Install QEMU
-        run: |
-          if command -v sudo >/dev/null 2>&1; then SUDO="sudo"; else SUDO=""; fi
-          $SUDO apt-get update
-          $SUDO apt-get install -y qemu-system-x86
-
-      - name: Locate ISO (and list artifacts on failure)
-        id: findiso
-        run: |
-          set -e
-          echo "[ci] Listing dist/iso:"
-          ls -lah dist/iso || true
-          ISO_PATH="$(ls -1 dist/iso/*.iso 2>/dev/null || true)"
-          if [ -z "$ISO_PATH" ]; then
-            echo "::error::No ISO found in dist/iso after download."
-            echo "[ci] Searching workspace for *.iso just in case:"
-            find . -type f -name '*.iso' -maxdepth 6 -printf '%p\n' || true
-            exit 1
-          fi
-          echo "ISO_PATH=$ISO_PATH" >> "$GITHUB_OUTPUT"
-          echo "[ci] Using $ISO_PATH"
-
-      - name: Run smoke test (serial console)
-        run: |
-          chmod +x scripts/qemu-smoke.sh
-          if command -v sudo >/dev/null 2>&1; then SUDO="sudo -E"; else SUDO=""; fi
-          $SUDO bash scripts/qemu-smoke.sh "${{ steps.findiso.outputs.ISO_PATH }}"
-
-      - name: Upload serial and qemu logs (always)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: smoke-logs-${{ github.sha }}
-          path: |
-            /tmp/nos-serial.log
-            /tmp/qemu.log
-          if-no-files-found: warn
+  # smoke job removed per request
