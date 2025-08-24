@@ -1,5 +1,5 @@
 #!/bin/bash
 set -euo pipefail
 
-systemctl enable nithronos-certgen.service caddy.service nosd.service nos-agent.service || true
+systemctl enable nithronos-certgen.service caddy.service nosd.service nos-agent.service nithronos-firstboot.service || true
 

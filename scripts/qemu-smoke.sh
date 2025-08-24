@@ -22,13 +22,20 @@ QPID=$!
 trap 'kill "$QPID" 2>/dev/null || true' EXIT
 
 echo "[smoke] waiting for HTTP on 127.0.0.1:8080"
-for i in {1..120}; do
+OK=0
+for i in $(seq 1 180); do
   if curl -fsS http://127.0.0.1:8080/ >/dev/null 2>&1; then
     echo "[smoke] UI is up"
+    OK=1
     break
   fi
   sleep 1
 done
+if [ "$OK" -ne 1 ]; then
+  echo "::error::UI did not come up within timeout. Dumping serial log (first 200 lines):"
+  sed -n '1,200p' "$SERIAL_LOG" || true
+  exit 1
+fi
 
 curl -fsS http://127.0.0.1:8080/ | grep -i "<!doctype" >/dev/null
 echo "[smoke] UI HTML served"
