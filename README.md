@@ -214,6 +214,7 @@ Filters/jails under `deploy/fail2ban/`; see comments inside for enabling.
 ## Docs
 - API versioning & typed errors → [docs/api/versioning-and-errors.md](docs/api/versioning-and-errors.md)  
 - Certificates & HTTPS configuration → [docs/admin/certificates.md](docs/admin/certificates.md)  
+- Network shares (SMB/NFS/Time Machine) → [docs/admin/shares.md](docs/admin/shares.md)  
 - Config & hot reload → [docs/dev/config-and-reload.md](docs/dev/config-and-reload.md)  
 - Recovery mode → [docs/dev/recovery-mode.md](docs/dev/recovery-mode.md)  
 - Updates & rollback → [docs/updates.md](docs/updates.md)  

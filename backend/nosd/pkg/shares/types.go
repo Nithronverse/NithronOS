@@ -12,15 +12,15 @@ var ShareNameRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-_]{1,31}$`)
 
 // Share represents a network share configuration
 type Share struct {
-	Name        string      `json:"name"`
-	Path        string      `json:"path"`
-	SMB         *SMBConfig  `json:"smb,omitempty"`
-	NFS         *NFSConfig  `json:"nfs,omitempty"`
-	Owners      []string    `json:"owners,omitempty"`      // users/groups with rwx
-	Readers     []string    `json:"readers,omitempty"`     // users/groups with rx
-	Description string      `json:"description,omitempty"`
-	CreatedAt   string      `json:"created_at"`
-	UpdatedAt   string      `json:"updated_at"`
+	Name        string     `json:"name"`
+	Path        string     `json:"path"`
+	SMB         *SMBConfig `json:"smb,omitempty"`
+	NFS         *NFSConfig `json:"nfs,omitempty"`
+	Owners      []string   `json:"owners,omitempty"`  // users/groups with rwx
+	Readers     []string   `json:"readers,omitempty"` // users/groups with rx
+	Description string     `json:"description,omitempty"`
+	CreatedAt   string     `json:"created_at"`
+	UpdatedAt   string     `json:"updated_at"`
 }
 
 // SMBConfig represents SMB/CIFS share configuration
@@ -109,21 +109,21 @@ func isValidPrincipal(principal string) bool {
 
 // CreateRequest represents a share creation request
 type CreateRequest struct {
-	Name        string      `json:"name"`
-	SMB         *SMBConfig  `json:"smb,omitempty"`
-	NFS         *NFSConfig  `json:"nfs,omitempty"`
-	Owners      []string    `json:"owners,omitempty"`
-	Readers     []string    `json:"readers,omitempty"`
-	Description string      `json:"description,omitempty"`
+	Name        string     `json:"name"`
+	SMB         *SMBConfig `json:"smb,omitempty"`
+	NFS         *NFSConfig `json:"nfs,omitempty"`
+	Owners      []string   `json:"owners,omitempty"`
+	Readers     []string   `json:"readers,omitempty"`
+	Description string     `json:"description,omitempty"`
 }
 
 // UpdateRequest represents a share update request
 type UpdateRequest struct {
-	SMB         *SMBConfig  `json:"smb,omitempty"`
-	NFS         *NFSConfig  `json:"nfs,omitempty"`
-	Owners      []string    `json:"owners,omitempty"`
-	Readers     []string    `json:"readers,omitempty"`
-	Description *string     `json:"description,omitempty"`
+	SMB         *SMBConfig `json:"smb,omitempty"`
+	NFS         *NFSConfig `json:"nfs,omitempty"`
+	Owners      []string   `json:"owners,omitempty"`
+	Readers     []string   `json:"readers,omitempty"`
+	Description *string    `json:"description,omitempty"`
 }
 
 // TestRequest represents a dry-run test request

@@ -4,7 +4,11 @@ smartmontools
 mdadm
 lvm2
 samba
+samba-vfs-modules
 nfs-kernel-server
+avahi-daemon
+acl
+attr
 docker.io
 wireguard
 caddy

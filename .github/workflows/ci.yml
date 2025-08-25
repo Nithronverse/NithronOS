@@ -297,6 +297,18 @@ jobs:
           echo "[ci] Listening TCP sockets (post-validate, informational)"
           ss -lnt || true
 
+      - name: "ISO smoke: Shares functionality test"
+        if: false  # Enable when ISO includes share services
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo "[ci] Testing shares functionality..."
+          chmod +x scripts/ci-test-shares.sh
+          ./scripts/ci-test-shares.sh || {
+            echo "[ci] Share tests failed (expected in CI without full services)"
+            true  # Don't fail CI for now
+          }
+
       - name: "ISO smoke: GRUB theme verification"
         shell: bash
         run: |

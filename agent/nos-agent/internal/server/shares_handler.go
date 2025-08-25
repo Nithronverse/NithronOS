@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -31,6 +30,7 @@ func (h *SharesHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/shares/nfs/write", h.WriteNFSExport)
 	mux.HandleFunc("/shares/nfs/remove", h.RemoveNFSExport)
 	mux.HandleFunc("/shares/nfs/reload", h.ReloadNFS)
+	mux.HandleFunc("/shares/avahi/reload", h.ReloadAvahi)
 	mux.HandleFunc("/shares/subvol", h.CreateSubvol)
 	mux.HandleFunc("/shares/group", h.EnsureGroup)
 }
@@ -167,19 +167,19 @@ func (h *SharesHandler) ApplyACLs(w http.ResponseWriter, r *http.Request) {
 		if len(parts) != 2 {
 			continue
 		}
-		
+
 		aclType := "u"
 		if parts[0] == "group" {
 			aclType = "g"
 		}
-		
+
 		// Set both access and default ACLs
 		acl := fmt.Sprintf("%s:%s:rwx", aclType, parts[1])
 		cmd := exec.Command("setfacl", "-m", acl, req.Path)
 		if err := cmd.Run(); err != nil {
 			log.Error().Err(err).Str("acl", acl).Msg("failed to apply owner ACL")
 		}
-		
+
 		// Default ACL for new files/dirs
 		defaultAcl := fmt.Sprintf("d:%s", acl)
 		cmd = exec.Command("setfacl", "-m", defaultAcl, req.Path)
@@ -194,19 +194,19 @@ func (h *SharesHandler) ApplyACLs(w http.ResponseWriter, r *http.Request) {
 		if len(parts) != 2 {
 			continue
 		}
-		
+
 		aclType := "u"
 		if parts[0] == "group" {
 			aclType = "g"
 		}
-		
+
 		// Set both access and default ACLs
 		acl := fmt.Sprintf("%s:%s:rx", aclType, parts[1])
 		cmd := exec.Command("setfacl", "-m", acl, req.Path)
 		if err := cmd.Run(); err != nil {
 			log.Error().Err(err).Str("acl", acl).Msg("failed to apply reader ACL")
 		}
-		
+
 		// Default ACL for new files/dirs
 		defaultAcl := fmt.Sprintf("d:%s", acl)
 		cmd = exec.Command("setfacl", "-m", defaultAcl, req.Path)
@@ -249,7 +249,7 @@ func (h *SharesHandler) WriteSambaConfig(w http.ResponseWriter, r *http.Request)
 	// Write config file atomically
 	confPath := filepath.Join(confDir, fmt.Sprintf("nos-%s.conf", req.Name))
 	tmpPath := confPath + ".tmp"
-	
+
 	if err := os.WriteFile(tmpPath, []byte(req.Config), 0644); err != nil {
 		log.Error().Err(err).Str("path", tmpPath).Msg("failed to write Samba config")
 		http.Error(w, "Failed to write config", http.StatusInternalServerError)
@@ -489,6 +489,25 @@ func (h *SharesHandler) ensureGroup(name string) error {
 	// Create group
 	cmd = exec.Command("groupadd", "-r", name)
 	return cmd.Run()
+}
+
+// ReloadAvahi reloads the Avahi daemon
+func (h *SharesHandler) ReloadAvahi(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Reload Avahi daemon
+	cmd := exec.Command("systemctl", "reload-or-restart", "avahi-daemon")
+	if err := cmd.Run(); err != nil {
+		log.Error().Err(err).Msg("failed to reload Avahi")
+		http.Error(w, "Failed to reload Avahi", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 // isBtrfs checks if a path is on a Btrfs filesystem

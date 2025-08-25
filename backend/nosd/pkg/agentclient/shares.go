@@ -15,7 +15,7 @@ type CreateShareRequest struct {
 	Name       string   `json:"name"`
 	Owners     []string `json:"owners"`
 	Readers    []string `json:"readers"`
-	Mode       uint32   `json:"mode,omitempty"`       // defaults to 02770
+	Mode       uint32   `json:"mode,omitempty"`        // defaults to 02770
 	RecycleDir string   `json:"recycle_dir,omitempty"` // for recycle bin
 }
 
@@ -226,6 +226,21 @@ func (c *Client) EnsureGroup(name string) error {
 	}
 
 	resp, err := c.doRequest("POST", "/shares/group", bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return c.parseError(resp)
+	}
+
+	return nil
+}
+
+// ReloadAvahi reloads the Avahi daemon
+func (c *Client) ReloadAvahi() error {
+	resp, err := c.doRequest("POST", "/shares/avahi/reload", nil)
 	if err != nil {
 		return err
 	}

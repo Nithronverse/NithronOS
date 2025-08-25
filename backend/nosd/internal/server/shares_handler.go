@@ -27,7 +27,7 @@ func NewSharesHandler(manager *shares.Manager, agent *agentclient.Client) *Share
 // Routes registers share routes
 func (h *SharesHandler) Routes() chi.Router {
 	r := chi.NewRouter()
-	
+
 	r.Get("/", h.ListShares)
 	r.Post("/", h.CreateShare)
 	r.Route("/{name}", func(r chi.Router) {
@@ -35,7 +35,7 @@ func (h *SharesHandler) Routes() chi.Router {
 		r.Delete("/", h.DeleteShare)
 		r.Post("/test", h.TestShare)
 	})
-	
+
 	return r
 }
 
@@ -86,7 +86,7 @@ func (h *SharesHandler) CreateShare(w http.ResponseWriter, r *http.Request) {
 // UpdateShare handles PATCH /api/shares/:name
 func (h *SharesHandler) UpdateShare(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
-	
+
 	var req shares.UpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "ERR_INVALID_JSON", "Invalid request body")
@@ -122,7 +122,7 @@ func (h *SharesHandler) UpdateShare(w http.ResponseWriter, r *http.Request) {
 // DeleteShare handles DELETE /api/shares/:name
 func (h *SharesHandler) DeleteShare(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
-	
+
 	// Get share details before deletion
 	share, err := h.manager.Get(name)
 	if err != nil {
@@ -158,7 +158,7 @@ func (h *SharesHandler) DeleteShare(w http.ResponseWriter, r *http.Request) {
 // TestShare handles POST /api/shares/:name/test
 func (h *SharesHandler) TestShare(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
-	
+
 	var req shares.TestRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "ERR_INVALID_JSON", "Invalid request body")
@@ -184,7 +184,7 @@ func (h *SharesHandler) applyShare(share *shares.Share) error {
 		Owners:  share.Owners,
 		Readers: share.Readers,
 	}
-	
+
 	if share.SMB != nil && share.SMB.Recycle != nil && share.SMB.Recycle.Enabled {
 		req.RecycleDir = share.SMB.Recycle.Directory
 	}
@@ -208,14 +208,14 @@ func (h *SharesHandler) applyShare(share *shares.Share) error {
 		if err != nil {
 			return err
 		}
-		
+
 		if err := h.agent.WriteSambaConfig(&agentclient.WriteSambaConfigRequest{
 			Name:   share.Name,
 			Config: config,
 		}); err != nil {
 			return err
 		}
-		
+
 		if err := h.agent.ReloadSamba(); err != nil {
 			return err
 		}
@@ -225,22 +225,31 @@ func (h *SharesHandler) applyShare(share *shares.Share) error {
 	if share.NFS != nil && share.NFS.Enabled {
 		// TODO: Get LAN networks from configuration
 		lanNetworks := []string{"192.168.0.0/16", "10.0.0.0/8"}
-		
+
 		config, err := shares.GenerateNFSExport(share, lanNetworks)
 		if err != nil {
 			return err
 		}
-		
+
 		if err := h.agent.WriteNFSExport(&agentclient.WriteNFSExportRequest{
 			Name:   share.Name,
 			Config: config,
 		}); err != nil {
 			return err
 		}
-		
+
 		if err := h.agent.ReloadNFS(); err != nil {
 			return err
 		}
+	}
+
+	// Update Avahi if Time Machine is involved
+	allShares, _ := h.manager.List()
+	if err := shares.UpdateAvahiTimeMachine(allShares); err != nil {
+		log.Warn().Err(err).Msg("failed to update Avahi Time Machine service")
+	} else {
+		// Reload Avahi if the file changed
+		_ = h.agent.ReloadAvahi()
 	}
 
 	return nil
@@ -266,6 +275,6 @@ func (h *SharesHandler) removeShare(share *shares.Share) error {
 
 	// Note: We don't remove the directory itself to preserve data
 	// Admin can manually remove if needed
-	
+
 	return nil
 }
