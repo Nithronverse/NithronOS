@@ -1,15 +1,18 @@
-# NithronOS Caddyfile - Live System
-# This is a Caddyfile, not a PowerShell script - ignore PS linter errors
 {
   admin off
+  auto_https off
 }
 
-# Serve on all interfaces with HTTPS using self-signed certificate
-https://:443 {
-  tls internal
-  
+:80 {
+  redir https://{host}{uri} permanent
+}
+
+:443 {
+  # If you have certs on disk (recommended for IP SAN):
+  tls /etc/nithronos/tls/cert.pem /etc/nithronos/tls/key.pem
+
   encode gzip zstd
-  
+
   header {
     X-Content-Type-Options "nosniff"
     Referrer-Policy "no-referrer"
@@ -28,13 +31,8 @@ https://:443 {
     try_files {path} /index.html
     file_server
   }
-  
+
   log {
     output file /var/log/caddy/access.log
   }
-}
-
-# Also listen on HTTP and redirect to HTTPS
-http://:80 {
-  redir https://{host}{uri} permanent
 }

@@ -40,13 +40,14 @@ IP.2  = $PRIMARY_IP
 EOF
   openssl req -x509 -nodes -days 825 -newkey rsa:2048 -keyout "$KEY" -out "$CERT" -config "$TMPCONF" >/dev/null 2>&1 || true
   rm -f "$TMPCONF"
-  chown root:root "$CERT" || true
-  chmod 0644 "$CERT" || true
-  chown root:caddy "$KEY" || true
-  chmod 0640 "$KEY" || true
   echo "[nos-tls-gen] generated cert for IP=$PRIMARY_IP"
 else
   echo "[nos-tls-gen] reusing cert for IP=$PRIMARY_IP"
 fi
+
+# Ensure caddy user can traverse the directory and read the files
+chgrp -R caddy "$TLS_DIR" 2>/dev/null || true
+chmod 750 "$TLS_DIR" || true
+chmod 640 "$TLS_DIR"/*.pem 2>/dev/null || true
 
 
