@@ -1,0 +1,77 @@
+#!/bin/bash
+set -e
+
+case "$1" in
+    configure)
+        # Create required directories
+        mkdir -p /srv/shares
+        chmod 755 /srv/shares
+        
+        mkdir -p /etc/samba/smb.conf.d
+        chmod 755 /etc/samba/smb.conf.d
+        
+        mkdir -p /etc/exports.d
+        chmod 755 /etc/exports.d
+        
+        mkdir -p /etc/avahi/services
+        chmod 755 /etc/avahi/services
+        
+        # Initialize shares.json if missing
+        if [ ! -f /etc/nos/shares.json ]; then
+            mkdir -p /etc/nos
+            echo '{"version":1,"items":[]}' > /etc/nos/shares.json
+            chmod 600 /etc/nos/shares.json
+            
+            # Set ownership if nosd user exists
+            if id -u nosd >/dev/null 2>&1; then
+                chown nosd:nosd /etc/nos/shares.json
+            fi
+        fi
+        
+        # Ensure Samba includes our config directory
+        if ! grep -q "include = /etc/samba/smb.conf.d/\*.conf" /etc/samba/smb.conf 2>/dev/null; then
+            cat >> /etc/samba/smb.conf <<EOF
+
+# NithronOS managed shares
+[global]
+    include = /etc/samba/smb.conf.d/*.conf
+EOF
+        fi
+        
+        # Enable and start services
+        if [ -d /run/systemd/system ]; then
+            systemctl daemon-reload || true
+            
+            # Enable services
+            systemctl enable smbd.service || true
+            systemctl enable nmbd.service || true
+            systemctl enable nfs-server.service || true
+            systemctl enable avahi-daemon.service || true
+            
+            # Start services if system is running
+            if [ -f /run/systemd/system ]; then
+                systemctl start smbd.service || true
+                systemctl start nmbd.service || true
+                systemctl start nfs-server.service || true
+                systemctl start avahi-daemon.service || true
+            fi
+        fi
+        
+        # Apply firewall rules (idempotent)
+        if [ -x /usr/share/nos-shares/setup-firewall.sh ]; then
+            /usr/share/nos-shares/setup-firewall.sh || true
+        fi
+        ;;
+        
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+        
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

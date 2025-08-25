@@ -1,0 +1,38 @@
+#!/bin/bash
+set -e
+
+case "$1" in
+    purge)
+        # Only remove configuration on purge, not on remove
+        # Preserve user data in /srv/shares
+        
+        # Remove our managed configs but preserve hand-written ones
+        find /etc/samba/smb.conf.d -name "nos-*.conf" -delete 2>/dev/null || true
+        find /etc/exports.d -name "nos-*.exports" -delete 2>/dev/null || true
+        rm -f /etc/avahi/services/nithronos-tm.service 2>/dev/null || true
+        
+        # Remove shares.json only on purge
+        rm -f /etc/nos/shares.json 2>/dev/null || true
+        ;;
+        
+    remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+        # Reload services after removal
+        if [ -d /run/systemd/system ]; then
+            systemctl daemon-reload || true
+            
+            # Reload services if they're still running
+            systemctl reload smbd.service 2>/dev/null || true
+            systemctl reload nfs-server.service 2>/dev/null || true
+            systemctl reload avahi-daemon.service 2>/dev/null || true
+        fi
+        ;;
+        
+    *)
+        echo "postrm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

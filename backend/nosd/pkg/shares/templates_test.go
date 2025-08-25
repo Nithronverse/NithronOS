@@ -50,3 +50,190 @@ func TestNfsLine_RO_RW(t *testing.T) {
 		t.Fatalf("unexpected ro line: %s", gotRO)
 	}
 }
+
+func TestGenerateSambaConfigWithOptions(t *testing.T) {
+	tests := []struct {
+		name     string
+		share    Share
+		wantContains []string
+		wantNotContains []string
+	}{
+		{
+			name: "guest access enabled",
+			share: Share{
+				Name: "public",
+				SMB: &SMBConfig{
+					Enabled: true,
+					Guest:   true,
+				},
+			},
+			wantContains: []string{
+				"[public]",
+				"guest ok = yes",
+				"path = /srv/shares/public",
+			},
+		},
+		{
+			name: "time machine enabled",
+			share: Share{
+				Name: "timemachine",
+				SMB: &SMBConfig{
+					Enabled:     true,
+					TimeMachine: true,
+				},
+			},
+			wantContains: []string{
+				"[timemachine]",
+				"vfs objects = catia streams_xattr fruit",
+				"fruit:time machine = yes",
+				"fruit:metadata = stream",
+			},
+		},
+		{
+			name: "recycle bin enabled",
+			share: Share{
+				Name: "docs",
+				SMB: &SMBConfig{
+					Enabled: true,
+					Recycle: &RecycleConfig{
+						Enabled:   true,
+						Directory: ".recycle",
+					},
+				},
+			},
+			wantContains: []string{
+				"[docs]",
+				"vfs objects = catia streams_xattr recycle",
+				"recycle:repository = .recycle",
+				"recycle:keeptree = yes",
+				"recycle:versions = yes",
+			},
+		},
+		{
+			name: "all features enabled",
+			share: Share{
+				Name: "everything",
+				SMB: &SMBConfig{
+					Enabled:     true,
+					Guest:       true,
+					TimeMachine: true,
+					Recycle: &RecycleConfig{
+						Enabled:   true,
+						Directory: ".trash",
+					},
+				},
+			},
+			wantContains: []string{
+				"guest ok = yes",
+				"vfs objects = catia streams_xattr recycle fruit",
+				"fruit:time machine = yes",
+				"recycle:repository = .trash",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := GenerateSambaConfig(&tt.share)
+			
+			for _, want := range tt.wantContains {
+				if !strings.Contains(config, want) {
+					t.Errorf("Config missing expected string: %q\nGot:\n%s", want, config)
+				}
+			}
+			
+			for _, notWant := range tt.wantNotContains {
+				if strings.Contains(config, notWant) {
+					t.Errorf("Config contains unexpected string: %q\nGot:\n%s", notWant, config)
+				}
+			}
+		})
+	}
+}
+
+func TestGenerateNFSExport(t *testing.T) {
+	tests := []struct {
+		name     string
+		share    Share
+		wantContains []string
+	}{
+		{
+			name: "basic NFS export",
+			share: Share{
+				Name: "data",
+				NFS: &NFSConfig{
+					Enabled: true,
+				},
+			},
+			wantContains: []string{
+				"/srv/shares/data",
+				"*(rw,sync,no_subtree_check,root_squash)",
+			},
+		},
+		{
+			name: "NFS with network restrictions",
+			share: Share{
+				Name: "secure",
+				NFS: &NFSConfig{
+					Enabled:  true,
+					Networks: []string{"192.168.1.0/24", "10.0.0.0/8"},
+				},
+			},
+			wantContains: []string{
+				"/srv/shares/secure",
+				"192.168.1.0/24(rw,sync,no_subtree_check,root_squash)",
+				"10.0.0.0/8(rw,sync,no_subtree_check,root_squash)",
+			},
+		},
+		{
+			name: "NFS read-only",
+			share: Share{
+				Name: "archive",
+				NFS: &NFSConfig{
+					Enabled:  true,
+					ReadOnly: true,
+				},
+			},
+			wantContains: []string{
+				"/srv/shares/archive",
+				"*(ro,sync,no_subtree_check,root_squash)",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			export := GenerateNFSExport(&tt.share)
+			
+			for _, want := range tt.wantContains {
+				if !strings.Contains(export, want) {
+					t.Errorf("Export missing expected string: %q\nGot:\n%s", want, export)
+				}
+			}
+		})
+	}
+}
+
+func TestEscapeConfigValue(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"simple", "simple"},
+		{"with spaces", "with spaces"},
+		{"with'quote", "with\\'quote"},
+		{"with\"doublequote", "with\\\"doublequote"},
+		{"with\\backslash", "with\\\\backslash"},
+		{"with$variable", "with\\$variable"},
+		{"with`backtick", "with\\`backtick"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := EscapeConfigValue(tt.input)
+			if got != tt.want {
+				t.Errorf("EscapeConfigValue(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
