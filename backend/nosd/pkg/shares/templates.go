@@ -50,37 +50,6 @@ const nfsTemplate = `# NithronOS NFS Export: {{.Name}}
 {{.Path}} {{range .Networks}}{{.}}({{$.Options}}) {{end}}
 `
 
-// SambaGlobalTemplate is the global Samba configuration to include
-const sambaGlobalTemplate = `# NithronOS Samba Global Configuration
-[global]
-  workgroup = WORKGROUP
-  server string = NithronOS Server
-  server min protocol = SMB2
-  server max protocol = SMB3
-  map to guest = Bad User
-  load printers = no
-  printing = bsd
-  disable spoolss = yes
-  
-  # Performance tuning
-  socket options = TCP_NODELAY IPTOS_LOWDELAY
-  read raw = yes
-  write raw = yes
-  use sendfile = yes
-  min receivefile size = 16384
-  
-  # Security
-  server role = standalone server
-  obey pam restrictions = yes
-  unix password sync = yes
-  passwd program = /usr/bin/passwd %u
-  passwd chat = *Enter\snew\s*\spassword:* %n\n *Retype\snew\s*\spassword:* %n\n *password\supdated\ssuccessfully* .
-  pam password change = yes
-  
-  # Include share definitions
-  include = /etc/samba/smb.conf.d/*.conf
-`
-
 // GenerateSambaConfig creates a Samba configuration for a share
 func GenerateSambaConfig(share *Share) (string, error) {
 	if share.SMB == nil || !share.SMB.Enabled {
@@ -141,13 +110,13 @@ func GenerateNFSExport(share *Share, lanNetworks []string) (string, error) {
 
 	// Build NFS options
 	options := []string{"sec=sys"}
-	
+
 	if share.NFS.ReadOnly || (share.SMB != nil && share.SMB.Guest && len(share.Owners) == 0) {
 		options = append(options, "ro")
 	} else {
 		options = append(options, "rw", "sync")
 	}
-	
+
 	// Security options
 	options = append(options, "root_squash", "all_squash")
 	options = append(options, "anonuid=65534", "anongid=65534") // nobody:nogroup
