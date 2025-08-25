@@ -1,0 +1,14 @@
+[Unit]
+Description=NithronOS: announce first-boot OTP to console
+Wants=nosd.service
+After=multi-user.target getty@tty1.service nosd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/nithronos/otp-notify
+StandardOutput=journal+console
+StandardError=journal+console
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target

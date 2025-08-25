@@ -9,6 +9,11 @@ case "$1" in
         chown -R nos:nos /etc/nos /var/lib/nos 2>/dev/null || true
         chmod 0770 /etc/nos /var/lib/nos 2>/dev/null || true
         [ -f /etc/nos/secret.key ] && chmod 600 /etc/nos/secret.key || true
+        
+        # Enable OTP announcement units
+        systemctl daemon-reload || true
+        systemctl enable otp-announce.service || true
+        systemctl enable --now otp-announce.path || true
         ;;
 esac
 

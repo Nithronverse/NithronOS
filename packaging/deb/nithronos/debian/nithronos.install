@@ -11,9 +11,6 @@ nos-fstrim.timer lib/systemd/system/
 nithronos-certgen.service etc/systemd/system/
 ../../../deploy/systemd/nithronos-firstboot-banner.service etc/systemd/system/
 # no longer install Caddyfile to avoid dpkg conflict with distro caddy
-
-# first-boot OTP announcement units
-../../../deploy/systemd/nos-announce-otp.path etc/systemd/system/
-../../../deploy/systemd/nos-announce-otp.service etc/systemd/system/
+# OTP announcement moved to nosd package
 
 

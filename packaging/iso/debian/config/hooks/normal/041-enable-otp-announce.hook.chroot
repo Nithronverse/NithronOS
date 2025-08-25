@@ -1,0 +1,23 @@
+#!/bin/sh
+set -e
+
+echo "[otp-announce] Enabling OTP announcement units for live system..."
+
+# Make scripts executable
+chmod +x /usr/lib/nithronos/otp-notify 2>/dev/null || true
+chmod +x /etc/update-motd.d/50-nithronos-otp 2>/dev/null || true
+
+# Enable the units
+systemctl enable otp-announce.service || true
+systemctl enable otp-announce.path || true
+
+# Verify the services are enabled
+if systemctl is-enabled otp-announce.service >/dev/null 2>&1; then
+    echo "[otp-announce] otp-announce.service successfully enabled"
+fi
+
+if systemctl is-enabled otp-announce.path >/dev/null 2>&1; then
+    echo "[otp-announce] otp-announce.path successfully enabled"
+fi
+
+echo "[otp-announce] Done"
