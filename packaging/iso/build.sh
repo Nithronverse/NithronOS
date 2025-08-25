@@ -86,6 +86,10 @@ else
   exit 1
 fi
 
+# Make all hooks executable
+chmod +x "$PROFILE_DIR/config/hooks/normal/"*.chroot 2>/dev/null || true
+chmod +x "$PROFILE_DIR/config/hooks/normal/"*.binary 2>/dev/null || true
+
 # Hook to install staged debs inside chroot during build
 HOOK="$PROFILE_DIR/config/hooks/normal/20-install-local-debs.chroot"
 cat > "$HOOK" <<'EOS'
@@ -147,7 +151,10 @@ ${SUDO_CMD} lb config \
   --archive-areas "main contrib non-free-firmware" \
   --mirror-bootstrap "$DEBIAN_MIRROR" \
   --mirror-chroot   "$DEBIAN_MIRROR" \
-  --mirror-binary   "$DEBIAN_MIRROR"
+  --mirror-binary   "$DEBIAN_MIRROR" \
+  --linux-flavours "${ARCH}" \
+  --linux-packages "linux-image" \
+  --initramfs "live-boot"
 
 ## Do not persist LB_LINUX_* overrides; kernel handled via package lists
 
@@ -175,7 +182,15 @@ done
 
 # Build ISO (LB assumes non-interactive)
 export DEBIAN_FRONTEND=noninteractive
-${SUDO_CMD} lb build
+echo "[iso] Starting live-build..."
+${SUDO_CMD} lb build 2>&1 | tee build.log || {
+    echo "[iso] Build failed. Checking for kernel files..."
+    echo "[iso] Contents of binary/live (if exists):"
+    ls -la binary/live/ 2>/dev/null || echo "binary/live does not exist"
+    echo "[iso] Contents of chroot/boot (if exists):"
+    ls -la chroot/boot/vmlinuz* chroot/boot/initrd* 2>/dev/null || echo "No kernel files in chroot/boot"
+    exit 1
+}
 
 # Default output path from live-build
 ISO_SRC="live-image-${ARCH}.hybrid.iso"

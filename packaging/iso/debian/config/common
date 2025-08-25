@@ -1,0 +1,14 @@
+# live-build configuration
+
+# Ensure kernel and initrd use standard names
+LB_LINUX_FLAVOURS="amd64"
+LB_LINUX_PACKAGES="linux-image"
+
+# Ensure standard live system paths
+LB_INITRAMFS="live-boot"
+
+# Syslinux serial console
+LB_SYSLINUX_SERIAL="0 115200"
+
+# Disable legacy security repos
+LB_SECURITY="false"

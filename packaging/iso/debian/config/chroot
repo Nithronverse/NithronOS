@@ -1,0 +1,17 @@
+# live-build chroot configuration
+
+# Kernel configuration
+LB_LINUX_FLAVOURS="amd64"
+LB_LINUX_PACKAGES="linux-image"
+
+# Ensure initramfs tools
+LB_INITRAMFS="live-boot"
+
+# Package management
+LB_APT_RECOMMENDS="true"
+
+# Disable legacy security repos
+LB_SECURITY="false"
+
+# Syslinux serial console (inherited from common)
+LB_SYSLINUX_SERIAL="0 115200"

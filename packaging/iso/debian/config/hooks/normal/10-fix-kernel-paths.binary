@@ -1,42 +1,119 @@
 #!/bin/sh
 set -e
 
-echo "[kernel-paths] Fixing kernel and initrd paths for GRUB..."
+echo "[kernel-paths] Starting kernel and initrd path fix..."
+echo "[kernel-paths] Current directory: $(pwd)"
+echo "[kernel-paths] Binary directory structure:"
+find binary -type d -name "*live*" -o -name "*boot*" 2>/dev/null | head -20 || true
 
-# Check if /live directory exists
-if [ ! -d binary/live ]; then
-    echo "[kernel-paths] Warning: binary/live directory doesn't exist!"
-    exit 0
-fi
-
-# Find versioned kernel and initrd files
-KERNEL_FILE=$(ls binary/live/vmlinuz-* 2>/dev/null | head -n1)
-INITRD_FILE=$(ls binary/live/initrd.img-* 2>/dev/null | head -n1)
-
-# If versioned files exist, create symlinks with standard names
-if [ -n "$KERNEL_FILE" ]; then
-    echo "[kernel-paths] Found kernel: $(basename $KERNEL_FILE)"
-    ln -sf $(basename "$KERNEL_FILE") binary/live/vmlinuz
-    echo "[kernel-paths] Created symlink: binary/live/vmlinuz -> $(basename $KERNEL_FILE)"
-else
-    echo "[kernel-paths] Warning: No versioned kernel found in binary/live/"
-    # Check if kernel exists with standard name already
-    if [ ! -f binary/live/vmlinuz ]; then
-        echo "[kernel-paths] ERROR: No kernel file found at all!"
-        ls -la binary/live/ || true
+# Function to find and link kernel files
+fix_kernel_paths() {
+    local search_dir="$1"
+    local target_dir="$2"
+    
+    echo "[kernel-paths] Searching for kernel files in: $search_dir"
+    
+    # List all files in the search directory
+    if [ -d "$search_dir" ]; then
+        echo "[kernel-paths] Contents of $search_dir:"
+        ls -la "$search_dir/" 2>/dev/null || true
+    else
+        echo "[kernel-paths] Directory $search_dir does not exist"
+        return 1
     fi
+    
+    # Find kernel file (various possible names)
+    local kernel_file=""
+    for pattern in "vmlinuz-*" "vmlinuz" "linux-*" "kernel-*"; do
+        local found=$(find "$search_dir" -maxdepth 1 -name "$pattern" 2>/dev/null | head -n1)
+        if [ -n "$found" ]; then
+            kernel_file="$found"
+            echo "[kernel-paths] Found kernel: $kernel_file"
+            break
+        fi
+    done
+    
+    # Find initrd file (various possible names)
+    local initrd_file=""
+    for pattern in "initrd.img-*" "initrd-*" "initramfs-*" "initrd.img" "initrd"; do
+        local found=$(find "$search_dir" -maxdepth 1 -name "$pattern" 2>/dev/null | head -n1)
+        if [ -n "$found" ]; then
+            initrd_file="$found"
+            echo "[kernel-paths] Found initrd: $initrd_file"
+            break
+        fi
+    done
+    
+    # Create target directory if it doesn't exist
+    if [ ! -d "$target_dir" ]; then
+        echo "[kernel-paths] Creating target directory: $target_dir"
+        mkdir -p "$target_dir"
+    fi
+    
+    # Copy or link kernel
+    if [ -n "$kernel_file" ]; then
+        if [ "$search_dir" != "$target_dir" ]; then
+            echo "[kernel-paths] Copying kernel to $target_dir/vmlinuz"
+            cp -f "$kernel_file" "$target_dir/vmlinuz"
+        elif [ "$(basename "$kernel_file")" != "vmlinuz" ]; then
+            echo "[kernel-paths] Creating symlink: $target_dir/vmlinuz -> $(basename "$kernel_file")"
+            cd "$target_dir"
+            ln -sf "$(basename "$kernel_file")" vmlinuz
+            cd - >/dev/null
+        fi
+    else
+        echo "[kernel-paths] WARNING: No kernel file found in $search_dir"
+    fi
+    
+    # Copy or link initrd
+    if [ -n "$initrd_file" ]; then
+        if [ "$search_dir" != "$target_dir" ]; then
+            echo "[kernel-paths] Copying initrd to $target_dir/initrd.img"
+            cp -f "$initrd_file" "$target_dir/initrd.img"
+        elif [ "$(basename "$initrd_file")" != "initrd.img" ]; then
+            echo "[kernel-paths] Creating symlink: $target_dir/initrd.img -> $(basename "$initrd_file")"
+            cd "$target_dir"
+            ln -sf "$(basename "$initrd_file")" initrd.img
+            cd - >/dev/null
+        fi
+    else
+        echo "[kernel-paths] WARNING: No initrd file found in $search_dir"
+    fi
+}
+
+# Check various possible locations
+echo "[kernel-paths] Checking for kernel files..."
+
+# Primary location: binary/live
+if [ -d binary/live ]; then
+    fix_kernel_paths "binary/live" "binary/live"
 fi
 
-if [ -n "$INITRD_FILE" ]; then
-    echo "[kernel-paths] Found initrd: $(basename $INITRD_FILE)"
-    ln -sf $(basename "$INITRD_FILE") binary/live/initrd.img
-    echo "[kernel-paths] Created symlink: binary/live/initrd.img -> $(basename $INITRD_FILE)"
-else
-    echo "[kernel-paths] Warning: No versioned initrd found in binary/live/"
-    # Check if initrd exists with standard name already
-    if [ ! -f binary/live/initrd.img ]; then
-        echo "[kernel-paths] ERROR: No initrd file found at all!"
-        ls -la binary/live/ || true
+# Fallback: Check if files are in binary/boot
+if [ ! -f binary/live/vmlinuz ] && [ -d binary/boot ]; then
+    echo "[kernel-paths] Kernel not in binary/live, checking binary/boot..."
+    fix_kernel_paths "binary/boot" "binary/live"
+fi
+
+# Fallback: Check chroot boot directory
+if [ ! -f binary/live/vmlinuz ] && [ -d chroot/boot ]; then
+    echo "[kernel-paths] Kernel not in binary/live, checking chroot/boot..."
+    # Find the latest kernel in chroot/boot
+    latest_kernel=$(ls -t chroot/boot/vmlinuz-* 2>/dev/null | head -n1)
+    latest_initrd=$(ls -t chroot/boot/initrd.img-* 2>/dev/null | head -n1)
+    
+    if [ -n "$latest_kernel" ]; then
+        echo "[kernel-paths] Found kernel in chroot: $latest_kernel"
+        mkdir -p binary/live
+        cp -f "$latest_kernel" binary/live/vmlinuz
+        echo "[kernel-paths] Copied kernel to binary/live/vmlinuz"
+    fi
+    
+    if [ -n "$latest_initrd" ]; then
+        echo "[kernel-paths] Found initrd in chroot: $latest_initrd"
+        mkdir -p binary/live
+        cp -f "$latest_initrd" binary/live/initrd.img
+        echo "[kernel-paths] Copied initrd to binary/live/initrd.img"
     fi
 fi
 
@@ -44,23 +121,32 @@ fi
 if [ -f binary/live/filesystem.squashfs ]; then
     echo "[kernel-paths] ✓ filesystem.squashfs found"
 else
-    echo "[kernel-paths] Warning: filesystem.squashfs not found in binary/live/"
+    echo "[kernel-paths] ✗ filesystem.squashfs missing in binary/live/"
+    # Check if it exists elsewhere
+    if [ -f binary/filesystem.squashfs ]; then
+        echo "[kernel-paths] Found filesystem.squashfs in binary/, moving to binary/live/"
+        mkdir -p binary/live
+        mv binary/filesystem.squashfs binary/live/
+    fi
 fi
 
-# Verify the symlinks or files exist
-echo "[kernel-paths] Verifying kernel files..."
-if [ -e binary/live/vmlinuz ]; then
-    echo "[kernel-paths] ✓ vmlinuz exists"
-    ls -la binary/live/vmlinuz
+# Final verification
+echo ""
+echo "[kernel-paths] Final verification of binary/live/:"
+if [ -d binary/live ]; then
+    ls -la binary/live/ 2>/dev/null || true
 else
-    echo "[kernel-paths] ✗ vmlinuz missing!"
+    echo "[kernel-paths] ERROR: binary/live directory does not exist!"
 fi
 
-if [ -e binary/live/initrd.img ]; then
-    echo "[kernel-paths] ✓ initrd.img exists"
-    ls -la binary/live/initrd.img
-else
-    echo "[kernel-paths] ✗ initrd.img missing!"
-fi
+echo ""
+echo "[kernel-paths] Checking critical files:"
+for file in vmlinuz initrd.img filesystem.squashfs; do
+    if [ -e "binary/live/$file" ]; then
+        echo "[kernel-paths] ✓ $file exists ($(ls -lh binary/live/$file | awk '{print $5}'))"
+    else
+        echo "[kernel-paths] ✗ $file MISSING!"
+    fi
+done
 
 echo "[kernel-paths] Done"

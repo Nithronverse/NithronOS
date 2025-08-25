@@ -9,6 +9,9 @@ lb config \
   --debian-installer live \
   --apt-recommends false \
   --updates true \
-  --security true
+  --security false \
+  --linux-flavours amd64 \
+  --linux-packages "linux-image" \
+  --initramfs live-boot
 
 

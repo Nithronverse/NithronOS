@@ -1,0 +1,38 @@
+#!/bin/sh
+set -e
+
+echo "[ensure-kernel] Checking kernel installation in chroot..."
+
+# Ensure kernel package is installed
+if ! dpkg -l | grep -q "^ii.*linux-image-"; then
+    echo "[ensure-kernel] ERROR: No kernel package installed!"
+    echo "[ensure-kernel] Attempting to install linux-image-amd64..."
+    apt-get update
+    apt-get install -y linux-image-amd64
+else
+    echo "[ensure-kernel] Kernel package installed:"
+    dpkg -l | grep "^ii.*linux-image-" || true
+fi
+
+# List kernel files in /boot
+echo "[ensure-kernel] Kernel files in /boot:"
+ls -la /boot/vmlinuz-* 2>/dev/null || echo "No vmlinuz files found"
+ls -la /boot/initrd.img-* 2>/dev/null || echo "No initrd files found"
+
+# Create generic symlinks in /boot for easier access
+if ls /boot/vmlinuz-* >/dev/null 2>&1; then
+    latest_kernel=$(ls -t /boot/vmlinuz-* | head -n1)
+    echo "[ensure-kernel] Latest kernel: $latest_kernel"
+    ln -sf "$(basename "$latest_kernel")" /boot/vmlinuz || true
+fi
+
+if ls /boot/initrd.img-* >/dev/null 2>&1; then
+    latest_initrd=$(ls -t /boot/initrd.img-* | head -n1)
+    echo "[ensure-kernel] Latest initrd: $latest_initrd"
+    ln -sf "$(basename "$latest_initrd")" /boot/initrd.img || true
+fi
+
+echo "[ensure-kernel] Updated /boot contents:"
+ls -la /boot/ | grep -E "vmlinuz|initrd" || true
+
+echo "[ensure-kernel] Done"
