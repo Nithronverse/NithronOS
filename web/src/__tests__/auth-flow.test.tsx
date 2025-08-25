@@ -1,0 +1,223 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { BrowserRouter } from 'react-router-dom'
+import React from 'react'
+import { Login } from '../pages/Login'
+import { AuthProvider } from '../lib/auth'
+import { api } from '../lib/api-client'
+
+// Mock the API client
+vi.mock('../lib/api-client', () => ({
+  api: {
+    auth: {
+      login: vi.fn(),
+      verifyTotp: vi.fn(),
+      logout: vi.fn(),
+      refresh: vi.fn(),
+      getSession: vi.fn(),
+    },
+    setup: {
+      getState: vi.fn(),
+    },
+  },
+  APIError: class APIError extends Error {
+    constructor(public status: number, message: string) {
+      super(message)
+    }
+  },
+}))
+
+// Mock navigation
+const mockNavigate = vi.fn()
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom')
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  }
+})
+
+describe('Login Flow', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockNavigate.mockClear()
+  })
+
+  const renderLogin = () => {
+    return render(
+      <BrowserRouter>
+        <AuthProvider>
+          <Login />
+        </AuthProvider>
+      </BrowserRouter>
+    )
+  }
+
+  it('should render login form with username and password fields', () => {
+    renderLogin()
+    
+    expect(screen.getByLabelText(/username/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/password/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/remember me/i)).toBeInTheDocument()
+  })
+
+  it('should show validation errors for empty fields', async () => {
+    renderLogin()
+    const user = userEvent.setup()
+    
+    const submitButton = screen.getByRole('button', { name: /sign in/i })
+    await user.click(submitButton)
+    
+    await waitFor(() => {
+      expect(screen.getByText(/username is required/i)).toBeInTheDocument()
+      expect(screen.getByText(/password is required/i)).toBeInTheDocument()
+    })
+  })
+
+  it('should handle successful login', async () => {
+    vi.mocked(api.auth.login).mockResolvedValueOnce({
+      accessToken: 'mock-access-token',
+      refreshToken: 'mock-refresh-token',
+      user: { username: 'admin', roles: ['admin'] },
+    })
+    
+    renderLogin()
+    const user = userEvent.setup()
+    
+    await user.type(screen.getByLabelText(/username/i), 'admin')
+    await user.type(screen.getByLabelText(/password/i), 'password123')
+    await user.click(screen.getByRole('button', { name: /sign in/i }))
+    
+    await waitFor(() => {
+      expect(api.auth.login).toHaveBeenCalledWith({
+        username: 'admin',
+        password: 'password123',
+        rememberMe: false,
+        totpCode: undefined,
+      })
+      expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
+    })
+  })
+
+  it('should handle login with TOTP', async () => {
+    // First attempt returns requires_totp
+    vi.mocked(api.auth.login).mockRejectedValueOnce({
+      status: 403,
+      message: 'requires_totp',
+    })
+    
+    renderLogin()
+    const user = userEvent.setup()
+    
+    await user.type(screen.getByLabelText(/username/i), 'admin')
+    await user.type(screen.getByLabelText(/password/i), 'password123')
+    await user.click(screen.getByRole('button', { name: /sign in/i }))
+    
+    // Should show TOTP field
+    await waitFor(() => {
+      expect(screen.getByLabelText(/two-factor code/i)).toBeInTheDocument()
+    })
+    
+    // Second attempt with TOTP
+    vi.mocked(api.auth.login).mockResolvedValueOnce({
+      accessToken: 'mock-access-token',
+      refreshToken: 'mock-refresh-token',
+      user: { username: 'admin', roles: ['admin'] },
+    })
+    
+    await user.type(screen.getByLabelText(/two-factor code/i), '123456')
+    await user.click(screen.getByRole('button', { name: /verify/i }))
+    
+    await waitFor(() => {
+      expect(api.auth.login).toHaveBeenCalledWith({
+        username: 'admin',
+        password: 'password123',
+        rememberMe: false,
+        totpCode: '123456',
+      })
+      expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
+    })
+  })
+
+  it('should handle invalid credentials error', async () => {
+    vi.mocked(api.auth.login).mockRejectedValueOnce({
+      status: 401,
+      message: 'Invalid username or password',
+    })
+    
+    renderLogin()
+    const user = userEvent.setup()
+    
+    await user.type(screen.getByLabelText(/username/i), 'admin')
+    await user.type(screen.getByLabelText(/password/i), 'wrong-password')
+    await user.click(screen.getByRole('button', { name: /sign in/i }))
+    
+    await waitFor(() => {
+      expect(screen.getByText(/invalid username or password/i)).toBeInTheDocument()
+    })
+  })
+
+  it('should handle rate limiting error', async () => {
+    vi.mocked(api.auth.login).mockRejectedValueOnce({
+      status: 429,
+      message: 'Too many attempts',
+    })
+    
+    renderLogin()
+    const user = userEvent.setup()
+    
+    await user.type(screen.getByLabelText(/username/i), 'admin')
+    await user.type(screen.getByLabelText(/password/i), 'password')
+    await user.click(screen.getByRole('button', { name: /sign in/i }))
+    
+    await waitFor(() => {
+      expect(screen.getByText(/too many login attempts/i)).toBeInTheDocument()
+    })
+  })
+
+  it('should preserve username on failed attempts', async () => {
+    vi.mocked(api.auth.login).mockRejectedValueOnce({
+      status: 401,
+      message: 'Invalid username or password',
+    })
+    
+    renderLogin()
+    const user = userEvent.setup()
+    
+    const usernameInput = screen.getByLabelText(/username/i)
+    await user.type(usernameInput, 'testuser')
+    await user.type(screen.getByLabelText(/password/i), 'wrong')
+    await user.click(screen.getByRole('button', { name: /sign in/i }))
+    
+    await waitFor(() => {
+      expect(usernameInput).toHaveValue('testuser')
+    })
+  })
+
+  it('should handle remember me checkbox', async () => {
+    vi.mocked(api.auth.login).mockResolvedValueOnce({
+      accessToken: 'mock-access-token',
+      refreshToken: 'mock-refresh-token',
+      user: { username: 'admin', roles: ['admin'] },
+    })
+    
+    renderLogin()
+    const user = userEvent.setup()
+    
+    await user.type(screen.getByLabelText(/username/i), 'admin')
+    await user.type(screen.getByLabelText(/password/i), 'password123')
+    await user.click(screen.getByLabelText(/remember me/i))
+    await user.click(screen.getByRole('button', { name: /sign in/i }))
+    
+    await waitFor(() => {
+      expect(api.auth.login).toHaveBeenCalledWith({
+        username: 'admin',
+        password: 'password123',
+        rememberMe: true,
+        totpCode: undefined,
+      })
+    })
+  })
+})
