@@ -82,10 +82,7 @@ func validateSharesConfig() error {
 		return fmt.Errorf("unsupported shares config version: %d", config.Version)
 	}
 
-	// Future: handle migrations for newer versions
-	if config.Version > 1 {
-		// Version is newer than supported, but we'll try to continue
-	}
+	// Future: handle migrations for newer versions (accept >1 for forward-compat)
 
 	return nil
 }
