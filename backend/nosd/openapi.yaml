@@ -6,6 +6,109 @@ info:
 servers:
   - url: http://127.0.0.1:9000
 paths:
+  /api/shares:
+    get:
+      summary: List network shares
+      tags: [shares]
+      responses:
+        '200':
+          description: List of shares
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Share'
+    post:
+      summary: Create a new share
+      tags: [shares]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShareRequest'
+      responses:
+        '201':
+          description: Share created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Share'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /api/shares/{name}:
+    patch:
+      summary: Update a share
+      tags: [shares]
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShareRequest'
+      responses:
+        '200':
+          description: Share updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Share'
+        '404':
+          description: Share not found
+    delete:
+      summary: Delete a share
+      tags: [shares]
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Share deleted
+        '404':
+          description: Share not found
+  
+  /api/shares/{name}/test:
+    post:
+      summary: Test share configuration (dry-run)
+      tags: [shares]
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                config:
+                  type: object
+      responses:
+        '200':
+          description: Test result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestShareResponse'
+  
   /api/health:
     get:
       summary: Health check
@@ -492,6 +595,126 @@ components:
     StringArray:
       type: array
       items: { type: string }
+    
+    Share:
+      type: object
+      properties:
+        name:
+          type: string
+          pattern: '^[a-z0-9][a-z0-9-_]{1,31}$'
+        path:
+          type: string
+        smb:
+          $ref: '#/components/schemas/SMBConfig'
+        nfs:
+          $ref: '#/components/schemas/NFSConfig'
+        owners:
+          type: array
+          items:
+            type: string
+            pattern: '^(user|group):[a-z0-9][a-z0-9-_]{0,31}$'
+        readers:
+          type: array
+          items:
+            type: string
+            pattern: '^(user|group):[a-z0-9][a-z0-9-_]{0,31}$'
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required: [name, path, created_at, updated_at]
+    
+    SMBConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        guest:
+          type: boolean
+        time_machine:
+          type: boolean
+        recycle:
+          $ref: '#/components/schemas/RecycleConfig'
+      required: [enabled]
+    
+    RecycleConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        directory:
+          type: string
+          default: '.recycle'
+      required: [enabled]
+    
+    NFSConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        networks:
+          type: array
+          items:
+            type: string
+            pattern: '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,2}$'
+        read_only:
+          type: boolean
+      required: [enabled]
+    
+    CreateShareRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          pattern: '^[a-z0-9][a-z0-9-_]{1,31}$'
+        smb:
+          $ref: '#/components/schemas/SMBConfig'
+        nfs:
+          $ref: '#/components/schemas/NFSConfig'
+        owners:
+          type: array
+          items:
+            type: string
+        readers:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+      required: [name]
+    
+    UpdateShareRequest:
+      type: object
+      properties:
+        smb:
+          $ref: '#/components/schemas/SMBConfig'
+        nfs:
+          $ref: '#/components/schemas/NFSConfig'
+        owners:
+          type: array
+          items:
+            type: string
+        readers:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+    
+    TestShareResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        errors:
+          type: array
+          items:
+            type: string
+      required: [valid]
     SmbUserCreate:
       type: object
       properties:
