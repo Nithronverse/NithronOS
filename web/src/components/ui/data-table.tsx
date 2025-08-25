@@ -19,6 +19,8 @@ interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
   searchKey?: string
+  searchPlaceholder?: string
+  loading?: boolean
   className?: string
   onRowClick?: (row: TData) => void
 }
@@ -27,6 +29,8 @@ export function DataTable<TData, TValue>({
   columns,
   data,
   searchKey,
+  searchPlaceholder = 'Search...',
+  loading = false,
   className,
   onRowClick,
 }: DataTableProps<TData, TValue>) {
@@ -59,7 +63,7 @@ export function DataTable<TData, TValue>({
       {searchKey && (
         <div className="flex items-center justify-between">
           <input
-            placeholder={`Search ${searchKey}...`}
+            placeholder={searchPlaceholder}
             value={globalFilter ?? ''}
             onChange={(e) => setGlobalFilter(e.target.value)}
             className="max-w-sm rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -109,7 +113,15 @@ export function DataTable<TData, TValue>({
             ))}
           </thead>
           <tbody>
-            {table.getRowModel().rows?.length ? (
+            {loading ? (
+              <tr>
+                <td colSpan={columns.length} className="h-24 text-center">
+                  <div className="flex items-center justify-center">
+                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                  </div>
+                </td>
+              </tr>
+            ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <tr
                   key={row.id}

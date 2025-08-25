@@ -2,7 +2,8 @@ import { createBrowserRouter, RouterProvider, redirect, Navigate } from 'react-r
 import { AppShell } from './components/layout/AppShell'
 import { Dashboard } from './pages/Dashboard'
 import { Storage } from './pages/Storage'
-import SharesIndex from './routes/shares/index'
+import { SharesList } from './pages/SharesList'
+import { ShareDetails } from './pages/ShareDetails'
 import { Apps } from './pages/Apps'
 import { Settings } from './pages/Settings'
 import SettingsSchedules from './routes/settings/schedules'
@@ -52,7 +53,9 @@ const router = createBrowserRouter([
 		children: [
 			{ index: true, element: <Dashboard /> },
 			{ path: 'storage', element: <Storage /> },
-			{ path: 'shares', element: <SharesIndex /> },
+			{ path: 'shares', element: <SharesList /> },
+			{ path: 'shares/new', element: <ShareDetails /> },
+			{ path: 'shares/:name', element: <ShareDetails /> },
 			{ path: 'apps', element: <Apps /> },
 			{ path: 'settings', element: <Settings /> },
 			{ path: 'settings/schedules', element: <SettingsSchedules /> },

@@ -1,5 +1,5 @@
-import { apiGet, apiPost } from './http'
-import type { paths } from './schema'
+import { apiGet, apiPost, apiDelete, apiPatch } from './http'
+import type { paths, components } from './schema'
 
 type GetResponse<Path extends keyof paths> = paths[Path] extends { get: any }
 	? paths[Path]['get'] extends {
@@ -13,9 +13,72 @@ export type Health = GetResponse<'/api/health'>
 export type Disks = GetResponse<'/api/disks'>
 export type Pools = GetResponse<'/api/pools'>
 export type PoolCandidates = GetResponse<'/api/pools/candidates'>
+export type Share = components['schemas']['Share']
 export type Shares = GetResponse<'/api/shares'>
 export type Apps = GetResponse<'/api/apps'>
 export type RemoteStatus = GetResponse<'/api/remote/status'>
+
+// Additional types for shares
+export interface SMBConfig {
+	enabled: boolean
+	guest?: boolean
+	time_machine?: boolean
+	recycle?: {
+		enabled: boolean
+		directory?: string
+	}
+}
+
+export interface NFSConfig {
+	enabled: boolean
+	networks?: string[]
+	read_only?: boolean
+}
+
+export interface CreateShareRequest {
+	name: string
+	smb?: SMBConfig
+	nfs?: NFSConfig
+	owners?: string[]
+	readers?: string[]
+	description?: string
+}
+
+export interface UpdateShareRequest {
+	smb?: SMBConfig
+	nfs?: NFSConfig
+	owners?: string[]
+	readers?: string[]
+	description?: string
+}
+
+export interface TestShareResponse {
+	valid: boolean
+	errors?: Array<{
+		code: string
+		message: string
+		field?: string
+	}>
+}
+
+export interface User {
+	username: string
+	uid?: number
+	groups?: string[]
+}
+
+export interface Group {
+	name: string
+	gid?: number
+	members?: string[]
+}
+
+export interface Policy {
+	shares?: {
+		guest_access_forbidden?: boolean
+		max_shares?: number
+	}
+}
 
 type PostResponse<Path extends keyof paths> = paths[Path] extends { post: any }
 	? paths[Path]['post'] extends {
@@ -48,7 +111,11 @@ export const api = {
 		scrubStatus: (mount: string) => apiGet<any>(`/api/v1/pools/scrub/status?mount=${encodeURIComponent(mount)}`),
 	},
 	shares: {
-		get: () => apiGet<Shares>('/api/shares'),
+		get: () => apiGet<Share[]>('/api/shares'),
+		create: (data: CreateShareRequest) => apiPost<Share>('/api/shares', data),
+		update: (name: string, data: UpdateShareRequest) => apiPatch<Share>(`/api/shares/${name}`, data),
+		delete: (name: string) => apiDelete(`/api/shares/${name}`),
+		test: (name: string, config: any) => apiPost<TestShareResponse>(`/api/shares/${name}/test`, { config }),
 	},
 	apps: {
 		get: () => apiGet<Apps>('/api/apps'),
@@ -58,6 +125,15 @@ export const api = {
 	},
 	auth: {
 		me: () => apiGet<any>('/api/auth/me'),
+	},
+	users: {
+		get: () => apiGet<User[]>('/api/users'),
+	},
+	groups: {
+		get: () => apiGet<Group[]>('/api/groups'),
+	},
+	policy: {
+		get: () => apiGet<Policy>('/api/policy'),
 	},
 	firewall: {
 		status: () => apiGet<GetResponse<'/api/firewall/status'>>('/api/firewall/status'),

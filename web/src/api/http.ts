@@ -58,6 +58,14 @@ export async function apiPost<T>(path: string, body?: any): Promise<T> {
 	return request<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined })
 }
 
+export async function apiPatch<T>(path: string, body?: any): Promise<T> {
+	return request<T>(path, { method: 'PATCH', body: body ? JSON.stringify(body) : undefined })
+}
+
+export async function apiDelete<T = void>(path: string): Promise<T> {
+	return request<T>(path, { method: 'DELETE' })
+}
+
 function getCSRFCookie(): string | null {
 	const m = document.cookie.match(/(?:^|; )nos_csrf=([^;]*)/)
 	return m ? decodeURIComponent(m[1]) : null

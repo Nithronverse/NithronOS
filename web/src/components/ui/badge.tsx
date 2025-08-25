@@ -1,10 +1,30 @@
 import { ReactNode } from 'react'
+import { cn } from '@/lib/utils'
 
-export function Badge({ children, variant = 'default' }: { children: ReactNode; variant?: 'default' | 'outline' }) {
-  const cls = variant === 'outline'
-    ? 'border border-muted/40 text-foreground'
-    : 'bg-muted text-foreground'
-  return <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs ${cls}`}>{children}</span>
+interface BadgeProps {
+  children: ReactNode
+  variant?: 'default' | 'outline' | 'secondary'
+  className?: string
+}
+
+export function Badge({ children, variant = 'default', className }: BadgeProps) {
+  const variants = {
+    default: 'bg-primary text-primary-foreground',
+    outline: 'border border-muted-foreground/40 text-foreground',
+    secondary: 'bg-secondary text-secondary-foreground',
+  }
+  
+  return (
+    <span 
+      className={cn(
+        'inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold transition-colors',
+        variants[variant],
+        className
+      )}
+    >
+      {children}
+    </span>
+  )
 }
 
 

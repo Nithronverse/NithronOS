@@ -1,3 +1,4 @@
+import { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from './button'
 import {
@@ -15,7 +16,7 @@ interface EmptyStateProps {
   icon?: LucideIcon
   title: string
   description?: string
-  action?: {
+  action?: ReactNode | {
     label: string
     onClick: () => void
   }
@@ -72,9 +73,13 @@ export function EmptyState({
         </p>
       )}
       {action && (
-        <Button onClick={action.onClick} size="sm">
-          {action.label}
-        </Button>
+        typeof action === 'object' && 'label' in action ? (
+          <Button onClick={action.onClick} size="sm">
+            {action.label}
+          </Button>
+        ) : (
+          action
+        )
       )}
     </div>
   )

@@ -289,74 +289,6 @@ paths:
       responses:
         '200':
           description: OK
-  /api/shares:
-    get:
-      summary: List shares
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Share'
-    post:
-      summary: Create share
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Share'
-      responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Share'
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /api/shares/{id}:
-    delete:
-      summary: Delete share
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string }
-      responses:
-        '204':
-          description: No Content
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Not Found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   /api/smb/users:
     get:
       summary: List SMB users (proxy)
@@ -824,24 +756,7 @@ components:
           items: { type: string }
         raid: { type: string, enum: [single, raid1, raid10] }
       required: [label, devices, raid]
-    Share:
-      type: object
-      properties:
-        id:
-          type: string
-        type:
-          type: string
-          enum: [smb, nfs]
-        path:
-          type: string
-        name:
-          type: string
-        ro:
-          type: boolean
-        users:
-          type: array
-          items: { type: string }
-      required: [type, path, name]
+
     App:
       type: object
       properties:
