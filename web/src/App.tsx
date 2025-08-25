@@ -1,5 +1,5 @@
-import { createBrowserRouter, RouterProvider, redirect } from 'react-router-dom'
-import { Layout } from './components/layouts/Layout'
+import { createBrowserRouter, RouterProvider, redirect, Navigate } from 'react-router-dom'
+import { AppShell } from './components/layout/AppShell'
 import { Dashboard } from './pages/Dashboard'
 import { Storage } from './pages/Storage'
 import SharesIndex from './routes/shares/index'
@@ -48,7 +48,7 @@ const router = createBrowserRouter([
 				return redirect('/login')
 			}
 		},
-		element: <Layout />,
+		element: <AppShell />,
 		children: [
 			{ index: true, element: <Dashboard /> },
 			{ path: 'storage', element: <Storage /> },
@@ -60,6 +60,8 @@ const router = createBrowserRouter([
 			{ path: 'remote', element: <Remote /> },
 			{ path: 'storage/create', element: <PoolsCreate /> },
 			{ path: 'storage/:id', element: <PoolDetails /> },
+			// Redirect old schedules route to new location
+			{ path: 'schedules', element: <Navigate to="/settings/schedules" replace /> },
 		],
 	},
 	{ path: '/login', element: <Login /> },

@@ -6,19 +6,44 @@ export default {
 	theme: {
 		extend: {
 			colors: {
-				background: '#111318',
-				foreground: '#E7ECF3',
-				card: '#191C21',
+				// NithronOS brand palette
+				background: 'hsl(var(--background))',
+				foreground: 'hsl(var(--foreground))',
+				card: {
+					DEFAULT: 'hsl(var(--card))',
+					foreground: 'hsl(var(--card-foreground))',
+				},
+				popover: {
+					DEFAULT: 'hsl(var(--popover))',
+					foreground: 'hsl(var(--popover-foreground))',
+				},
 				primary: {
-					DEFAULT: '#2D7FF9',
-					foreground: '#0A0C10',
+					DEFAULT: 'hsl(var(--primary))',
+					foreground: 'hsl(var(--primary-foreground))',
+				},
+				secondary: {
+					DEFAULT: 'hsl(var(--secondary))',
+					foreground: 'hsl(var(--secondary-foreground))',
+				},
+				muted: {
+					DEFAULT: 'hsl(var(--muted))',
+					foreground: 'hsl(var(--muted-foreground))',
 				},
 				accent: {
-					DEFAULT: '#A4F932',
-					foreground: '#0A0C10',
+					DEFAULT: 'hsl(var(--accent))',
+					foreground: 'hsl(var(--accent-foreground))',
 				},
-				muted: '#2A2E35',
-				'muted-foreground': '#B9C3D1',
+				destructive: {
+					DEFAULT: 'hsl(var(--destructive))',
+					foreground: 'hsl(var(--destructive-foreground))',
+				},
+				border: 'hsl(var(--border))',
+				input: 'hsl(var(--input))',
+				ring: 'hsl(var(--ring))',
+				// Additional brand colors
+				cyan: '#00D1FF',
+				blue: '#2D7FF9',
+				lime: '#A4F932',
 			},
 			borderRadius: {
 				lg: '0.5rem',

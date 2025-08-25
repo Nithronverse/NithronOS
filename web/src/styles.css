@@ -2,20 +2,79 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-	--background: #111318;
-	--foreground: #E7ECF3;
-	--card: #191C21;
-	--primary: #2D7FF9;
-	--accent: #A4F932;
+@layer base {
+  :root {
+    /* NithronOS Brand Palette */
+    --background: 218 19% 7%;      /* #0B0E13 */
+    --foreground: 218 40% 93%;     /* #E6EDF7 */
+    
+    --card: 228 30% 10%;           /* #121622 */
+    --card-foreground: 218 40% 93%;
+    
+    --popover: 228 30% 10%;
+    --popover-foreground: 218 40% 93%;
+    
+    --primary: 217 96% 57%;        /* #2D7FF9 */
+    --primary-foreground: 218 19% 7%;
+    
+    --secondary: 228 30% 15%;
+    --secondary-foreground: 218 40% 93%;
+    
+    --muted: 210 15% 65%;          /* #9AA7B8 */
+    --muted-foreground: 210 15% 45%;
+    
+    --accent: 82 88% 58%;          /* #A4F932 lime */
+    --accent-foreground: 218 19% 7%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    
+    --border: 228 20% 20%;
+    --input: 228 20% 20%;
+    --ring: 217 96% 57%;
+    
+    --radius: 0.5rem;
+  }
+  
+  .dark {
+    /* Dark mode uses the same palette (already dark) */
+    --background: 218 19% 7%;
+    --foreground: 218 40% 93%;
+    
+    --card: 228 30% 10%;
+    --card-foreground: 218 40% 93%;
+    
+    --popover: 228 30% 10%;
+    --popover-foreground: 218 40% 93%;
+    
+    --primary: 217 96% 57%;
+    --primary-foreground: 218 19% 7%;
+    
+    --secondary: 228 30% 15%;
+    --secondary-foreground: 218 40% 93%;
+    
+    --muted: 210 15% 65%;
+    --muted-foreground: 210 15% 45%;
+    
+    --accent: 82 88% 58%;
+    --accent-foreground: 218 19% 7%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    
+    --border: 228 20% 20%;
+    --input: 228 20% 20%;
+    --ring: 217 96% 57%;
+  }
 }
 
-.bg-background { background-color: var(--background); }
-.text-foreground { color: var(--foreground); }
-.bg-card { background-color: var(--card); }
-
-.btn {
-	@apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
 
 
