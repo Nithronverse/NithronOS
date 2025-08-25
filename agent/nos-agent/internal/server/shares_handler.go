@@ -132,7 +132,7 @@ func (h *SharesHandler) CreateShare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 // ApplyACLsRequest represents a request to apply POSIX ACLs
@@ -222,7 +222,7 @@ func (h *SharesHandler) ApplyACLs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 // WriteSambaConfigRequest represents a request to write Samba config
@@ -280,7 +280,7 @@ func (h *SharesHandler) WriteSambaConfig(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 // RemoveSambaConfig removes a Samba configuration snippet
@@ -306,7 +306,7 @@ func (h *SharesHandler) RemoveSambaConfig(w http.ResponseWriter, r *http.Request
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 // ReloadSamba reloads the Samba service
@@ -333,7 +333,7 @@ func (h *SharesHandler) ReloadSamba(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 // WriteNFSExportRequest represents a request to write NFS export
@@ -372,7 +372,7 @@ func (h *SharesHandler) WriteNFSExport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 // RemoveNFSExport removes an NFS export configuration
@@ -398,7 +398,7 @@ func (h *SharesHandler) RemoveNFSExport(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 // ReloadNFS reloads the NFS exports
@@ -417,7 +417,7 @@ func (h *SharesHandler) ReloadNFS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 // CreateSubvol creates a Btrfs subvolume if the filesystem supports it
@@ -456,7 +456,7 @@ func (h *SharesHandler) CreateSubvol(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 // EnsureGroup ensures a system group exists
@@ -481,7 +481,7 @@ func (h *SharesHandler) EnsureGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 // ensureGroup ensures a system group exists (internal helper)
@@ -513,7 +513,7 @@ func (h *SharesHandler) ReloadAvahi(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 // isBtrfs checks if a path is on a Btrfs filesystem
