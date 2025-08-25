@@ -49,6 +49,15 @@ if [ -d binary/EFI ]; then
         cp binary/boot/grub/unicode.pf2 binary/EFI/boot/grub/unicode.pf2 2>/dev/null || true
     fi
     
+    # Create or update EFI grub.cfg
+    echo "[grub-binary-theme] Setting up EFI grub.cfg..."
+    
+    # First, check if we have a bootloader template to use
+    if [ ! -f binary/EFI/boot/grub.cfg ] && [ -f config/bootloaders/grub-efi/grub.cfg ]; then
+        echo "[grub-binary-theme] Copying grub-efi bootloader config..."
+        cp config/bootloaders/grub-efi/grub.cfg binary/EFI/boot/grub.cfg
+    fi
+    
     # Update EFI grub.cfg if it exists
     if [ -f binary/EFI/boot/grub.cfg ]; then
         echo "[grub-binary-theme] Updating EFI grub.cfg..."
@@ -86,6 +95,8 @@ EOF
         
         # Replace with new version
         mv binary/EFI/boot/grub.cfg.new binary/EFI/boot/grub.cfg
+    else
+        echo "[grub-binary-theme] Warning: Could not create EFI grub.cfg"
     fi
 fi
 
