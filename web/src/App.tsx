@@ -69,7 +69,7 @@ const router = createBrowserRouter([
 	{ path: '/help/proxy', element: <HelpProxy /> },
 ])
 
-function AppShell() {
+function AppWithRouter() {
 	const { notice } = useGlobalNotice()
 	return (
 		<div className="min-h-screen">
@@ -89,7 +89,7 @@ function AppShell() {
 export default function App() {
 	return (
 		<GlobalNoticeProvider>
-			<AppShell />
+			<AppWithRouter />
 		</GlobalNoticeProvider>
 	)
 }

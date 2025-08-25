@@ -25,7 +25,7 @@ function SidebarItem({ item, level = 0 }: SidebarItemProps) {
   const [expanded, setExpanded] = useState(false)
   const hasChildren = item.children && item.children.length > 0
   const isActive = location.pathname === item.path ||
-    (hasChildren && item.children.some(child => location.pathname === child.path))
+    (hasChildren && item.children?.some(child => location.pathname === child.path))
 
   useEffect(() => {
     if (isActive && hasChildren) {
@@ -97,10 +97,16 @@ export function AppShell() {
 
   const handleLogout = async () => {
     try {
-      await api.auth.logout()
+      // Call logout endpoint
+      await fetch('/api/auth/logout', { 
+        method: 'POST',
+        credentials: 'include'
+      })
       window.location.href = '/login'
     } catch (error) {
       console.error('Logout failed:', error)
+      // Force redirect even on error
+      window.location.href = '/login'
     }
   }
 
