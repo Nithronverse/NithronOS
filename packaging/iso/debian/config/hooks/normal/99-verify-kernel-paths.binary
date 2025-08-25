@@ -2,7 +2,10 @@
 set -e
 
 echo "[verify-kernel] Final verification of kernel paths..."
-echo "[verify-kernel] This hook runs late to ensure all files are in place"
+echo "[verify-kernel] Current directory: $(pwd)"
+
+# We're already in the binary directory when this hook runs
+# So we need to look for live/ not binary/live/
 
 # Function to report file status
 check_file() {
@@ -23,49 +26,80 @@ check_file() {
 }
 
 echo ""
-echo "[verify-kernel] Checking binary/live directory:"
-if [ -d binary/live ]; then
-    echo "[verify-kernel] Contents of binary/live:"
-    ls -la binary/live/ 2>/dev/null | head -20 || true
+echo "[verify-kernel] Checking live directory:"
+if [ -d live ]; then
+    echo "[verify-kernel] Contents of live/:"
+    ls -la live/ 2>/dev/null | head -20 || true
 else
-    echo "[verify-kernel] ERROR: binary/live directory does not exist!"
-    echo "[verify-kernel] Creating binary/live and attempting recovery..."
-    mkdir -p binary/live
+    echo "[verify-kernel] ERROR: live directory does not exist!"
+    echo "[verify-kernel] Creating live and attempting recovery..."
+    mkdir -p live
 fi
 
 echo ""
 echo "[verify-kernel] Checking critical boot files:"
-check_file "binary/live/vmlinuz" "Kernel" || {
+check_file "live/vmlinuz" "Kernel" || {
     # Try to recover by finding kernel elsewhere
     echo "[verify-kernel] Attempting to recover kernel..."
-    for src in binary/vmlinuz* binary/boot/vmlinuz* chroot/boot/vmlinuz*; do
-        if [ -f "$src" ]; then
-            echo "[verify-kernel] Found kernel at $src, copying to binary/live/vmlinuz"
-            cp -f "$src" binary/live/vmlinuz
-            break
-        fi
-    done
-    check_file "binary/live/vmlinuz" "Kernel (recovered)"
+    
+    # Check for versioned kernel in live/
+    if ls live/vmlinuz-* >/dev/null 2>&1; then
+        kernel=$(ls live/vmlinuz-* | head -n1)
+        echo "[verify-kernel] Found versioned kernel: $kernel"
+        cd live && ln -sf "$(basename "$kernel")" vmlinuz && cd ..
+        echo "[verify-kernel] Created symlink"
+    # Check in boot/
+    elif ls boot/vmlinuz* >/dev/null 2>&1; then
+        kernel=$(ls boot/vmlinuz* | head -n1)
+        echo "[verify-kernel] Found kernel in boot: $kernel"
+        cp -f "$kernel" live/vmlinuz
+        echo "[verify-kernel] Copied to live/vmlinuz"
+    # Check parent directory chroot
+    elif [ -f ../chroot/boot/vmlinuz* ]; then
+        kernel=$(ls ../chroot/boot/vmlinuz* | head -n1)
+        echo "[verify-kernel] Found kernel in chroot: $kernel"
+        cp -f "$kernel" live/vmlinuz
+        echo "[verify-kernel] Copied to live/vmlinuz"
+    fi
+    check_file "live/vmlinuz" "Kernel (recovered)"
 }
 
-check_file "binary/live/initrd.img" "Initial RAM disk" || {
+check_file "live/initrd.img" "Initial RAM disk" || {
     # Try to recover by finding initrd elsewhere
     echo "[verify-kernel] Attempting to recover initrd..."
-    for src in binary/initrd* binary/boot/initrd* chroot/boot/initrd.img*; do
-        if [ -f "$src" ]; then
-            echo "[verify-kernel] Found initrd at $src, copying to binary/live/initrd.img"
-            cp -f "$src" binary/live/initrd.img
-            break
-        fi
-    done
-    check_file "binary/live/initrd.img" "Initial RAM disk (recovered)"
+    
+    # Check for versioned initrd in live/
+    if ls live/initrd.img-* >/dev/null 2>&1; then
+        initrd=$(ls live/initrd.img-* | head -n1)
+        echo "[verify-kernel] Found versioned initrd: $initrd"
+        cd live && ln -sf "$(basename "$initrd")" initrd.img && cd ..
+        echo "[verify-kernel] Created symlink"
+    elif ls live/initrd-* >/dev/null 2>&1; then
+        initrd=$(ls live/initrd-* | head -n1)
+        echo "[verify-kernel] Found versioned initrd: $initrd"
+        cd live && ln -sf "$(basename "$initrd")" initrd.img && cd ..
+        echo "[verify-kernel] Created symlink"
+    # Check in boot/
+    elif ls boot/initrd* >/dev/null 2>&1; then
+        initrd=$(ls boot/initrd* | head -n1)
+        echo "[verify-kernel] Found initrd in boot: $initrd"
+        cp -f "$initrd" live/initrd.img
+        echo "[verify-kernel] Copied to live/initrd.img"
+    # Check parent directory chroot
+    elif [ -f ../chroot/boot/initrd.img* ]; then
+        initrd=$(ls ../chroot/boot/initrd.img* | head -n1)
+        echo "[verify-kernel] Found initrd in chroot: $initrd"
+        cp -f "$initrd" live/initrd.img
+        echo "[verify-kernel] Copied to live/initrd.img"
+    fi
+    check_file "live/initrd.img" "Initial RAM disk (recovered)"
 }
 
-check_file "binary/live/filesystem.squashfs" "Root filesystem"
+check_file "live/filesystem.squashfs" "Root filesystem"
 
 echo ""
 echo "[verify-kernel] Checking GRUB configurations:"
-for cfg in binary/boot/grub/grub.cfg binary/isolinux/isolinux.cfg binary/EFI/boot/grub.cfg; do
+for cfg in boot/grub/grub.cfg ../isolinux/isolinux.cfg EFI/boot/grub.cfg; do
     if [ -f "$cfg" ]; then
         echo "[verify-kernel] Found: $cfg"
         if grep -q "/live/vmlinuz" "$cfg" 2>/dev/null; then
@@ -78,11 +112,24 @@ done
 
 echo ""
 echo "[verify-kernel] Summary:"
-if [ -f binary/live/vmlinuz ] && [ -f binary/live/initrd.img ]; then
+if [ -f live/vmlinuz ] || [ -L live/vmlinuz ]; then
+    kernel_ok=1
+else
+    kernel_ok=0
+fi
+
+if [ -f live/initrd.img ] || [ -L live/initrd.img ]; then
+    initrd_ok=1
+else
+    initrd_ok=0
+fi
+
+if [ $kernel_ok -eq 1 ] && [ $initrd_ok -eq 1 ]; then
     echo "[verify-kernel] ✓ All critical files present - ISO should boot"
+    exit 0
 else
     echo "[verify-kernel] ✗ CRITICAL: Missing boot files - ISO will NOT boot!"
     echo "[verify-kernel] Please check the build logs for errors"
+    # Don't exit with error - just warn
+    exit 0
 fi
-
-echo "[verify-kernel] Done"
