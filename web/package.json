@@ -16,17 +16,21 @@
     "test:run": "vitest run"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.85.5",
+    "@tanstack/react-table": "^8.21.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "framer-motion": "^12.23.12",
     "lucide-react": "^0.441.0",
     "qrcode": "^1.5.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.53.0",
     "react-router-dom": "^6.26.2",
+    "recharts": "^3.1.2",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^3.23.8"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@hookform/resolvers": "^5.2.1",

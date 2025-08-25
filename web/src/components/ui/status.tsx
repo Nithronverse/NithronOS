@@ -1,0 +1,113 @@
+import React from 'react'
+import { cn } from '@/lib/utils'
+import { CheckCircle, AlertCircle, XCircle, Info, Circle } from 'lucide-react'
+
+type StatusVariant = 'success' | 'warning' | 'error' | 'info' | 'muted'
+
+interface StatusPillProps {
+  variant: StatusVariant
+  children: React.ReactNode
+  className?: string
+}
+
+const statusConfig = {
+  success: {
+    className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+    icon: CheckCircle,
+  },
+  warning: {
+    className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+    icon: AlertCircle,
+  },
+  error: {
+    className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+    icon: XCircle,
+  },
+  info: {
+    className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+    icon: Info,
+  },
+  muted: {
+    className: 'bg-muted text-muted-foreground',
+    icon: Circle,
+  },
+}
+
+export function StatusPill({ variant, children, className }: StatusPillProps) {
+  const config = statusConfig[variant]
+  const Icon = config.icon
+
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium',
+        config.className,
+        className
+      )}
+    >
+      <Icon className="h-3 w-3" />
+      {children}
+    </span>
+  )
+}
+
+interface HealthBadgeProps {
+  status: 'healthy' | 'degraded' | 'critical' | 'unknown'
+  className?: string
+}
+
+export function HealthBadge({ status, className }: HealthBadgeProps) {
+  const variant = 
+    status === 'healthy' ? 'success' :
+    status === 'degraded' ? 'warning' :
+    status === 'critical' ? 'error' :
+    'muted'
+
+  return (
+    <StatusPill variant={variant} className={className}>
+      {status.charAt(0).toUpperCase() + status.slice(1)}
+    </StatusPill>
+  )
+}
+
+interface MetricProps {
+  label: string
+  value: string | number
+  delta?: string
+  deltaType?: 'increase' | 'decrease' | 'neutral'
+  sublabel?: string
+  className?: string
+}
+
+export function Metric({
+  label,
+  value,
+  delta,
+  deltaType = 'neutral',
+  sublabel,
+  className,
+}: MetricProps) {
+  return (
+    <div className={cn('space-y-1', className)}>
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <div className="flex items-baseline gap-2">
+        <p className="text-2xl font-bold">{value}</p>
+        {delta && (
+          <span
+            className={cn(
+              'text-sm font-medium',
+              deltaType === 'increase' && 'text-green-600 dark:text-green-400',
+              deltaType === 'decrease' && 'text-red-600 dark:text-red-400',
+              deltaType === 'neutral' && 'text-muted-foreground'
+            )}
+          >
+            {delta}
+          </span>
+        )}
+      </div>
+      {sublabel && (
+        <p className="text-xs text-muted-foreground">{sublabel}</p>
+      )}
+    </div>
+  )
+}
