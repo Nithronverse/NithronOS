@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { Link, NavLink, useLocation } from 'react-router-dom'
 import {
   Bell,
   ChevronDown,
@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { navItems } from '@/config/nav'
 import { Toasts } from '../ui/toast'
-import api from '@/lib/api'
+import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 
 interface SidebarItemProps {
@@ -74,18 +74,34 @@ function SidebarItem({ item, level = 0 }: SidebarItemProps) {
   )
 }
 
-export function AppShell() {
+export function AppShell({ children }: { children?: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [alerts, setAlerts] = useState<any[]>([])
   const [alertsOpen, setAlertsOpen] = useState(false)
+  const { logout, session } = useAuth()
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.closest('[data-user-menu]')) {
+        setUserMenuOpen(false)
+      }
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => {
+      document.removeEventListener('click', handleClickOutside)
+    }
+  }, [])
 
   useEffect(() => {
     let stop = false
     async function pullAlerts() {
       try {
-        const r = await api.health.alerts()
-        if (!stop) setAlerts(r.alerts || [])
+        // TODO: Restore when health API is available
+        // const r = await api.health.alerts()
+        // if (!stop) setAlerts(r.alerts || [])
       } catch {}
       if (!stop) setTimeout(pullAlerts, 5000)
     }
@@ -97,16 +113,9 @@ export function AppShell() {
 
   const handleLogout = async () => {
     try {
-      // Call logout endpoint
-      await fetch('/api/auth/logout', { 
-        method: 'POST',
-        credentials: 'include'
-      })
-      window.location.href = '/login'
+      await logout()
     } catch (error) {
       console.error('Logout failed:', error)
-      // Force redirect even on error
-      window.location.href = '/login'
     }
   }
 
@@ -185,7 +194,7 @@ export function AppShell() {
             </button>
 
             {/* User Menu */}
-            <div className="relative">
+            <div className="relative" data-user-menu>
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
                 className="flex items-center gap-2 rounded-lg p-2 hover:bg-accent/10"
@@ -196,14 +205,24 @@ export function AppShell() {
               </button>
 
               {userMenuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-48 rounded-lg border border-border bg-card p-1 shadow-lg">
-                  <button
-                    onClick={handleLogout}
-                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent/10"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    Logout
-                  </button>
+                <div className="absolute right-0 top-full mt-2 w-48 rounded-lg border border-border bg-card shadow-lg">
+                  {session?.user && (
+                    <div className="border-b border-border px-3 py-2">
+                      <div className="text-sm font-medium">{session.user.username}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {session.user.roles?.includes('admin') ? 'Administrator' : 'User'}
+                      </div>
+                    </div>
+                  )}
+                  <div className="p-1">
+                    <button
+                      onClick={handleLogout}
+                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent/10"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Sign Out
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -213,7 +232,7 @@ export function AppShell() {
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto p-6">
           <Toasts />
-          <Outlet />
+          {children}
         </main>
       </div>
 

@@ -1,325 +1,738 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useApi } from '@/lib/useApi'
-import { pushToast } from '@/components/ui/toast'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import QRCode from 'qrcode'
 import BrandHeader from '@/components/BrandHeader'
 import { useGlobalNotice } from '@/lib/globalNotice'
+import { api, APIError, ProxyMisconfiguredError, getErrorMessage } from '@/lib/api-client'
+import { pushToast } from '@/components/ui/toast'
 
-type SetupState = { firstBoot: boolean; otpRequired: boolean }
+// ============================================================================
+// Type Definitions
+// ============================================================================
 
-type Creds = { username: string; password: string }
+type SetupStep = 'otp' | 'admin' | 'totp' | 'done'
+
+// ============================================================================
+// Password Validation
+// ============================================================================
+
+const passwordStrength = (password: string): number => {
+  let score = 0
+  if (password.length >= 12) score++
+  if (/[a-z]/.test(password)) score++
+  if (/[A-Z]/.test(password)) score++
+  if (/[0-9]/.test(password)) score++
+  if (/[^A-Za-z0-9]/.test(password)) score++
+  return Math.min(score, 4)
+}
+
+const CreateAdminSchema = z.object({
+  username: z.string()
+    .min(3, 'Username must be at least 3 characters')
+    .max(32, 'Username must be at most 32 characters')
+    .regex(/^[a-z0-9_-]+$/, 'Username can only contain lowercase letters, numbers, dash and underscore'),
+  password: z.string()
+    .min(12, 'Password must be at least 12 characters')
+    .refine(p => passwordStrength(p) >= 3, {
+      message: 'Password must include uppercase, lowercase, numbers, and symbols'
+    }),
+  confirmPassword: z.string(),
+  enableTotp: z.boolean().optional(),
+}).refine(data => data.password === data.confirmPassword, {
+  message: 'Passwords do not match',
+  path: ['confirmPassword'],
+})
+
+type CreateAdminInput = z.infer<typeof CreateAdminSchema>
+
+// ============================================================================
+// Main Setup Component
+// ============================================================================
 
 export default function Setup() {
-  const nav = useNavigate()
-  const { get, post, postAuth } = useApi()
-  const [step, setStep] = useState<1|2|3|4>(1)
-  const [error, setLocalError] = useState<string|undefined>()
-  const [token, setToken] = useState<string|undefined>() // setup token (memory only)
-  const [creds, setCreds] = useState<Creds | undefined>() // memory-only credentials for TOTP login
+  const navigate = useNavigate()
   const { notice } = useGlobalNotice()
+  const [step, setStep] = useState<SetupStep>('otp')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [setupToken, setSetupToken] = useState<string | null>(null)
+  const [adminCreds, setAdminCreds] = useState<{ username: string; password: string } | null>(null)
+  
+  // Check if backend is reachable
+  const isBackendUnreachable = notice?.title.includes('Backend unreachable')
 
+  // Check setup state on mount
   useEffect(() => {
-    (async () => {
-      // Clear any stale cookies server-side; ignore failures
-      try { await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }) } catch {}
-      try {
-        const st = await get<SetupState>('/api/setup/state')
-        if (!st.firstBoot) {
-          setLocalError('Setup already completed. Sign in.')
-        }
-      } catch (e: any) {
-        if (e && e.status === 410 && e.code === 'setup.complete') {
-          setLocalError('Setup already completed. Sign in.')
-        } else if (e && e.status === 404) {
-          setLocalError('Setup endpoint not available.')
-        } else {
-          setLocalError(String(e?.message || e))
-        }
-      }
-    })()
+    checkSetupState()
   }, [])
+
+  const checkSetupState = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      // Clear any stale auth cookies
+      try {
+        await api.auth.logout()
+      } catch {
+        // Ignore logout errors
+      }
+      
+      const state = await api.setup.getState()
+      
+      if (!state.firstBoot) {
+        // Setup already complete
+        setError('Setup already completed')
+        pushToast('Setup already completed. Please sign in.', 'info')
+        setTimeout(() => navigate('/login'), 2000)
+      } else if (!state.otpRequired) {
+        // First boot but no OTP available yet
+        setError('Waiting for OTP generation. If you just started the server, please wait 10-15 seconds.')
+      }
+    } catch (err) {
+      if (err instanceof APIError && err.status === 410) {
+        // Setup complete (410 Gone)
+        setError('Setup already completed')
+        pushToast('Setup already completed. Please sign in.', 'info')
+        setTimeout(() => navigate('/login'), 2000)
+      } else if (err instanceof ProxyMisconfiguredError) {
+        setError('Backend unreachable. Check your proxy configuration.')
+      } else {
+        setError(getErrorMessage(err))
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Don't render setup content if backend is unreachable
+  if (isBackendUnreachable) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-semibold mb-4">Backend Unreachable</h1>
+          <p className="text-muted-foreground">
+            The server is not responding. Please check your proxy configuration.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center">
+        <div className="text-muted-foreground">Loading setup...</div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center">
       <div className="relative w-full max-w-md p-6 pt-20">
         <BrandHeader />
         <h1 className="mb-4 text-center text-2xl font-semibold">First-time Setup</h1>
-        {(notice && notice.title.includes('Backend unreachable')) && (
-          <div className="mb-4 text-center text-red-400 text-sm">
-            The server didn’t return JSON for /api/*. Check reverse proxy config.
+        
+        {error && error.includes('Setup already completed') ? (
+          <div className="text-center">
+            <div className="mb-4 text-yellow-400">{error}</div>
+            <button 
+              className="btn bg-primary text-primary-foreground"
+              onClick={() => navigate('/login')}
+            >
+              Go to Sign In
+            </button>
           </div>
-        )}
-        {error && (
-          <div className="mb-4 text-center text-yellow-400">
-            {error}
-            {error.includes('Setup already completed') && (
-              <div className="mt-2">
-                <button className="btn bg-primary text-primary-foreground" onClick={() => nav('/login')}>Sign In</button>
-              </div>
+        ) : (
+          <>
+            <SetupSteps currentStep={step} />
+            
+            {step === 'otp' && (
+              <StepOTP 
+                onSuccess={(token) => {
+                  setSetupToken(token)
+                  setStep('admin')
+                }}
+                onRetry={checkSetupState}
+              />
             )}
-          </div>
+            
+            {step === 'admin' && setupToken && (
+              <StepCreateAdmin
+                token={setupToken}
+                onSuccess={(enableTotp, creds) => {
+                  if (enableTotp && creds) {
+                    setAdminCreds(creds)
+                    setStep('totp')
+                  } else {
+                    setStep('done')
+                  }
+                }}
+              />
+            )}
+            
+            {step === 'totp' && adminCreds && (
+              <StepTOTPEnroll
+                credentials={adminCreds}
+                onSuccess={() => setStep('done')}
+              />
+            )}
+            
+            {step === 'done' && (
+              <StepDone onContinue={() => navigate('/login')} />
+            )}
+          </>
         )}
-        <Steps step={step} />
-        {step === 1 && <StepOTP onVerified={(t) => { setToken(t); setStep(2) }} setError={setLocalError} setLoading={() => {}} post={post} disabled={!!notice} />}
-        {step === 2 && <StepCreateAdmin token={token!} onDone={(needsTotp, c) => {
-          if (needsTotp && c) { setCreds(c); setStep(3) } else { setStep(4) }
-        }} setError={setLocalError} setLoading={() => {}} postAuth={postAuth} disabled={!!notice} />}
-        {step === 3 && <StepTOTPEnroll creds={creds!} onDone={() => setStep(4)} disabled={!!notice} />}
-        {step === 4 && <StepDone onGoLogin={() => nav('/login')} disabled={!!notice} />}
       </div>
     </div>
   )
 }
 
-function Steps({ step }: { step: number }) {
-  const items = useMemo(() => [
-    { n: 1, t: 'Verify OTP' },
-    { n: 2, t: 'Create Admin' },
-    { n: 3, t: 'Enable 2FA (optional)' },
-    { n: 4, t: 'Finish' },
-  ], [])
+// ============================================================================
+// Setup Steps Indicator
+// ============================================================================
+
+function SetupSteps({ currentStep }: { currentStep: SetupStep }) {
+  const steps = [
+    { id: 'otp', label: 'Verify OTP' },
+    { id: 'admin', label: 'Create Admin' },
+    { id: 'totp', label: 'Enable 2FA' },
+    { id: 'done', label: 'Complete' },
+  ]
+  
+  const currentIndex = steps.findIndex(s => s.id === currentStep)
+  
   return (
     <div className="flex items-center justify-between mb-6">
-      {items.map(it => (
-        <div key={it.n} className={`text-sm ${step >= it.n ? 'text-primary' : 'text-muted-foreground'}`}>{it.n}. {it.t}</div>
+      {steps.map((step, index) => (
+        <div
+          key={step.id}
+          className={`text-sm ${
+            index <= currentIndex ? 'text-primary' : 'text-muted-foreground'
+          }`}
+        >
+          {index + 1}. {step.label}
+        </div>
       ))}
     </div>
   )
 }
 
-function StepOTP({ onVerified, setError, setLoading, post, disabled }: { onVerified: (token: string) => void; setError: (s?: string)=>void; setLoading: (b: boolean)=>void; post: <T>(path: string, body?: any) => Promise<T>; disabled?: boolean }) {
+// ============================================================================
+// Step 1: OTP Verification
+// ============================================================================
+
+function StepOTP({ 
+  onSuccess, 
+  onRetry 
+}: { 
+  onSuccess: (token: string) => void
+  onRetry: () => void
+}) {
   const [otp, setOtp] = useState('')
-  async function submit(e: React.FormEvent) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError(undefined)
-    if (otp.replace(/\s+/g, '').length !== 6) { const m='Enter the 6-digit code'; setError(m); pushToast(m,'error'); return }
-    setLoading(true)
+    
+    const cleanOtp = otp.replace(/\s+/g, '')
+    if (cleanOtp.length !== 6) {
+      setError('Please enter the 6-digit code')
+      return
+    }
+    
     try {
-      const res = await post<{ ok: boolean; token: string }>("/api/setup/verify-otp", { otp: otp.replace(/\s+/g, '') })
-      onVerified(res.token)
-    } catch (err: any) {
-      let m = String(err?.message || err)
-      if (err && (err.status === 401 || err.status === 403)) {
-        m = 'OTP expired/invalid. Regenerate and try again.'
+      setLoading(true)
+      setError(null)
+      
+      const response = await api.setup.verifyOTP(cleanOtp)
+      
+      if (response.token) {
+        pushToast('OTP verified successfully', 'success')
+        onSuccess(response.token)
       }
-      if (err && err.status === 429) {
-        const sec = typeof err.retryAfterSec === 'number' ? err.retryAfterSec : undefined
-        m = `Too many attempts. Try again${sec ? ` in ${sec}s` : ''}.`
+    } catch (err) {
+      if (err instanceof APIError) {
+        if (err.status === 401 || err.status === 403) {
+          setError('OTP invalid or expired. If you just rebooted, wait 10-15s and retry.')
+        } else if (err.status === 429) {
+          const retryMsg = err.retryAfterSec 
+            ? `Too many attempts. Try again in ${err.retryAfterSec}s`
+            : 'Too many attempts. Please try again later.'
+          setError(retryMsg)
+        } else {
+          setError(getErrorMessage(err))
+        }
+      } else {
+        setError(getErrorMessage(err))
       }
-      setError(m)
-      pushToast(m, 'error')
     } finally {
       setLoading(false)
     }
   }
+  
   return (
-    <form onSubmit={submit} className="space-y-3">
-      <label htmlFor="otp" className="block text-sm">One-time OTP (6 digits)</label>
-      <input id="otp" className="w-full rounded bg-card p-2 tracking-widest" placeholder="123 456" value={otp} onChange={(e) => setOtp(e.target.value)} aria-label="One-time OTP (6 digits)" disabled={disabled} title={disabled? 'Waiting for backend': undefined} />
-      <div className="flex justify-center">
-        <button className="btn bg-primary text-primary-foreground w-1/2 py-3" type="submit" disabled={disabled} title={disabled? 'Waiting for backend': undefined}>Verify</button>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label htmlFor="otp" className="block text-sm font-medium mb-2">
+          One-Time Password (OTP)
+        </label>
+        <input
+          id="otp"
+          type="text"
+          className="w-full rounded bg-card p-2 text-center tracking-widest font-mono text-lg"
+          placeholder="123 456"
+          value={otp}
+          onChange={(e) => setOtp(e.target.value)}
+          autoFocus
+          autoComplete="off"
+          maxLength={7} // 6 digits + 1 space
+          disabled={loading}
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Enter the 6-digit code shown on the server console
+        </p>
       </div>
+      
+      {error && (
+        <div className="text-sm text-red-400">
+          {error}
+          {error.includes('expired') && (
+            <button
+              type="button"
+              className="block mt-2 text-xs underline"
+              onClick={onRetry}
+            >
+              Check for new OTP
+            </button>
+          )}
+        </div>
+      )}
+      
+      <button
+        type="submit"
+        className="btn bg-primary text-primary-foreground w-full py-3"
+        disabled={loading}
+      >
+        {loading ? 'Verifying...' : 'Verify OTP'}
+      </button>
     </form>
   )
 }
 
-const passwordStrength = (p: string) => {
-  let score = 0
-  if (p.length >= 12) score++
-  if (/[a-z]/.test(p)) score++
-  if (/[A-Z]/.test(p)) score++
-  if (/[0-9]/.test(p)) score++
-  if (/[^A-Za-z0-9]/.test(p)) score++
-  if (score > 4) score = 4
-  return score
-}
+// ============================================================================
+// Step 2: Create Admin Account
+// ============================================================================
 
-const CreateAdminSchema = z.object({
-  username: z.string().regex(/^[a-z0-9_-]{3,32}$/,{ message:'3–32 chars: lowercase letters, digits, - or _' }),
-  password: z.string().min(12, { message:'Min 12 characters' }).refine((v)=>passwordStrength(v) >= 3, { message:'Use a mix of cases, digits, symbols' }),
-  confirm: z.string(),
-  enableTotp: z.boolean().optional(),
-}).refine((data) => data.password === data.confirm, { message:'Passwords do not match', path:['confirm'] })
-
-type CreateAdminInput = z.infer<typeof CreateAdminSchema>
-
-function StepCreateAdmin({ token, onDone, setError, setLoading, postAuth, disabled }: { token: string; onDone: (needsTotp: boolean, creds?: Creds) => void; setError: (s?: string)=>void; setLoading: (b: boolean)=>void; postAuth: <T>(path: string, token: string, body?: any) => Promise<T>; disabled?: boolean }) {
-  const { register, handleSubmit, formState: { errors, isSubmitting }, watch } = useForm<CreateAdminInput>({
+function StepCreateAdmin({ 
+  token, 
+  onSuccess 
+}: { 
+  token: string
+  onSuccess: (enableTotp: boolean, creds?: { username: string; password: string }) => void
+}) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors },
+  } = useForm<CreateAdminInput>({
     resolver: zodResolver(CreateAdminSchema),
-    defaultValues: { username:'', password:'', confirm:'', enableTotp:false },
-    mode: 'onChange',
+    defaultValues: {
+      username: '',
+      password: '',
+      confirmPassword: '',
+      enableTotp: false,
+    },
   })
-  const pwd = watch('password') || ''
-  const strength = passwordStrength(pwd)
-
+  
+  const password = watch('password')
+  const strength = passwordStrength(password || '')
+  
   const onSubmit = async (data: CreateAdminInput) => {
-    setError(undefined)
-    setLoading(true)
     try {
-      await postAuth<{ ok: boolean }>("/api/setup/create-admin", token, { username: data.username, password: data.password, enable_totp: !!data.enableTotp })
-      onDone(!!data.enableTotp, data.enableTotp ? { username: data.username, password: data.password } : undefined)
-    } catch (err: any) {
-      let m = String(err?.message || err)
-      if (err && (err.status === 401 || err.status === 403)) {
-        m = 'OTP expired/invalid. Regenerate and try again.'
+      setLoading(true)
+      setError(null)
+      
+      await api.setup.createAdmin(token, {
+        username: data.username,
+        password: data.password,
+        enable_totp: data.enableTotp,
+      })
+      
+      pushToast('Admin account created successfully', 'success')
+      
+      if (data.enableTotp) {
+        onSuccess(true, { username: data.username, password: data.password })
+      } else {
+        onSuccess(false)
       }
-      if (err && err.status === 429) {
-        const sec = typeof err.retryAfterSec === 'number' ? err.retryAfterSec : undefined
-        m = `Too many attempts. Try again${sec ? ` in ${sec}s` : ''}.`
+    } catch (err) {
+      if (err instanceof APIError) {
+        if (err.code === 'setup.write_failed') {
+          setError('Cannot write configuration. Check server permissions for /etc/nos/users.json')
+        } else if (err.code === 'input.username_taken') {
+          setError('Username already taken')
+        } else if (err.code === 'input.weak_password') {
+          setError('Password too weak. Use at least 12 characters with mixed case, numbers, and symbols.')
+        } else {
+          setError(getErrorMessage(err))
+        }
+      } else {
+        setError(getErrorMessage(err))
       }
-      setError(m)
-      pushToast(m, 'error')
     } finally {
       setLoading(false)
     }
   }
-
+  
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 mt-6">
-      <label className="block text-sm">Username</label>
-      <input className="w-full rounded bg-card p-2" placeholder="username" {...register('username')} disabled={disabled} title={disabled? 'Waiting for backend': undefined} />
-      {errors.username && <div className="text-xs text-red-400">{errors.username.message as string}</div>}
-
-      <label className="block text-sm">Password</label>
-      <input className="w-full rounded bg-card p-2" type="password" {...register('password')} disabled={disabled} title={disabled? 'Waiting for backend': undefined} />
-      <PasswordMeter strength={strength} />
-      {errors.password && <div className="text-xs text-red-400">{errors.password.message as string}</div>}
-
-      <label className="block text-sm">Confirm password</label>
-      <input className="w-full rounded bg-card p-2" type="password" {...register('confirm')} disabled={disabled} title={disabled? 'Waiting for backend': undefined} />
-      {errors.confirm && <div className="text-xs text-red-400">{errors.confirm.message as string}</div>}
-
-      <label className="flex items-center gap-2 text-sm"><input type="checkbox" {...register('enableTotp')} disabled={disabled} /> Enable 2FA now</label>
-      <div className="flex justify-center">
-        <button className="btn bg-primary text-primary-foreground w-1/2 py-3" type="submit" disabled={isSubmitting || disabled} title={disabled? 'Waiting for backend': undefined}>Create Admin</button>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <div>
+        <label htmlFor="username" className="block text-sm font-medium mb-2">
+          Username
+        </label>
+        <input
+          id="username"
+          type="text"
+          className="w-full rounded bg-card p-2"
+          placeholder="admin"
+          autoComplete="username"
+          disabled={loading}
+          {...register('username')}
+        />
+        {errors.username && (
+          <p className="text-xs text-red-400 mt-1">{errors.username.message}</p>
+        )}
       </div>
+      
+      <div>
+        <label htmlFor="password" className="block text-sm font-medium mb-2">
+          Password
+        </label>
+        <input
+          id="password"
+          type="password"
+          className="w-full rounded bg-card p-2"
+          placeholder="••••••••••••"
+          autoComplete="new-password"
+          disabled={loading}
+          {...register('password')}
+        />
+        <PasswordStrengthMeter strength={strength} />
+        {errors.password && (
+          <p className="text-xs text-red-400 mt-1">{errors.password.message}</p>
+        )}
+      </div>
+      
+      <div>
+        <label htmlFor="confirmPassword" className="block text-sm font-medium mb-2">
+          Confirm Password
+        </label>
+        <input
+          id="confirmPassword"
+          type="password"
+          className="w-full rounded bg-card p-2"
+          placeholder="••••••••••••"
+          autoComplete="new-password"
+          disabled={loading}
+          {...register('confirmPassword')}
+        />
+        {errors.confirmPassword && (
+          <p className="text-xs text-red-400 mt-1">{errors.confirmPassword.message}</p>
+        )}
+      </div>
+      
+      <div className="flex items-center">
+        <input
+          id="enableTotp"
+          type="checkbox"
+          className="mr-2"
+          disabled={loading}
+          {...register('enableTotp')}
+        />
+        <label htmlFor="enableTotp" className="text-sm">
+          Enable two-factor authentication (recommended)
+        </label>
+      </div>
+      
+      {error && <div className="text-sm text-red-400">{error}</div>}
+      
+      <button
+        type="submit"
+        className="btn bg-primary text-primary-foreground w-full py-3"
+        disabled={loading}
+      >
+        {loading ? 'Creating Admin...' : 'Create Admin Account'}
+      </button>
     </form>
   )
 }
 
-function PasswordMeter({ strength }: { strength: number }) {
-  const colors = ['bg-red-500','bg-orange-500','bg-yellow-500','bg-green-500']
-  const labels = ['Very weak','Weak','Okay','Strong']
-  const idx = Math.max(0, Math.min(3, strength-1))
+// ============================================================================
+// Password Strength Meter
+// ============================================================================
+
+function PasswordStrengthMeter({ strength }: { strength: number }) {
+  const colors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500', 'bg-green-600']
+  const labels = ['Very weak', 'Weak', 'Fair', 'Good', 'Strong']
+  
   return (
-    <div className="mt-1">
-      <div className="h-1 w-full bg-muted rounded">
-        <div className={`h-1 rounded ${strength>0?colors[idx]:'bg-red-500'}`} style={{ width: `${Math.max(10, strength*25)}%` }}></div>
+    <div className="mt-2">
+      <div className="h-1 w-full bg-muted rounded overflow-hidden">
+        <div
+          className={`h-full transition-all ${colors[strength]}`}
+          style={{ width: `${Math.max(10, strength * 20)}%` }}
+        />
       </div>
-      <div className="text-[11px] text-muted-foreground mt-1">{strength>0?labels[idx]:'Very weak'}</div>
+      <p className="text-xs text-muted-foreground mt-1">
+        Strength: {labels[strength]}
+      </p>
     </div>
   )
 }
 
-function StepTOTPEnroll({ creds, onDone, disabled }: { creds: Creds; onDone: ()=>void; disabled?: boolean }) {
-  const { post, get } = useApi()
-  const [otpauth, setOtpauth] = useState<string>('')
-  const [qr, setQr] = useState<string>('')
-  const [code, setCode] = useState('')
-  const [recovery, setRecovery] = useState<string[] | null>(null)
+// ============================================================================
+// Step 3: TOTP Enrollment (Optional)
+// ============================================================================
 
+function StepTOTPEnroll({ 
+  credentials, 
+  onSuccess 
+}: { 
+  credentials: { username: string; password: string }
+  onSuccess: () => void
+}) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [qrCode, setQrCode] = useState<string | null>(null)
+  const [secret, setSecret] = useState<string | null>(null)
+  const [totpCode, setTotpCode] = useState('')
+  const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null)
+  
+  // Login and get TOTP enrollment data
   useEffect(() => {
-    (async () => {
-      try {
-        await post<any>('/api/auth/login', { username: creds.username, password: creds.password })
-      } catch {}
-      try {
-        const resp = await get<{ otpauth_url: string; qr_png_base64?: string }>("/api/auth/totp/enroll")
-        setOtpauth(resp.otpauth_url)
-        if (resp.qr_png_base64 && resp.qr_png_base64.length > 0) {
-          setQr(`data:image/png;base64,${resp.qr_png_base64}`)
-        } else if (resp.otpauth_url) {
-          const dataUrl = await QRCode.toDataURL(resp.otpauth_url)
-          setQr(dataUrl)
-        }
-      } catch (e:any) {
-        pushToast(String(e?.message||e), 'error')
-      }
-    })()
+    enrollTOTP()
   }, [])
-
-  const manualSecret = (() => {
+  
+  const enrollTOTP = async () => {
     try {
-      const u = new URL(otpauth)
-      return u.searchParams.get('secret') || ''
-    } catch { return '' }
-  })()
-
-  async function verify(e: React.FormEvent) {
-    e.preventDefault()
-    if (code.replace(/\s+/g,'').length !== 6) { pushToast('Enter the 6-digit code','error'); return }
-    try {
-      const resp = await post<{ ok: boolean; recovery_codes: string[] }>("/api/auth/totp/verify", { code: code.replace(/\s+/g,'') })
-      setRecovery(resp.recovery_codes || [])
-    } catch (e:any) {
-      pushToast(String(e?.message||e), 'error')
+      setLoading(true)
+      
+      // First login with the new admin credentials
+      await api.auth.login({
+        username: credentials.username,
+        password: credentials.password,
+      })
+      
+      // Get TOTP enrollment data
+      const enrollData = await api.auth.totp.enroll()
+      
+      // Generate QR code
+      if (enrollData.qr_png_base64) {
+        setQrCode(`data:image/png;base64,${enrollData.qr_png_base64}`)
+      } else if (enrollData.otpauth_url) {
+        const dataUrl = await QRCode.toDataURL(enrollData.otpauth_url)
+        setQrCode(dataUrl)
+      }
+      
+      // Extract secret from otpauth URL
+      try {
+        const url = new URL(enrollData.otpauth_url)
+        const extractedSecret = url.searchParams.get('secret')
+        if (extractedSecret) {
+          setSecret(extractedSecret)
+        }
+      } catch {
+        // Ignore URL parsing errors
+      }
+    } catch (err) {
+      setError(getErrorMessage(err))
+    } finally {
+      setLoading(false)
     }
   }
-
-  function copyCodes() {
-    if (!recovery) return
-    navigator.clipboard.writeText(recovery.join('\n')).then(()=>pushToast('Copied to clipboard','success'))
+  
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    const cleanCode = totpCode.replace(/\s+/g, '')
+    if (cleanCode.length !== 6) {
+      setError('Please enter the 6-digit code from your authenticator app')
+      return
+    }
+    
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const response = await api.auth.totp.verify(cleanCode)
+      
+      if (response.recovery_codes) {
+        setRecoveryCodes(response.recovery_codes)
+      } else {
+        // No recovery codes returned, just proceed
+        onSuccess()
+      }
+    } catch (err) {
+      setError(getErrorMessage(err))
+    } finally {
+      setLoading(false)
+    }
   }
-  function downloadCodes() {
-    if (!recovery) return
-    const blob = new Blob([recovery.join('\n')+'\n'], { type:'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'nithronos-recovery-codes.txt'
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
+  
+  const handleCopyRecoveryCodes = () => {
+    if (recoveryCodes) {
+      navigator.clipboard.writeText(recoveryCodes.join('\n'))
+      pushToast('Recovery codes copied to clipboard', 'success')
+    }
   }
-
+  
+  const handleDownloadRecoveryCodes = () => {
+    if (recoveryCodes) {
+      const blob = new Blob([recoveryCodes.join('\n')], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'nithronos-recovery-codes.txt'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    }
+  }
+  
+  // Show recovery codes if we have them
+  if (recoveryCodes) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold">Recovery Codes</h2>
+        <p className="text-sm text-muted-foreground">
+          Save these recovery codes in a safe place. Each code can be used once to sign in if you lose access to your authenticator.
+        </p>
+        
+        <div className="bg-card rounded p-4 font-mono text-sm space-y-1">
+          {recoveryCodes.map((code, index) => (
+            <div key={index}>{code}</div>
+          ))}
+        </div>
+        
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className="btn bg-secondary flex-1"
+            onClick={handleCopyRecoveryCodes}
+          >
+            Copy
+          </button>
+          <button
+            type="button"
+            className="btn bg-secondary flex-1"
+            onClick={handleDownloadRecoveryCodes}
+          >
+            Download
+          </button>
+        </div>
+        
+        <button
+          type="button"
+          className="btn bg-primary text-primary-foreground w-full"
+          onClick={onSuccess}
+        >
+          Continue to Setup Complete
+        </button>
+      </div>
+    )
+  }
+  
+  // Show QR code and verification form
   return (
-    <div className="mt-6">
-      {!recovery ? (
+    <div className="space-y-4">
+      <h2 className="text-lg font-semibold">Enable Two-Factor Authentication</h2>
+      
+      {loading && !qrCode && (
+        <div className="text-center py-8">
+          <div className="text-muted-foreground">Loading...</div>
+        </div>
+      )}
+      
+      {qrCode && (
         <>
-          <h2 className="text-lg font-semibold mb-3">Enable 2FA (TOTP)</h2>
-          {qr && <img src={qr} alt="QR" className="mx-auto mb-3 h-40" />}
-          {manualSecret && (
-            <div className="text-sm text-center mb-3">
-              Manual code: <span className="font-mono">{manualSecret}</span>
+          <div className="text-center">
+            <img src={qrCode} alt="TOTP QR Code" className="mx-auto" />
+          </div>
+          
+          {secret && (
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground mb-1">Manual entry code:</p>
+              <code className="text-sm font-mono bg-card px-2 py-1 rounded">{secret}</code>
             </div>
           )}
-          <form onSubmit={verify} className="space-y-3">
-            <label htmlFor="totp" className="block text-sm">TOTP code</label>
-            <input id="totp" className="w-full rounded bg-card p-2 tracking-widest" placeholder="TOTP code" value={code} onChange={(e)=>setCode(e.target.value)} aria-label="TOTP code" disabled={disabled} title={disabled? 'Waiting for backend': undefined} />
-            <button className="btn bg-primary text-primary-foreground w-full" type="submit" disabled={disabled} title={disabled? 'Waiting for backend': undefined}>Verify</button>
+          
+          <form onSubmit={handleVerify} className="space-y-4">
+            <div>
+              <label htmlFor="totpCode" className="block text-sm font-medium mb-2">
+                Verification Code
+              </label>
+              <input
+                id="totpCode"
+                type="text"
+                className="w-full rounded bg-card p-2 text-center tracking-widest font-mono"
+                placeholder="123 456"
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value)}
+                autoFocus
+                autoComplete="off"
+                maxLength={7}
+                disabled={loading}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Enter the 6-digit code from your authenticator app
+              </p>
+            </div>
+            
+            {error && <div className="text-sm text-red-400">{error}</div>}
+            
+            <button
+              type="submit"
+              className="btn bg-primary text-primary-foreground w-full"
+              disabled={loading}
+            >
+              {loading ? 'Verifying...' : 'Verify and Enable 2FA'}
+            </button>
           </form>
         </>
-      ) : (
-        <div className="text-center">
-          <h2 className="text-lg font-semibold mb-3">Recovery Codes</h2>
-          <p className="text-sm mb-3">Store these codes safely. Each can be used once.</p>
-          <div className="bg-card rounded p-3 text-left font-mono text-sm max-h-48 overflow-auto">
-            {recovery.map((c, i)=> <div key={i}>{c}</div>)}
-          </div>
-          <div className="flex gap-2 justify-center mt-3">
-            <button className="btn bg-secondary" onClick={copyCodes}>Copy</button>
-            <button className="btn bg-secondary" onClick={downloadCodes}>Download</button>
-            <button className="btn bg-primary text-primary-foreground" onClick={onDone}>Continue</button>
-          </div>
-        </div>
       )}
     </div>
   )
 }
 
-function StepDone({ onGoLogin, disabled }: { onGoLogin: ()=>void; disabled?: boolean }) {
+// ============================================================================
+// Step 4: Setup Complete
+// ============================================================================
+
+function StepDone({ onContinue }: { onContinue: () => void }) {
   return (
-    <div className="text-center mt-6">
-      <h2 className="text-lg font-semibold mb-2">Setup Complete</h2>
-      <p className="text-sm mb-4">Your admin account is ready. You can now sign in.</p>
-      <button className="btn bg-primary text-primary-foreground block w-1/2 mx-auto py-3" onClick={onGoLogin} disabled={disabled} title={disabled? 'Waiting for backend': undefined}>Go to Sign in</button>
+    <div className="text-center space-y-4">
+      <div className="text-4xl mb-4">✅</div>
+      <h2 className="text-lg font-semibold">Setup Complete!</h2>
+      <p className="text-sm text-muted-foreground">
+        Your NithronOS admin account has been created successfully.
+        You can now sign in to access the dashboard.
+      </p>
+      <button
+        className="btn bg-primary text-primary-foreground w-full py-3"
+        onClick={onContinue}
+      >
+        Go to Sign In
+      </button>
     </div>
   )
 }
-
-

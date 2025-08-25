@@ -1,74 +1,322 @@
-import { useState } from 'react'
-import { apiPost } from '../api/http'
-import { useNavigate } from 'react-router-dom'
-import { pushToast } from '@/components/ui/toast'
+import { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { useForm } from 'react-hook-form'
+import { z } from 'zod'
+import { zodResolver } from '@hookform/resolvers/zod'
 import BrandHeader from '@/components/BrandHeader'
+import { api, APIError, ProxyMisconfiguredError, getErrorMessage } from '@/lib/api-client'
+import { pushToast } from '@/components/ui/toast'
+import { useGlobalNotice } from '@/lib/globalNotice'
+
+// ============================================================================
+// Form Schema
+// ============================================================================
+
+const LoginSchema = z.object({
+  username: z.string().min(1, 'Username is required'),
+  password: z.string().min(1, 'Password is required'),
+  rememberMe: z.boolean().optional(),
+})
+
+type LoginInput = z.infer<typeof LoginSchema>
+
+// ============================================================================
+// Login Component
+// ============================================================================
 
 export function Login() {
-	const [username, setUsername] = useState('')
-	const [password, setPassword] = useState('')
-	const [remember, setRemember] = useState(false)
-	const [needCode, setNeedCode] = useState(false)
-	const [code, setCode] = useState('')
-	const [error, setError] = useState<string | null>(null)
-	const nav = useNavigate()
-
-	async function onSubmit(e: React.FormEvent) {
-		e.preventDefault()
-		setError(null)
-		try {
-			const body: any = { username, password, rememberMe: remember }
-			if (needCode && code.trim()) body.code = code.trim().replace(/\s+/g,'')
-			await apiPost<{ ok: boolean }>('/api/auth/login', body)
-			nav('/')
-		} catch (e: any) {
-			const msg = String(e?.message || e)
-			// Throttling (rate limit)
-			if (msg.includes('429') || /try again later/i.test(msg)) {
-				pushToast('Too many attempts. Please try again later.', 'error')
-				setError('Too many attempts. Please try again later.')
-				return
-			}
-			// If code required, reveal TOTP/recovery input
-			if (/code required/i.test(msg)) {
-				setNeedCode(true)
-				pushToast('Enter your 6-digit TOTP or a recovery code.', 'error')
-				setError('Two-factor code required')
-				return
-			}
-			// Generic unauthorized / lockout
-			if (msg.includes('401')) {
-				pushToast('Invalid credentials or account temporarily locked.', 'error')
-				setError('Invalid credentials or account temporarily locked.')
-				return
-			}
-			setError(msg)
-			pushToast(msg, 'error')
-		}
-	}
-
-	return (
-		<div className="min-h-screen w-full flex items-center justify-center">
-			<div className="relative w-full max-w-sm p-6 pt-20">
-				<BrandHeader />
-				<h1 className="mb-4 text-center text-2xl font-semibold">Sign in</h1>
-				{error && <div className="mb-3 text-sm text-red-400">{error}</div>}
-				<form onSubmit={onSubmit} className="space-y-3">
-					<input className="w-full rounded bg-card p-2" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} />
-					<input className="w-full rounded bg-card p-2" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-					<label className="flex items-center gap-2 text-sm">
-						<input type="checkbox" checked={remember} onChange={(e)=>setRemember(e.target.checked)} /> Remember me
-					</label>
-					{needCode && (
-						<input className="w-full rounded bg-card p-2 tracking-widest" placeholder="TOTP or recovery code" value={code} onChange={(e) => setCode(e.target.value)} />
-					)}
-					<button className="btn bg-primary text-primary-foreground block w-1/2 mx-auto py-3" type="submit">
-						{needCode ? 'Verify and Sign in' : 'Sign in'}
-					</button>
-				</form>
-			</div>
-		</div>
-	)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { notice } = useGlobalNotice()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [requiresCode, setRequiresCode] = useState(false)
+  const [totpCode, setTotpCode] = useState('')
+  const [savedCredentials, setSavedCredentials] = useState<LoginInput | null>(null)
+  
+  // Check if backend is reachable
+  const isBackendUnreachable = notice?.title.includes('Backend unreachable')
+  
+  // Get return URL from location state
+  const returnTo = (location.state as any)?.returnTo || '/'
+  
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setFocus,
+    getValues,
+  } = useForm<LoginInput>({
+    resolver: zodResolver(LoginSchema),
+    defaultValues: {
+      username: '',
+      password: '',
+      rememberMe: false,
+    },
+  })
+  
+  // Focus username field on mount
+  useEffect(() => {
+    if (!isBackendUnreachable) {
+      setFocus('username')
+    }
+  }, [setFocus, isBackendUnreachable])
+  
+  // Check if we should redirect to setup
+  useEffect(() => {
+    checkSetupState()
+  }, [])
+  
+  const checkSetupState = async () => {
+    try {
+      const state = await api.setup.getState()
+      if (state.firstBoot) {
+        navigate('/setup', { replace: true })
+      }
+    } catch (err) {
+      // If setup returns 410, it's complete - stay on login
+      if (err instanceof APIError && err.status === 410) {
+        return
+      }
+      // For other errors, just continue to login
+      console.error('Setup state check failed:', err)
+    }
+  }
+  
+  const onSubmit = async (data: LoginInput) => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      // Save credentials in case we need them for TOTP
+      setSavedCredentials(data)
+      
+      // Include TOTP code if required
+      const loginData = {
+        ...data,
+        code: requiresCode ? totpCode.replace(/\s+/g, '') : undefined,
+      }
+      
+      await api.auth.login(loginData)
+      
+      // Success - navigate to return URL or dashboard
+      pushToast('Successfully signed in', 'success')
+      navigate(returnTo, { replace: true })
+    } catch (err) {
+      if (err instanceof APIError) {
+        // Check for TOTP requirement
+        if (err.status === 401 && 
+            (err.message?.toLowerCase().includes('code required') || 
+             err.message?.toLowerCase().includes('totp'))) {
+          setRequiresCode(true)
+          setError('Two-factor authentication required')
+          setTotpCode('')
+          // Focus TOTP input after render
+          setTimeout(() => {
+            const totpInput = document.getElementById('totpCode')
+            if (totpInput) totpInput.focus()
+          }, 100)
+          return
+        }
+        
+        // Handle rate limiting
+        if (err.status === 429) {
+          const retryMsg = err.retryAfterSec 
+            ? `Too many attempts. Try again in ${err.retryAfterSec}s`
+            : 'Too many attempts. Please try again later.'
+          setError(retryMsg)
+          pushToast(retryMsg, 'error')
+          return
+        }
+        
+        // Handle account locked
+        if (err.status === 423) {
+          setError('Account temporarily locked. Please try again later.')
+          pushToast('Account temporarily locked', 'error')
+          return
+        }
+        
+        // Handle invalid credentials
+        if (err.status === 401) {
+          setError('Invalid username or password')
+          // Keep username, clear password
+          setFocus('password')
+          return
+        }
+        
+        // Other API errors
+        setError(getErrorMessage(err))
+      } else if (err instanceof ProxyMisconfiguredError) {
+        setError('Backend unreachable. Check your proxy configuration.')
+      } else {
+        setError(getErrorMessage(err))
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  const handleTotpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!savedCredentials) {
+      setError('Session expired. Please enter credentials again.')
+      setRequiresCode(false)
+      return
+    }
+    
+    const cleanCode = totpCode.replace(/\s+/g, '')
+    if (cleanCode.length < 6) {
+      setError('Please enter a valid 6-digit code or recovery code')
+      return
+    }
+    
+    // Re-submit with TOTP code
+    await onSubmit(savedCredentials)
+  }
+  
+  // Don't render login content if backend is unreachable
+  if (isBackendUnreachable) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-semibold mb-4">Backend Unreachable</h1>
+          <p className="text-muted-foreground">
+            The server is not responding. Please check your proxy configuration.
+          </p>
+        </div>
+      </div>
+    )
+  }
+  
+  return (
+    <div className="min-h-screen w-full flex items-center justify-center">
+      <div className="relative w-full max-w-sm p-6 pt-20">
+        <BrandHeader />
+        <h1 className="mb-6 text-center text-2xl font-semibold">Sign In</h1>
+        
+        {!requiresCode ? (
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium mb-2">
+                Username
+              </label>
+              <input
+                id="username"
+                type="text"
+                className="w-full rounded bg-card p-2"
+                placeholder="Enter your username"
+                autoComplete="username"
+                disabled={loading}
+                {...register('username')}
+              />
+              {errors.username && (
+                <p className="text-xs text-red-400 mt-1">{errors.username.message}</p>
+              )}
+            </div>
+            
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium mb-2">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                className="w-full rounded bg-card p-2"
+                placeholder="Enter your password"
+                autoComplete="current-password"
+                disabled={loading}
+                {...register('password')}
+              />
+              {errors.password && (
+                <p className="text-xs text-red-400 mt-1">{errors.password.message}</p>
+              )}
+            </div>
+            
+            <div className="flex items-center">
+              <input
+                id="rememberMe"
+                type="checkbox"
+                className="mr-2"
+                disabled={loading}
+                {...register('rememberMe')}
+              />
+              <label htmlFor="rememberMe" className="text-sm">
+                Remember me
+              </label>
+            </div>
+            
+            {error && !requiresCode && (
+              <div className="text-sm text-red-400" role="alert" aria-live="polite">
+                {error}
+              </div>
+            )}
+            
+            <button
+              type="submit"
+              className="btn bg-primary text-primary-foreground w-full py-3"
+              disabled={loading}
+            >
+              {loading ? 'Signing in...' : 'Sign In'}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleTotpSubmit} className="space-y-4">
+            <div className="mb-4">
+              <p className="text-sm text-muted-foreground">
+                Signing in as <strong>{savedCredentials?.username}</strong>
+              </p>
+            </div>
+            
+            <div>
+              <label htmlFor="totpCode" className="block text-sm font-medium mb-2">
+                Two-Factor Authentication Code
+              </label>
+              <input
+                id="totpCode"
+                type="text"
+                className="w-full rounded bg-card p-2 text-center tracking-widest font-mono"
+                placeholder="123 456"
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value)}
+                autoFocus
+                autoComplete="one-time-code"
+                disabled={loading}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Enter the 6-digit code from your authenticator app or a recovery code
+              </p>
+            </div>
+            
+            {error && (
+              <div className="text-sm text-red-400" role="alert" aria-live="polite">
+                {error}
+              </div>
+            )}
+            
+            <button
+              type="submit"
+              className="btn bg-primary text-primary-foreground w-full py-3"
+              disabled={loading}
+            >
+              {loading ? 'Verifying...' : 'Verify and Sign In'}
+            </button>
+            
+            <button
+              type="button"
+              className="text-sm text-muted-foreground underline w-full text-center"
+              onClick={() => {
+                setRequiresCode(false)
+                setError(null)
+                setTotpCode('')
+                setSavedCredentials(null)
+              }}
+            >
+              Use different account
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  )
 }
-
-

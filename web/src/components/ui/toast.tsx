@@ -1,39 +1,70 @@
-import { useEffect, useState } from 'react'
+import React from 'react';
+import { Toaster, toast as hotToast } from 'react-hot-toast';
+import { CheckCircle, XCircle, Info, AlertCircle } from 'lucide-react';
 
-type Toast = { id: number; message: string; kind: 'success' | 'error' }
-
-let pushImpl: ((t: Omit<Toast, 'id'>) => void) | null = null
-
-export function pushToast(message: string, kind: 'success' | 'error' = 'success') {
-  if (pushImpl) pushImpl({ message, kind } as any)
-}
-
-export function Toasts() {
-  const [toasts, setToasts] = useState<Toast[]>([])
-  useEffect(() => {
-    pushImpl = (t) => {
-      const id = Date.now()
-      setToasts((prev) => [...prev, { id, message: t.message, kind: t.kind }])
-      setTimeout(() => setToasts((prev) => prev.filter((x) => x.id !== id)), 3500)
-    }
-    return () => { pushImpl = null }
-  }, [])
+export const ToastProvider = () => {
   return (
-    <div className="fixed right-4 top-16 z-[100] space-y-2">
-      {toasts.map((t) => (
-        <div
-          key={t.id}
-          className={`rounded border px-3 py-2 text-sm shadow ${
-            t.kind === 'success'
-              ? 'border-green-500/30 bg-green-500/10 text-green-300'
-              : 'border-red-500/30 bg-red-500/10 text-red-300'
-          }`}
-        >
-          {t.message}
-        </div>
-      ))}
-    </div>
-  )
-}
+    <Toaster
+      position="top-right"
+      toastOptions={{
+        duration: 4000,
+        style: {
+          background: '#1f2937',
+          color: '#fff',
+          border: '1px solid #374151',
+        },
+        success: {
+          iconTheme: {
+            primary: '#10b981',
+            secondary: '#fff',
+          },
+        },
+        error: {
+          iconTheme: {
+            primary: '#ef4444',
+            secondary: '#fff',
+          },
+        },
+      }}
+    />
+  );
+};
 
-
+// Custom toast functions with icons
+export const toast = {
+  success: (message: string) => {
+    hotToast.custom((t) => (
+      <div className="flex items-center gap-3 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 shadow-lg">
+        <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+        <span className="text-sm text-white">{message}</span>
+      </div>
+    ));
+  },
+  
+  error: (message: string) => {
+    hotToast.custom((t) => (
+      <div className="flex items-center gap-3 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 shadow-lg">
+        <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+        <span className="text-sm text-white">{message}</span>
+      </div>
+    ));
+  },
+  
+  info: (message: string) => {
+    hotToast.custom((t) => (
+      <div className="flex items-center gap-3 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 shadow-lg">
+        <Info className="w-5 h-5 text-blue-500 flex-shrink-0" />
+        <span className="text-sm text-white">{message}</span>
+      </div>
+    ));
+  },
+  
+  warning: (message: string) => {
+    hotToast.custom((t) => (
+      <div className="flex items-center gap-3 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 shadow-lg">
+        <AlertCircle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
+        <span className="text-sm text-white">{message}</span>
+      </div>
+    ));
+  },
+};

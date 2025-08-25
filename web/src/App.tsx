@@ -1,10 +1,12 @@
-import { createBrowserRouter, RouterProvider, redirect, Navigate } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
 import { Dashboard } from './pages/Dashboard'
 import { Storage } from './pages/Storage'
 import { SharesList } from './pages/SharesList'
 import { ShareDetails } from './pages/ShareDetails'
-import { Apps } from './pages/Apps'
+import { AppCatalog } from './pages/AppCatalog'
+import { AppInstallWizard } from './pages/AppInstallWizard'
+import { AppDetails } from './pages/AppDetails'
 import { Settings } from './pages/Settings'
 import SettingsSchedules from './routes/settings/schedules'
 import { Remote } from './pages/Remote'
@@ -13,88 +15,153 @@ import { PoolsCreate } from './pages/PoolsCreate'
 import { PoolDetails } from './pages/PoolDetails'
 import { SettingsUpdates } from './pages/SettingsUpdates'
 import Setup from './pages/Setup'
-import { ErrProxyMisconfigured, fetchJSON } from './api'
 import { GlobalNoticeProvider, useGlobalNotice } from './lib/globalNotice'
 import Banner from './components/Banner'
 import HelpProxy from './pages/HelpProxy'
+import { ToastProvider } from './components/ui/Toast'
+import { AuthProvider, AuthGuard } from './lib/auth'
+import { useEffect, useState } from 'react'
+import { api, APIError, ProxyMisconfiguredError } from './lib/api-client'
+
+// ============================================================================
+// Protected Layout Component
+// ============================================================================
+
+function ProtectedLayout() {
+  return (
+    <AuthGuard requireAuth={true}>
+      <AppShell>
+        <Outlet />
+      </AppShell>
+    </AuthGuard>
+  )
+}
+
+// ============================================================================
+// Setup Guard Component
+// ============================================================================
+
+function SetupGuard({ children }: { children: React.ReactNode }) {
+  const [loading, setLoading] = useState(true)
+  const [needsSetup, setNeedsSetup] = useState(false)
+  
+  useEffect(() => {
+    checkSetupState()
+  }, [])
+  
+  const checkSetupState = async () => {
+    try {
+      const state = await api.setup.getState()
+      setNeedsSetup(state.firstBoot)
+    } catch (err) {
+      if (err instanceof APIError && err.status === 410) {
+        // Setup complete
+        setNeedsSetup(false)
+      } else if (err instanceof ProxyMisconfiguredError) {
+        // Let global notice handle this
+        setNeedsSetup(false)
+      } else {
+        console.error('Setup state check failed:', err)
+        setNeedsSetup(false)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    )
+  }
+  
+  if (needsSetup) {
+    return <Navigate to="/setup" replace />
+  }
+  
+  return <>{children}</>
+}
+
+// ============================================================================
+// Router Configuration
+// ============================================================================
 
 const router = createBrowserRouter([
-	{
-		path: '/',
-		loader: async () => {
-			// On init: check setup, then auth
-			try {
-				const st = await fetchJSON<any>('/api/setup/state')
-				if (st?.firstBoot) return redirect('/setup')
-			} catch (e: any) {
-				if (e instanceof ErrProxyMisconfigured) {
-					// Do not navigate; keep current page. Let global notice handle UI
-					return null
-				}
-				// If 410: setup completed; continue to auth check
-				if (e && e.status === 410) {
-					// setup completed; continue to auth check
-				} else {
-					// ignore other errors here
-				}
-			}
-			// Auth check
-			try {
-				await fetchJSON<any>('/api/auth/me')
-				return null
-			} catch (e: any) {
-				if (e instanceof ErrProxyMisconfigured) {
-					return null
-				}
-				return redirect('/login')
-			}
-		},
-		element: <AppShell />,
-		children: [
-			{ index: true, element: <Dashboard /> },
-			{ path: 'storage', element: <Storage /> },
-			{ path: 'shares', element: <SharesList /> },
-			{ path: 'shares/new', element: <ShareDetails /> },
-			{ path: 'shares/:name', element: <ShareDetails /> },
-			{ path: 'apps', element: <Apps /> },
-			{ path: 'settings', element: <Settings /> },
-			{ path: 'settings/schedules', element: <SettingsSchedules /> },
-			{ path: 'settings/updates', element: <SettingsUpdates /> },
-			{ path: 'remote', element: <Remote /> },
-			{ path: 'storage/create', element: <PoolsCreate /> },
-			{ path: 'storage/:id', element: <PoolDetails /> },
-			// Redirect old schedules route to new location
-			{ path: 'schedules', element: <Navigate to="/settings/schedules" replace /> },
-		],
-	},
-	{ path: '/login', element: <Login /> },
-	{ path: '/setup', element: <Setup /> },
-	{ path: '/help/proxy', element: <HelpProxy /> },
+  {
+    path: '/',
+    element: <ProtectedLayout />,
+    children: [
+      { index: true, element: <Dashboard /> },
+      { path: 'storage', element: <Storage /> },
+      { path: 'shares', element: <SharesList /> },
+      { path: 'shares/new', element: <ShareDetails /> },
+      { path: 'shares/:name', element: <ShareDetails /> },
+      { path: 'apps', element: <AppCatalog /> },
+      { path: 'apps/install/:id', element: <AppInstallWizard /> },
+      { path: 'apps/:id', element: <AppDetails /> },
+      { path: 'settings', element: <Settings /> },
+      { path: 'settings/schedules', element: <SettingsSchedules /> },
+      { path: 'settings/updates', element: <SettingsUpdates /> },
+      { path: 'remote', element: <Remote /> },
+      { path: 'storage/create', element: <PoolsCreate /> },
+      { path: 'storage/:id', element: <PoolDetails /> },
+      // Redirect old schedules route to new location
+      { path: 'schedules', element: <Navigate to="/settings/schedules" replace /> },
+    ],
+  },
+  {
+    path: '/login',
+    element: (
+      <SetupGuard>
+        <Login />
+      </SetupGuard>
+    ),
+  },
+  {
+    path: '/setup',
+    element: <Setup />,
+  },
+  {
+    path: '/help/proxy',
+    element: <HelpProxy />,
+  },
 ])
 
-function AppWithRouter() {
-	const { notice } = useGlobalNotice()
-	return (
-		<div className="min-h-screen">
-			{notice && (
-				<Banner
-					variant={notice.kind}
-					title={notice.title}
-					message={notice.message}
-					action={notice.action}
-				/>
-			)}
-			<RouterProvider router={router} />
-		</div>
-	)
+// ============================================================================
+// App with Router and Providers
+// ============================================================================
+
+function AppWithProviders() {
+  const { notice } = useGlobalNotice()
+  
+  return (
+    <div className="min-h-screen">
+      {notice && (
+        <Banner
+          variant={notice.kind}
+          title={notice.title}
+          message={notice.message}
+          action={notice.action}
+        />
+      )}
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
+    </div>
+  )
 }
+
+// ============================================================================
+// Main App Component
+// ============================================================================
 
 export default function App() {
-	return (
-		<GlobalNoticeProvider>
-			<AppWithRouter />
-		</GlobalNoticeProvider>
-	)
+  return (
+    <GlobalNoticeProvider>
+      <ToastProvider />
+      <AppWithProviders />
+    </GlobalNoticeProvider>
+  )
 }
-
-
