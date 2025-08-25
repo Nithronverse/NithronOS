@@ -1,44 +1,126 @@
 #!/bin/sh
 set -e
 
-echo "[grub-binary-theme] Copying GRUB theme to binary boot partition..."
+echo "[grub-binary-theme] Setting up NithronOS GRUB theme for ISO boot..."
 
-# Ensure the theme is available in the ISO's boot partition
-# This makes it accessible during GRUB boot before the live system starts
-
-# Create theme directory in binary
+# Ensure theme directories exist
 mkdir -p binary/boot/grub/themes/nithron
+mkdir -p binary/boot/grub/fonts
 
-# Copy theme files if they exist in chroot
-if [ -d chroot/boot/grub/themes/nithron ]; then
-    echo "[grub-binary-theme] Copying theme files from chroot to binary..."
+# Copy theme files from includes.binary if they exist
+if [ -d config/includes.binary/boot/grub/themes/nithron ]; then
+    echo "[grub-binary-theme] Copying theme files from includes.binary..."
+    cp -r config/includes.binary/boot/grub/themes/nithron/* binary/boot/grub/themes/nithron/ || true
+fi
+
+# Fallback: copy from chroot if includes.binary doesn't have them
+if [ ! -f binary/boot/grub/themes/nithron/theme.txt ] && [ -d chroot/boot/grub/themes/nithron ]; then
+    echo "[grub-binary-theme] Copying theme files from chroot as fallback..."
     cp -r chroot/boot/grub/themes/nithron/* binary/boot/grub/themes/nithron/ 2>/dev/null || true
 fi
 
-# Also ensure theme is in EFI partition for UEFI boot
+# Ensure fonts are available
+if [ -f chroot/boot/grub/fonts/unicode.pf2 ]; then
+    cp chroot/boot/grub/fonts/unicode.pf2 binary/boot/grub/fonts/ 2>/dev/null || true
+fi
+
+# Copy DejaVu fonts if available
+for font in /usr/share/grub/unicode.pf2 /boot/grub/fonts/unicode.pf2; do
+    if [ -f "chroot$font" ]; then
+        echo "[grub-binary-theme] Copying unicode font from $font..."
+        cp "chroot$font" binary/boot/grub/unicode.pf2 2>/dev/null || true
+        break
+    fi
+done
+
+# Setup for EFI boot
 if [ -d binary/EFI ]; then
     echo "[grub-binary-theme] Setting up theme for EFI boot..."
     mkdir -p binary/EFI/boot/grub/themes/nithron
-    cp -r chroot/boot/grub/themes/nithron/* binary/EFI/boot/grub/themes/nithron/ 2>/dev/null || true
+    mkdir -p binary/EFI/boot/grub/fonts
+    
+    # Copy theme to EFI partition
+    if [ -d binary/boot/grub/themes/nithron ]; then
+        cp -r binary/boot/grub/themes/nithron/* binary/EFI/boot/grub/themes/nithron/ 2>/dev/null || true
+    fi
+    
+    # Copy fonts to EFI partition
+    if [ -f binary/boot/grub/unicode.pf2 ]; then
+        cp binary/boot/grub/unicode.pf2 binary/EFI/boot/grub/unicode.pf2 2>/dev/null || true
+    fi
+    
+    # Update EFI grub.cfg if it exists
+    if [ -f binary/EFI/boot/grub.cfg ]; then
+        echo "[grub-binary-theme] Updating EFI grub.cfg..."
+        
+        # Create themed version
+        cat > binary/EFI/boot/grub.cfg.new << 'EOF'
+# NithronOS EFI Boot Configuration
+
+# Load modules
+insmod all_video
+insmod gfxterm
+insmod gfxmenu
+insmod png
+insmod jpeg
+
+# Graphics setup
+set gfxmode=1024x768,auto
+set gfxpayload=keep
+terminal_output gfxterm
+
+# Load fonts
+if loadfont /EFI/boot/grub/unicode.pf2 ; then
+  true
 fi
 
-# Update grub.cfg files to use our theme
-for grub_cfg in binary/boot/grub/grub.cfg binary/EFI/boot/grub.cfg binary/isolinux/grub.cfg; do
-    if [ -f "$grub_cfg" ]; then
-        echo "[grub-binary-theme] Updating $grub_cfg to use NithronOS theme..."
+# Set theme
+set theme=/EFI/boot/grub/themes/nithron/theme.txt
+export theme
+
+# Include original configuration
+EOF
         
-        # Add theme configuration at the beginning of grub.cfg
+        # Append original content, skipping duplicate module loads
+        grep -v "^insmod\|^set gfxmode\|^terminal_output\|^set theme" binary/EFI/boot/grub.cfg >> binary/EFI/boot/grub.cfg.new || true
+        
+        # Replace with new version
+        mv binary/EFI/boot/grub.cfg.new binary/EFI/boot/grub.cfg
+    fi
+fi
+
+# Update isolinux grub.cfg for BIOS boot
+if [ -f binary/isolinux/grub.cfg ]; then
+    echo "[grub-binary-theme] Updating isolinux grub.cfg..."
+    
+    # Ensure it references the theme
+    if ! grep -q "set theme=" binary/isolinux/grub.cfg; then
         sed -i '1i\
-# NithronOS Theme Configuration\
-set theme=/boot/grub/themes/nithron/theme.txt\
+# NithronOS Theme\
+insmod all_video\
+insmod gfxterm\
+insmod gfxmenu\
+insmod png\
 set gfxmode=1024x768,auto\
 set gfxpayload=keep\
 terminal_output gfxterm\
-' "$grub_cfg"
-        
-        # Update distributor name
-        sed -i 's/Debian GNU\/Linux/NithronOS/g' "$grub_cfg"
+set theme=/boot/grub/themes/nithron/theme.txt\
+' binary/isolinux/grub.cfg
     fi
-done
+fi
+
+# Verify theme files exist
+echo "[grub-binary-theme] Verifying theme installation..."
+if [ -f binary/boot/grub/themes/nithron/theme.txt ]; then
+    echo "[grub-binary-theme] ✓ Theme configuration found"
+else
+    echo "[grub-binary-theme] ⚠ Theme configuration missing!"
+fi
+
+if ls binary/boot/grub/themes/nithron/*.pf2 >/dev/null 2>&1; then
+    echo "[grub-binary-theme] ✓ Font files found"
+else
+    echo "[grub-binary-theme] ⚠ Font files missing!"
+fi
 
 echo "[grub-binary-theme] Done"

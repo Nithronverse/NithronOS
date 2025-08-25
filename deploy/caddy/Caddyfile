@@ -1,43 +1,44 @@
 # NithronOS Caddyfile - Development/Production
 # This is a Caddyfile, not a PowerShell script - ignore PS linter errors
 {
-  admin localhost:2019
-  # Accept self-signed certificates
-  auto_https disable_redirects
+  admin off
+  # For local/development: use self-signed
+  # For production with domain: comment out and Caddy will use Let's Encrypt
+  local_certs
 }
 
-# HTTP on port 80 - no redirect, serve directly
-:80 {
-  encode gzip zstd
-  
-  header {
-    X-Content-Type-Options "nosniff"
-    Referrer-Policy "no-referrer"
-    Cross-Origin-Opener-Policy "same-origin"
-    Cross-Origin-Embedder-Policy "require-corp"
-  }
+# Configuration for domain-based access (production with Let's Encrypt)
+# Uncomment and replace with your domain when available
+# nithron.local, *.nithron.local {
+#   tls {
+#     # Let's Encrypt will be used automatically
+#   }
+#   
+#   encode gzip zstd
+#   
+#   header {
+#     X-Content-Type-Options "nosniff"
+#     Referrer-Policy "no-referrer"
+#     Cross-Origin-Opener-Policy "same-origin"
+#     Cross-Origin-Embedder-Policy "require-corp"
+#     Strict-Transport-Security "max-age=31536000"
+#   }
+#
+#   @api path /api/*
+#   handle @api {
+#     reverse_proxy 127.0.0.1:9000
+#   }
+#
+#   handle {
+#     root * /usr/share/nithronos/web
+#     try_files {path} /index.html
+#     file_server
+#   }
+# }
 
-  @api path /api/*
-  handle @api {
-    reverse_proxy 127.0.0.1:9000
-  }
-
-  handle {
-    root * /usr/share/nithronos/web
-    try_files {path} /index.html
-    file_server
-  }
-  
-  log {
-    output file /var/log/caddy/access.log
-  }
-}
-
-# HTTPS on port 443 with self-signed certificate (optional)
-:443 {
-  tls internal {
-    on_demand
-  }
+# Default configuration for IP-based access (with self-signed cert)
+https://:443 {
+  tls internal
   
   encode gzip zstd
   
@@ -63,4 +64,9 @@
   log {
     output file /var/log/caddy/access.log
   }
+}
+
+# HTTP to HTTPS redirect
+http://:80 {
+  redir https://{host}{uri} permanent
 }

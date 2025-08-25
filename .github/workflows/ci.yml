@@ -297,6 +297,23 @@ jobs:
           echo "[ci] Listening TCP sockets (post-validate, informational)"
           ss -lnt || true
 
+      - name: "ISO smoke: GRUB theme verification"
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo "[ci] Verifying GRUB theme in ISO..."
+          # Install 7z if needed
+          sudo apt-get update && sudo apt-get install -y p7zip-full
+          # Find the ISO file
+          ISO_FILE=$(find dist/iso -name "*.iso" -type f | head -1)
+          if [ -n "$ISO_FILE" ]; then
+            echo "[ci] Checking ISO: $ISO_FILE"
+            chmod +x scripts/ci-verify-grub-theme.sh
+            ./scripts/ci-verify-grub-theme.sh "$ISO_FILE"
+          else
+            echo "[ci] Warning: No ISO file found to verify"
+          fi
+
       - name: Generate checksums (ISO + DEBs)
         run: |
           mkdir -p dist/iso dist/deb

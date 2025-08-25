@@ -1,12 +1,14 @@
-# NithronOS Caddyfile - Live System
-# This is a Caddyfile, not a PowerShell script - ignore PS linter errors
+# NithronOS Production Caddyfile with Domain Support
+# Copy this to /etc/caddy/Caddyfile when using a domain
 {
   admin off
+  # Email for Let's Encrypt notifications
+  email admin@yourdomain.com
 }
 
-# Serve on all interfaces with HTTPS using self-signed certificate
-https://:443 {
-  tls internal
+# Replace 'nithron.local' with your actual domain
+nithron.local {
+  # Let's Encrypt will automatically provision a certificate
   
   encode gzip zstd
   
@@ -15,7 +17,7 @@ https://:443 {
     Referrer-Policy "no-referrer"
     Cross-Origin-Opener-Policy "same-origin"
     Cross-Origin-Embedder-Policy "require-corp"
-    Strict-Transport-Security "max-age=31536000"
+    Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
   }
 
   @api path /api/*
@@ -32,9 +34,4 @@ https://:443 {
   log {
     output file /var/log/caddy/access.log
   }
-}
-
-# Also listen on HTTP and redirect to HTTPS
-http://:80 {
-  redir https://{host}{uri} permanent
 }

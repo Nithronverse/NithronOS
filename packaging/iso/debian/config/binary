@@ -1,0 +1,18 @@
+# live-build configuration for binary image
+
+# Bootloaders
+LB_BOOTLOADERS="grub-efi,grub-pc"
+
+# Enable GRUB theme
+LB_GRUB_SPLASH=""
+
+# ISO options
+LB_ISO_APPLICATION="NithronOS"
+LB_ISO_PUBLISHER="NithronOS Project"
+LB_ISO_VOLUME="NithronOS"
+
+# Binary filesystem
+LB_BINARY_FILESYSTEM="fat32"
+
+# Memtest
+LB_MEMTEST="memtest86+"
