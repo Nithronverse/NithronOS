@@ -1,4 +1,5 @@
 # NithronOS Caddyfile - Development/Production
+# This is a Caddyfile, not a PowerShell script - ignore PS linter errors
 {
   admin localhost:2019
   # Accept self-signed certificates
