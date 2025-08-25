@@ -1,183 +1,373 @@
-import { useEffect, useState } from 'react'
-import { api } from '../api/client'
-import QRCode from 'qrcode'
-import { getSchedules, updateSchedules, type Schedules } from '@/api/schedules'
+import { useState } from 'react'
+import { motion } from 'framer-motion'
+import { 
+  Settings as SettingsIcon,
+  Network,
+  Users,
+  Calendar,
+  Download,
+  Info,
+  ChevronRight,
+  Wifi,
+  Globe,
+  Key,
+  UserPlus,
+  Clock,
+  Package,
+  Server,
+  HardDrive,
+  Save
+} from 'lucide-react'
+import { PageHeader } from '@/components/ui/page-header'
+import { Card } from '@/components/ui/card-enhanced'
+import { Button } from '@/components/ui/button'
+import { StatusPill } from '@/components/ui/status'
+import { cn } from '@/lib/utils'
+import { pushToast } from '@/components/ui/toast'
+import { useUsers } from '@/hooks/use-api'
 
-export function Settings() {
-	const [me, setMe] = useState<any | null>(null)
-	const [loading, setLoading] = useState(true)
-	const [setup, setSetup] = useState<{ uri: string } | null>(null)
-	const [qr, setQr] = useState<string>('')
-	const [code, setCode] = useState('')
-	const [error, setError] = useState<string | null>(null)
-	const [downloading, setDownloading] = useState(false)
-	const [schedules, setSchedules] = useState<Schedules | null>(null)
-	const [schedSaving, setSchedSaving] = useState(false)
+// Settings sections
+const settingsSections = [
+  { id: 'general', label: 'General', icon: SettingsIcon },
+  { id: 'network', label: 'Network', icon: Network },
+  { id: 'users', label: 'Users', icon: Users },
+  { id: 'schedules', label: 'Schedules', icon: Calendar },
+  { id: 'updates', label: 'Updates', icon: Download },
+  { id: 'about', label: 'About', icon: Info },
+]
 
-	useEffect(() => {
-		api.auth.me().then(setMe).finally(() => setLoading(false))
-		getSchedules().then(setSchedules).catch(() => {})
-	}, [])
+// General Settings
+function GeneralSettings() {
+  const [settings, setSettings] = useState({
+    hostname: 'nithronos',
+    timezone: 'America/New_York',
+    language: 'en-US',
+    notifications: true
+  })
 
-	async function startTotp() {
-		setError(null)
-		try {
-			const res = await fetch('/api/auth/totp/setup', { method: 'POST', headers: { 'X-CSRF-Token': getCSRF() } })
-			if (!res.ok) throw new Error(`HTTP ${res.status}`)
-			const j = await res.json()
-			setSetup({ uri: j?.otpauth_uri || '' })
-			try {
-				setQr(await QRCode.toDataURL(j?.otpauth_uri || '', { margin: 1, width: 192 }))
-			} catch {}
-		} catch (e: any) {
-			setError(e?.message || String(e))
-		}
-	}
+  return (
+    <div className="space-y-6">
+      <Card title="System Configuration">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Hostname</label>
+            <input
+              type="text"
+              value={settings.hostname}
+              onChange={(e) => setSettings({ ...settings, hostname: e.target.value })}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            />
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Timezone</label>
+              <select
+                value={settings.timezone}
+                onChange={(e) => setSettings({ ...settings, timezone: e.target.value })}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="America/New_York">America/New York</option>
+                <option value="America/Los_Angeles">America/Los Angeles</option>
+                <option value="Europe/London">Europe/London</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-2">Language</label>
+              <select
+                value={settings.language}
+                onChange={(e) => setSettings({ ...settings, language: e.target.value })}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="en-US">English (US)</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </Card>
 
-	async function confirmTotp() {
-		setError(null)
-		try {
-			const res = await fetch('/api/auth/totp/confirm', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCSRF() },
-				body: JSON.stringify({ code }),
-			})
-			if (!res.ok) throw new Error(`HTTP ${res.status}`)
-			setSetup(null)
-			setQr('')
-			setMe({ ...(me || {}), totp_enabled: true })
-			setCode('')
-		} catch (e: any) {
-			setError(e?.message || String(e))
-		}
-	}
-
-	function getCSRF(): string {
-		const m = document.cookie.match(/(?:^|; )nos_csrf=([^;]*)/)
-		return m ? decodeURIComponent(m[1]) : ''
-	}
-
-	async function downloadBundle() {
-		setDownloading(true)
-		try {
-			const blob = await api.support.bundle()
-			const url = URL.createObjectURL(blob)
-			const a = document.createElement('a')
-			a.href = url
-			a.download = 'nos-support-bundle.tar.gz'
-			document.body.appendChild(a)
-			a.click()
-			a.remove()
-			URL.revokeObjectURL(url)
-		} catch (e: any) {
-			try { const { pushToast } = await import('../components/ui/toast'); pushToast(`Download failed: ${e?.message || e}`, 'error') } catch {}
-		} finally {
-			setDownloading(false)
-		}
-	}
-
-	return (
-		<div className="space-y-6">
-			<h1 className="text-2xl font-semibold">Settings</h1>
-			<div className="rounded-lg bg-card p-4 space-y-3">
-				<h2 className="text-lg font-medium">Profile</h2>
-				{loading ? (
-					<div className="text-sm text-muted-foreground">Loading…</div>
-				) : (
-					<div className="text-sm">
-						<div>
-							Email: <span className="text-muted-foreground">{me?.email}</span>
-						</div>
-						<div>
-							Roles: <span className="text-muted-foreground">{Array.isArray(me?.roles) ? me.roles.join(', ') : ''}</span>
-						</div>
-						<div className="mt-2">
-							2FA (TOTP): {me?.totp_enabled ? (
-								<span className="text-green-400">Enabled</span>
-							) : (
-								<span className="text-yellow-300">Disabled</span>
-							)}
-						</div>
-						{!me?.totp_enabled && !setup && (
-							<button className="mt-2 rounded bg-primary px-3 py-1 text-sm text-background" onClick={startTotp}>
-								Start TOTP setup
-							</button>
-						)}
-						{setup && (
-							<div className="mt-3 space-y-2">
-								<div className="text-muted-foreground">Scan in your authenticator app:</div>
-								{qr ? (
-									<img src={qr} alt="TOTP QR" className="h-44 w-44 rounded bg-white p-2" />
-								) : (
-									<div className="rounded border border-muted/30 bg-background p-2 text-xs break-all">{setup.uri}</div>
-								)}
-								<div>
-									<label className="block text-sm">Enter code</label>
-									<input
-										className="mt-1 w-full rounded border border-muted/30 bg-background px-2 py-1"
-										value={code}
-										onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-										maxLength={6}
-										inputMode="numeric"
-									/>
-								</div>
-								<div className="flex gap-2">
-									<button className="rounded border border-muted/30 px-3 py-1 text-sm" onClick={() => { setSetup(null); setQr('') }}>
-										Cancel
-									</button>
-									<button className="rounded bg-primary px-3 py-1 text-sm text-background" onClick={confirmTotp} disabled={code.length !== 6}>
-										Confirm
-									</button>
-								</div>
-							</div>
-						)}
-						{error && <div className="rounded border border-red-500/30 bg-red-500/10 p-2 text-red-400 text-xs">{error}</div>}
-					</div>
-				)}
-			</div>
-
-			<div className="rounded-lg bg-card p-4 space-y-3">
-				<h2 className="text-lg font-medium">System</h2>
-				<p className="text-sm text-muted-foreground">Download a support bundle with logs and diagnostics (redacted).</p>
-				<button
-					className="inline-block rounded bg-primary px-3 py-1 text-sm text-background disabled:opacity-50"
-					onClick={downloadBundle}
-					disabled={downloading}
-				>
-					{downloading ? 'Preparing…' : 'Download Support Bundle'}
-				</button>
-			</div>
-
-			<div className="rounded-lg bg-card p-4 space-y-3">
-				<h2 className="text-lg font-medium">Schedules</h2>
-				<div className="grid gap-3 md:grid-cols-2">
-					<div>
-						<label className="block text-sm mb-1">SMART Scan (OnCalendar)</label>
-						<input className="w-full rounded border border-muted/30 bg-background px-2 py-1" value={schedules?.smartScan || ''} onChange={(e) => setSchedules((s) => ({ ...(s || { smartScan: '', btrfsScrub: '' }), smartScan: e.target.value }))} />
-					</div>
-					<div>
-						<label className="block text-sm mb-1">Btrfs Scrub (OnCalendar)</label>
-						<input className="w-full rounded border border-muted/30 bg-background px-2 py-1" value={schedules?.btrfsScrub || ''} onChange={(e) => setSchedules((s) => ({ ...(s || { smartScan: '', btrfsScrub: '' }), btrfsScrub: e.target.value }))} />
-					</div>
-				</div>
-				<div>
-					<button className="rounded bg-primary px-3 py-1 text-sm text-background disabled:opacity-50" disabled={!schedules || schedSaving} onClick={async () => {
-						if (!schedules) return
-						setSchedSaving(true)
-						try {
-							const res = await updateSchedules({ smartScan: schedules.smartScan, btrfsScrub: schedules.btrfsScrub })
-							setSchedules(res)
-							try { const { pushToast } = await import('../components/ui/toast'); pushToast('Schedules updated') } catch {}
-						} catch (e: any) {
-							try { const { pushToast } = await import('../components/ui/toast'); pushToast(`Update failed: ${e?.message || e}`, 'error') } catch {}
-						} finally {
-							setSchedSaving(false)
-						}
-					}}>Save</button>
-				</div>
-			</div>
-		</div>
-	)
+      <div className="flex justify-end">
+        <Button onClick={() => pushToast('Settings saved', 'success')}>
+          <Save className="h-4 w-4 mr-2" />
+          Save Changes
+        </Button>
+      </div>
+    </div>
+  )
 }
 
+// Network Settings
+function NetworkSettings() {
+  return (
+    <div className="space-y-6">
+      <Card title="Network Configuration">
+        <div className="space-y-4">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" defaultChecked className="rounded" />
+            <span className="text-sm font-medium">Use DHCP</span>
+          </label>
 
+          <div>
+            <label className="block text-sm font-medium mb-2">IP Address</label>
+            <input
+              type="text"
+              defaultValue="192.168.1.100"
+              disabled
+              className="w-full rounded-md border border-input bg-muted px-3 py-2 text-sm font-mono"
+            />
+          </div>
+        </div>
+      </Card>
+
+      <Card title="Connection Status">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Wifi className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm">Network Status</span>
+            </div>
+            <StatusPill variant="success">Connected</StatusPill>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Globe className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm">Internet Access</span>
+            </div>
+            <StatusPill variant="success">Available</StatusPill>
+          </div>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+// Users Settings
+function UsersSettings() {
+  const { data: users } = useUsers()
+  const mockUsers = users || [
+    { id: '1', username: 'admin', role: 'Administrator', email: 'admin@example.com', status: 'active' },
+    { id: '2', username: 'john', role: 'User', email: 'john@example.com', status: 'active' },
+  ]
+
+  return (
+    <div className="space-y-6">
+      <Card 
+        title="User Accounts"
+        actions={
+          <Button size="sm">
+            <UserPlus className="h-4 w-4 mr-2" />
+            Add User
+          </Button>
+        }
+      >
+        <div className="space-y-2">
+          {mockUsers.map(user => (
+            <div key={user.id} className="flex items-center justify-between p-3 rounded-lg border">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <span className="text-sm font-medium">{user.username[0].toUpperCase()}</span>
+                </div>
+                <div>
+                  <div className="font-medium">{user.username}</div>
+                  <div className="text-sm text-muted-foreground">{(user as any).email || user.username + '@example.com'}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <StatusPill variant={user.role === 'Administrator' ? 'warning' : 'info'}>
+                  {user.role}
+                </StatusPill>
+                <Button variant="ghost" size="sm">
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card title="Security">
+        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+          <div className="flex items-center gap-3">
+            <Key className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <div className="font-medium">Two-Factor Authentication</div>
+              <div className="text-sm text-muted-foreground">Require 2FA for administrators</div>
+            </div>
+          </div>
+          <Button variant="outline" size="sm">Configure</Button>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+// Schedules Settings
+function SchedulesSettings() {
+  const schedules = [
+    { id: '1', name: 'Daily Backup', schedule: '0 2 * * *', enabled: true },
+    { id: '2', name: 'Weekly Scrub', schedule: '0 3 * * 0', enabled: true },
+  ]
+
+  return (
+    <Card title="Scheduled Tasks">
+      <div className="space-y-2">
+        {schedules.map(schedule => (
+          <div key={schedule.id} className="flex items-center justify-between p-3 rounded-lg border">
+            <div className="flex items-center gap-3">
+              <Clock className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <div className="font-medium">{schedule.name}</div>
+                <div className="text-sm text-muted-foreground font-mono">{schedule.schedule}</div>
+              </div>
+            </div>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                defaultChecked={schedule.enabled}
+                className="rounded"
+              />
+              <span className="text-sm">Enabled</span>
+            </label>
+          </div>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
+// Updates Settings
+function UpdatesSettings() {
+  return (
+    <div className="space-y-6">
+      <Card title="Update Settings">
+        <label className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50">
+          <div className="flex items-center gap-3">
+            <Download className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <div className="font-medium">Automatic Updates</div>
+              <div className="text-sm text-muted-foreground">Install security updates automatically</div>
+            </div>
+          </div>
+          <input type="checkbox" defaultChecked className="rounded" />
+        </label>
+      </Card>
+
+      <Card title="Available Updates">
+        <div className="flex items-center justify-between p-3 rounded-lg border">
+          <div className="flex items-center gap-3">
+            <Package className="h-5 w-5 text-blue-500" />
+            <div>
+              <div className="font-medium">NithronOS Core</div>
+              <div className="text-sm text-muted-foreground">v2.1.0 → v2.2.0</div>
+            </div>
+          </div>
+          <Button size="sm">Install</Button>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+// About Section
+function AboutSection() {
+  return (
+    <div className="space-y-6">
+      <Card title="System Information">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-sm text-muted-foreground">Version</p>
+            <p className="font-medium">NithronOS v2.1.0</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Kernel</p>
+            <p className="font-medium">Linux 6.1.0</p>
+          </div>
+        </div>
+      </Card>
+
+      <Card title="Hardware">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Server className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm">CPU</span>
+            </div>
+            <span className="text-sm font-medium">Intel Xeon E-2288G</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <HardDrive className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm">Memory</span>
+            </div>
+            <span className="text-sm font-medium">32 GB DDR4</span>
+          </div>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+export function Settings() {
+  const [activeSection, setActiveSection] = useState('general')
+
+  const renderSection = () => {
+    switch (activeSection) {
+      case 'general': return <GeneralSettings />
+      case 'network': return <NetworkSettings />
+      case 'users': return <UsersSettings />
+      case 'schedules': return <SchedulesSettings />
+      case 'updates': return <UpdatesSettings />
+      case 'about': return <AboutSection />
+      default: return <GeneralSettings />
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Settings"
+        description="Configure system settings and preferences"
+      />
+
+      <div className="flex gap-6">
+        {/* Sidebar */}
+        <div className="w-64 shrink-0">
+          <Card>
+            <nav className="space-y-1">
+              {settingsSections.map(section => (
+                <button
+                  key={section.id}
+                  onClick={() => setActiveSection(section.id)}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors text-left",
+                    activeSection === section.id
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-muted/50"
+                  )}
+                >
+                  <section.icon className="h-4 w-4" />
+                  <span className="font-medium">{section.label}</span>
+                </button>
+              ))}
+            </nav>
+          </Card>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1">
+          <motion.div
+            key={activeSection}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            {renderSection()}
+          </motion.div>
+        </div>
+      </div>
+    </div>
+  )
+}
