@@ -123,7 +123,7 @@ func ReloadSambaServices() error {
 	// First test configuration
 	cmd := exec.Command("testparm", "-s", "--suppress-prompt")
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("Samba configuration invalid: %w", err)
+		return fmt.Errorf("samba configuration invalid: %w", err)
 	}
 
 	// Reload smbd

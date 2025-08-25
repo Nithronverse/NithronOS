@@ -53,7 +53,7 @@ const nfsTemplate = `# NithronOS NFS Export: {{.Name}}
 // GenerateSambaConfig creates a Samba configuration for a share
 func GenerateSambaConfig(share *Share) (string, error) {
 	if share.SMB == nil || !share.SMB.Enabled {
-		return "", fmt.Errorf("SMB not enabled for share %s", share.Name)
+		return "", fmt.Errorf("smb not enabled for share %s", share.Name)
 	}
 
 	tmpl, err := template.New("samba").Parse(sambaTemplate)
@@ -94,7 +94,7 @@ func GenerateSambaConfig(share *Share) (string, error) {
 // GenerateNFSExport creates an NFS export configuration for a share
 func GenerateNFSExport(share *Share, lanNetworks []string) (string, error) {
 	if share.NFS == nil || !share.NFS.Enabled {
-		return "", fmt.Errorf("NFS not enabled for share %s", share.Name)
+		return "", fmt.Errorf("nfs not enabled for share %s", share.Name)
 	}
 
 	// Use configured networks or default to LAN
