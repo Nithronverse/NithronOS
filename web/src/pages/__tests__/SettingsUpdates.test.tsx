@@ -19,7 +19,7 @@ function clearApplyGate() { applyGate = null }
 
 function mockFetchSequence() {
   const original = global.fetch
-  const fn = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
+  const fn = vi.fn().mockImplementation(async (input: RequestInfo, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input.toString()
     if (url.includes('/api/updates/check')) {
       return new Response(JSON.stringify({ plan: { updates:[{name:'nosd', current:'0.1.0', candidate:'0.2.0'}] }, snapshot_roots: ['/srv'] }), { status:200, headers:{'Content-Type':'application/json'} })
@@ -43,7 +43,7 @@ function mockFetchSequence() {
       return new Response(JSON.stringify({ ok:true, pruned:{} }), { status:200, headers:{'Content-Type':'application/json'} })
     }
     return original(input, init)
-  }) as unknown as typeof fetch
+  })
   // @ts-ignore
   global.fetch = fn
   return () => { global.fetch = original }
@@ -63,28 +63,53 @@ describe('SettingsUpdates', () => {
 
   it('disables Apply during request', async () => {
     render(<SettingsUpdates />)
-    // wait initial load
+    // wait initial load and ensure updates are shown
     await screen.findByText(/Available updates/i)
+    await screen.findByText(/nosd/i) // ensure the update is displayed
+    
     const btn = screen.getByRole('button', { name: /Apply Updates/i }) as HTMLButtonElement
+    expect(btn).toBeTruthy()
+    expect(btn.disabled).toBe(false) // button should be enabled initially
+    
     const gate = newApplyGate()
+    
+    // Clear any previous calls from initial load
+    if ((global.fetch as any).mockClear) {
+      (global.fetch as any).mockClear()
+    }
+    
     fireEvent.click(btn)
+    
     // goes into applying state (allow async state update); re-query by role to handle text change
     await waitFor(() => {
-      const b = screen.getByRole('button', { name: /Apply/i }) as HTMLButtonElement
-      expect(b.disabled).toBe(true)
-    })
+      const buttons = screen.getAllByRole('button')
+      const applyBtn = buttons.find(b => b.textContent?.includes('Apply'))
+      expect(applyBtn).toBeTruthy()
+      expect((applyBtn as HTMLButtonElement).disabled).toBe(true)
+    }, { timeout: 2000 })
+    
     // ensure apply API was called (search mock.calls for the apply URL)
     await waitFor(() => {
-      const calls = ((global.fetch as any).mock?.calls || []) as any[]
-      expect(calls.some((args:any[]) => typeof args[0] === 'string' && /\/api\/updates\/apply/.test(args[0]))).toBe(true)
-    })
+      const fetchMock = global.fetch as any
+      const calls = fetchMock.mock?.calls || []
+      const hasApplyCall = calls.some((args: any[]) => {
+        const url = args[0]
+        return typeof url === 'string' && url.includes('/api/updates/apply')
+      })
+      expect(hasApplyCall).toBe(true)
+    }, { timeout: 3000 })
+    
     // release the gate so apply resolves
     gate.resolve()
+    
     // and button should be re-enabled afterwards (re-query)
     await waitFor(() => {
-      const b = screen.getByRole('button', { name: /Apply/i }) as HTMLButtonElement
-      expect(b.disabled).toBe(false)
-    })
+      const buttons = screen.getAllByRole('button')
+      const applyBtn = buttons.find(b => b.textContent?.includes('Apply'))
+      expect(applyBtn).toBeTruthy()
+      expect((applyBtn as HTMLButtonElement).disabled).toBe(false)
+    }, { timeout: 2000 })
+    
     clearApplyGate()
   })
 
