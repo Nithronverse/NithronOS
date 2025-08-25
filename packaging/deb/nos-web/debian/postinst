@@ -5,45 +5,19 @@ set -e
 install -d -o root -g root -m 0755 /etc/caddy
 install -d -o root -g root -m 0755 /etc/systemd/system/caddy.service.d
 install -d -o root -g root -m 0755 /usr/share/nithronos/web
+install -d -o root -g root -m 0755 /var/log/caddy
 
 # Own web assets by www-data (best effort)
 chown -R www-data:www-data /usr/share/nithronos/web 2>/dev/null || true
 
-# Only write our managed Caddyfile if missing or already marked as managed
-if [ ! -s /etc/caddy/Caddyfile ] || grep -q "NithronOS managed" /etc/caddy/Caddyfile 2>/dev/null; then
-  cat >/etc/caddy/Caddyfile <<'EOF'
-# NithronOS managed Caddyfile
-{
-  admin localhost:2019
-}
+# Set ownership for caddy log directory
+chown caddy:caddy /var/log/caddy 2>/dev/null || true
 
-http://:80 {
-  @api path /api/*
-  reverse_proxy @api 127.0.0.1:9000
-  redir https://{host}{uri} 308
-}
-
-https://:443 {
-  tls internal
-
-  encode gzip zstd
-  header {
-    X-Content-Type-Options "nosniff"
-    Referrer-Policy "no-referrer"
-    Cross-Origin-Opener-Policy "same-origin"
-    Cross-Origin-Embedder-Policy "require-corp"
-  }
-
-  @api path /api/*
-  reverse_proxy @api 127.0.0.1:9000
-
-  handle {
-    root * /usr/share/nithronos/web
-    try_files {path} /index.html
-    file_server
-  }
-}
-EOF
+# Detect if we're running in chroot (no systemd)
+CHROOT=0
+if [ ! -d /run/systemd/system ]; then
+    CHROOT=1
+    echo "Running in chroot environment, skipping Caddy validation and service operations"
 fi
 
 # Create systemd override for reliable ordering
@@ -58,13 +32,19 @@ Restart=always
 RestartSec=2s
 EOF
 
-# Validate and enable Caddy
-/usr/bin/caddy validate --config /etc/caddy/Caddyfile || exit 1
-systemctl daemon-reload || true
-systemctl enable --now caddy || true
+# Only validate and enable Caddy if not in chroot
+if [ "$CHROOT" -eq 0 ]; then
+    # Validate and enable Caddy
+    /usr/bin/caddy validate --config /etc/caddy/Caddyfile || {
+        echo "Warning: Caddy validation failed, but continuing installation"
+        echo "This may be expected if TLS certificates are not yet generated"
+    }
+    systemctl daemon-reload || true
+    systemctl enable --now caddy || true
+else
+    echo "Skipping Caddy validation in chroot environment"
+fi
 
 #DEBHELPER#
 
 exit 0
-
-

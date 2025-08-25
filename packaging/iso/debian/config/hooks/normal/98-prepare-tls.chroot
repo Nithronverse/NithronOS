@@ -1,0 +1,34 @@
+#!/bin/sh
+set -e
+
+echo "[prepare-tls] Creating TLS directory and placeholder certificates for package installation..."
+
+# Create TLS directory
+mkdir -p /etc/nithronos/tls
+
+# Generate temporary self-signed certificate for package installation
+# This will be replaced by the proper certificate on first boot
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /etc/nithronos/tls/key.pem \
+    -out /etc/nithronos/tls/cert.pem \
+    -subj "/CN=NithronOS-Placeholder" \
+    -addext "subjectAltName=IP:127.0.0.1,DNS:localhost" \
+    2>/dev/null || {
+    echo "[prepare-tls] Warning: Failed to generate placeholder certificates"
+    # Create empty files as a last resort
+    touch /etc/nithronos/tls/cert.pem
+    touch /etc/nithronos/tls/key.pem
+}
+
+# Set proper permissions
+chmod 640 /etc/nithronos/tls/*.pem || true
+chmod 750 /etc/nithronos/tls || true
+
+# Create caddy group if it doesn't exist
+groupadd -r caddy 2>/dev/null || true
+
+# Set group ownership to caddy (will fail if caddy user doesn't exist yet, that's ok)
+chgrp caddy /etc/nithronos/tls /etc/nithronos/tls/*.pem 2>/dev/null || true
+
+echo "[prepare-tls] TLS directory prepared with placeholder certificates"
+ls -la /etc/nithronos/tls/ || true
