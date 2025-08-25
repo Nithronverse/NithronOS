@@ -1,254 +1,593 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useState } from 'react'
+import { motion } from 'framer-motion'
+import { 
+  Share2, 
+  Plus,
+  Edit,
+  Trash2,
+  Copy,
+  ToggleLeft,
+  ToggleRight,
+  Users,
+  Globe,
+  Lock,
+  FolderOpen,
+  Terminal,
+  Shield,
+  Settings,
+  X
+} from 'lucide-react'
+import { ColumnDef } from '@tanstack/react-table'
+import { PageHeader } from '@/components/ui/page-header'
+import { Card } from '@/components/ui/card-enhanced'
+import { EmptyState } from '@/components/ui/empty-state'
+import { StatusPill } from '@/components/ui/status'
+import { Button } from '@/components/ui/button'
+import { DataTable } from '@/components/ui/data-table'
+import { SlideOver } from '@/components/ui/slide-over'
+import { useShares, useCreateShare, useUpdateShare, useDeleteShare } from '@/hooks/use-api'
+import { cn } from '@/lib/utils'
+import { pushToast } from '@/components/ui/toast'
+import type { Share } from '@/lib/api-client'
 
-type Share = { id: string; type: 'smb' | 'nfs'; path: string; name: string; ro?: boolean; users?: string[] }
+// Mock data for development
+const mockShares: Share[] = [
+  { id: '1', name: 'Documents', protocol: 'smb', path: '/mnt/main/documents', access: 'private', status: 'active', users: ['admin', 'john'] },
+  { id: '2', name: 'Media', protocol: 'smb', path: '/mnt/main/media', access: 'public', status: 'active' },
+  { id: '3', name: 'Backups', protocol: 'nfs', path: '/mnt/backup/data', access: 'private', status: 'inactive', users: ['admin'] },
+  { id: '4', name: 'Public', protocol: 'smb', path: '/mnt/main/public', access: 'public', status: 'active' },
+]
 
-export function Shares() {
-	const [shares, setShares] = useState<Share[]>([])
-	const [filter, setFilter] = useState<'all' | 'smb' | 'nfs'>('all')
-	const [error, setError] = useState<string | null>(null)
-	const [show, setShow] = useState(false)
+// Share form component
+function ShareForm({ 
+  share, 
+  onSubmit, 
+  onCancel 
+}: { 
+  share?: Share | null
+  onSubmit: (data: Partial<Share>) => void
+  onCancel: () => void 
+}) {
+  const [formData, setFormData] = useState<Partial<Share>>({
+    name: share?.name || '',
+    protocol: share?.protocol || 'smb',
+    path: share?.path || '',
+    access: share?.access || 'private',
+    users: share?.users || [],
+  })
 
-	useEffect(() => { refresh() }, [])
-
-	async function refresh() {
-		try {
-			const r = await fetch('/api/shares')
-			setShares(await r.json())
-		} catch (e: any) { setError(e.message) }
-	}
-
-	async function del(id: string) {
-		await fetch(`/api/shares/${encodeURIComponent(id)}`, { method: 'DELETE', headers: { 'X-CSRF-Token': getCSRF() } })
-		refresh()
-	}
-
-	const filtered = useMemo(() => shares.filter(s => filter === 'all' ? true : s.type === filter), [shares, filter])
-
-	return (
-		<div className="space-y-6">
-			<div className="flex items-center justify-between">
-				<h1 className="text-2xl font-semibold">Shares</h1>
-				<button className="btn bg-primary text-primary-foreground" onClick={() => setShow(true)}>New Share</button>
-			</div>
-			{error && <div className="text-sm text-red-400">{error}</div>}
-			<div className="flex items-center gap-2">
-				<label className="text-sm">Filter</label>
-				<select className="rounded bg-card p-1" value={filter} onChange={e => setFilter(e.target.value as any)}>
-					<option value="all">All</option>
-					<option value="smb">SMB</option>
-					<option value="nfs">NFS</option>
-				</select>
-			</div>
-			<table className="w-full text-sm">
-				<thead className="text-left text-muted-foreground">
-					<tr><th>Name</th><th>Type</th><th>Path</th><th>RO</th><th>Users</th><th></th></tr>
-				</thead>
-				<tbody>
-					{filtered.map(s => (
-						<tr key={s.id} className="border-t border-muted/20">
-							<td className="py-2">{s.name}</td>
-							<td className="uppercase">{s.type}</td>
-							<td className="font-mono text-xs">{s.path}</td>
-							<td>{s.ro ? 'yes' : 'no'}</td>
-							<td className="text-xs">{(s.users||[]).join(', ')}</td>
-							<td className="text-right"><button className="text-red-400 text-xs" onClick={() => del(s.id)}>Delete</button></td>
-						</tr>
-					))}
-				</tbody>
-			</table>
-
-			{show && (
-				<ShareModal onClose={() => setShow(false)} onSaved={() => { setShow(false); refresh() }} />
-			)}
-		</div>
-	)
-}
-
-function getCSRF(): string {
-	const m = document.cookie.match(/(?:^|; )nos_csrf=([^;]*)/)
-	return m ? decodeURIComponent(m[1]) : ''
-}
-
-function ShareModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [type, setType] = useState<'smb'|'nfs'>('smb')
-  const [path, setPath] = useState('')
-  const [name, setName] = useState('')
-  const [ro, setRO] = useState(false)
-  const [users, setUsers] = useState('')
-  const [err, setErr] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [poolPaths, setPoolPaths] = useState<string[]>([])
-  const [dirs, setDirs] = useState<string[]>([])
-  const [loadingDirs, setLoadingDirs] = useState(false)
-  const debounceRef = useRef<number | undefined>(undefined)
-  const [currentDir, setCurrentDir] = useState('')
-
-  useEffect(() => {
-    fetch('/api/pools')
-      .then(r => r.json())
-      .then((pools: any[]) => {
-        const mounts = pools.map(p => p.mount || p.id).filter(Boolean)
-        setPoolPaths(mounts)
-      })
-      .catch(() => {})
-  }, [])
-
-  async function browse(p?: string) {
-    const base = p || path || poolPaths[0]
-    if (!base) return
-    setLoadingDirs(true)
-    try {
-      const r = await fetch(`/api/fs/list?path=${encodeURIComponent(base)}`)
-      const j = await r.json()
-      setDirs(j.dirs || [])
-      setCurrentDir(base)
-    } finally {
-      setLoadingDirs(false)
-    }
-  }
-
-  useEffect(() => {
-    // Debounce browsing when path changes manually
-    if (!path) return
-    if (debounceRef.current) window.clearTimeout(debounceRef.current)
-    debounceRef.current = window.setTimeout(() => {
-      browse(path)
-    }, 300)
-    return () => {
-      if (debounceRef.current) window.clearTimeout(debounceRef.current)
-    }
-  }, [path])
-
-  async function save() {
-    setErr(null)
-    if (!name.match(/^[a-zA-Z0-9_-]{1,32}$/)) { setErr('Invalid name'); return }
-    if (!path.startsWith('/mnt') && !path.startsWith('/srv')) { setErr('Path must be under /mnt or /srv'); return }
-    const body: any = { type, path, name, ro }
-    if (type === 'smb') body.users = users.split(',').map(s => s.trim()).filter(Boolean)
-    setSaving(true)
-    const res = await fetch('/api/shares', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCSRF() }, body: JSON.stringify(body) })
-    setSaving(false)
-    if (!res.ok) {
-      try {
-        const j = await res.json()
-        setErr(j.error || `Failed to create share (HTTP ${res.status})`)
-      } catch {
-        setErr(`Failed to create share (HTTP ${res.status})`)
-      }
-      return
-    }
-    onSaved()
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    onSubmit(formData)
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg rounded-lg bg-card p-4 shadow-lg">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-lg font-medium">New Share</h3>
-          <button onClick={onClose} className="text-sm text-muted-foreground">Close</button>
-        </div>
-        {err && <div className="mb-2 text-sm text-red-400">{err}</div>}
-        <div className="space-y-3">
-          <div>
-            <label className="mb-1 block text-sm">Type</label>
-            <select className="w-full rounded bg-background p-2" value={type} onChange={e => setType(e.target.value as any)}>
-              <option value="smb">SMB</option>
-              <option value="nfs">NFS</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm">Path</label>
-            <input list="paths-list" className="w-full rounded bg-background p-2" placeholder="/mnt/pool/data" value={path} onChange={e => setPath(e.target.value)} />
-            <datalist id="paths-list">
-              {poolPaths.map((m) => (
-                <option key={m} value={m.endsWith('/') ? m : m + '/'} />
-              ))}
-            </datalist>
-            {poolPaths.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                {poolPaths.map((m) => (
-                  <button key={m} type="button" className="rounded bg-card px-2 py-1" onClick={() => { const v = m.endsWith('/') ? m : m + '/'; setPath(v); browse(v) }}>{m}</button>
-                ))}
-              </div>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Name */}
+      <div>
+        <label className="block text-sm font-medium mb-2">Share Name</label>
+        <input
+          type="text"
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          placeholder="e.g., Documents"
+          required
+        />
+      </div>
+
+      {/* Protocol */}
+      <div>
+        <label className="block text-sm font-medium mb-2">Protocol</label>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, protocol: 'smb' })}
+            className={cn(
+              "flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors",
+              formData.protocol === 'smb'
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border hover:bg-muted/50"
             )}
-            {(loadingDirs || dirs.length > 0) && (
-              <div className="mt-2">
-                <div className="mb-1 flex items-center justify-between text-xs">
-                  <div className="flex flex-wrap gap-1">
-                    {breadcrumb(currentDir).map((seg, idx) => (
-                      <span key={idx} className="flex items-center gap-1">
-                        {idx > 0 && <span className="text-muted-foreground">/</span>}
-                        <button className="text-primary" type="button" onClick={() => browse(seg.path)}>{seg.name || '/'}</button>
-                      </span>
-                    ))}
-                  </div>
-                  <button className="text-primary" type="button" onClick={() => goUp(currentDir, browse)}>Up</button>
-                </div>
-                {loadingDirs ? (
-                  <div className="space-y-2 p-2">
-                    <div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
-                    <div className="h-3 w-2/3 animate-pulse rounded bg-muted" />
-                    <div className="h-3 w-1/3 animate-pulse rounded bg-muted" />
-                  </div>
-                ) : (
-                  <div className="max-h-40 overflow-auto rounded border border-muted/20">
-                    {dirs.map((d) => (
-                      <div key={d} className="flex items-center justify-between border-b border-muted/10 px-2 py-1 text-xs">
-                        <span className="font-mono">{d}</span>
-                        <div className="flex gap-2">
-                          <button className="text-primary" type="button" onClick={() => browse(d)}>Open</button>
-                          <button className="text-primary" type="button" onClick={() => setPath(d.endsWith('/') ? d : d + '/')}>Use</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+          >
+            <Share2 className="h-4 w-4" />
+            SMB/CIFS
+          </button>
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, protocol: 'nfs' })}
+            className={cn(
+              "flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors",
+              formData.protocol === 'nfs'
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border hover:bg-muted/50"
             )}
-          </div>
-          <div>
-            <label className="mb-1 block text-sm">Name</label>
-            <input className="w-full rounded bg-background p-2" placeholder="share name" value={name} onChange={e => setName(e.target.value)} />
-          </div>
-          <div className="flex items-center gap-2">
-            <input type="checkbox" checked={ro} onChange={e => setRO(e.target.checked)} />
-            <span className="text-sm">Read-only</span>
-          </div>
-          {type === 'smb' && (
-            <div>
-              <label className="mb-1 block text-sm">SMB Users (comma-separated)</label>
-              <input className="w-full rounded bg-background p-2" placeholder="alice,bob" value={users} onChange={e => setUsers(e.target.value)} />
-            </div>
-          )}
-          <div className="flex justify-end gap-2">
-            <button className="btn bg-card" onClick={onClose}>Cancel</button>
-            <button className="btn bg-primary text-primary-foreground disabled:opacity-60" disabled={saving} onClick={save}>{saving ? 'Creating...' : 'Create'}</button>
-          </div>
+          >
+            <Share2 className="h-4 w-4" />
+            NFS
+          </button>
         </div>
       </div>
-    </div>
+
+      {/* Path */}
+      <div>
+        <label className="block text-sm font-medium mb-2">Path</label>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={formData.path}
+            onChange={(e) => setFormData({ ...formData, path: e.target.value })}
+            className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring font-mono"
+            placeholder="/mnt/main/folder"
+            required
+          />
+          <Button type="button" variant="outline" size="sm">
+            <FolderOpen className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Access */}
+      <div>
+        <label className="block text-sm font-medium mb-2">Access Control</label>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, access: 'public' })}
+            className={cn(
+              "flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors",
+              formData.access === 'public'
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border hover:bg-muted/50"
+            )}
+          >
+            <Globe className="h-4 w-4" />
+            Public
+          </button>
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, access: 'private' })}
+            className={cn(
+              "flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors",
+              formData.access === 'private'
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border hover:bg-muted/50"
+            )}
+          >
+            <Lock className="h-4 w-4" />
+            Private
+          </button>
+        </div>
+      </div>
+
+      {/* Users (if private) */}
+      {formData.access === 'private' && (
+        <div>
+          <label className="block text-sm font-medium mb-2">Allowed Users</label>
+          <input
+            type="text"
+            value={formData.users?.join(', ')}
+            onChange={(e) => setFormData({ 
+              ...formData, 
+              users: e.target.value.split(',').map(u => u.trim()).filter(Boolean)
+            })}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            placeholder="admin, user1, user2"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Comma-separated list of usernames
+          </p>
+        </div>
+      )}
+
+      {/* Advanced settings */}
+      <details className="border-t pt-4">
+        <summary className="cursor-pointer text-sm font-medium flex items-center gap-2">
+          <Settings className="h-4 w-4" />
+          Advanced Settings
+        </summary>
+        <div className="mt-4 space-y-4">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" className="rounded" />
+            <span className="text-sm">Enable recycle bin</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" className="rounded" />
+            <span className="text-sm">Allow guest access</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" className="rounded" />
+            <span className="text-sm">Hide dot files</span>
+          </label>
+        </div>
+      </details>
+
+      {/* Actions */}
+      <div className="flex justify-end gap-2 pt-4 border-t">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit">
+          {share ? 'Update Share' : 'Create Share'}
+        </Button>
+      </div>
+    </form>
   )
 }
 
-function breadcrumb(path: string): { name: string; path: string }[] {
-  if (!path) return []
-  const norm = path.replace(/\\+/g, '/').replace(/\/+$/, '')
-  const parts = norm.split('/').filter(Boolean)
-  const out: { name: string; path: string }[] = []
-  let acc = ''
-  for (const p of parts) {
-    acc += '/' + p
-    out.push({ name: p, path: acc })
+// Share columns
+const createShareColumns = (
+  onEdit: (share: Share) => void,
+  onDelete: (share: Share) => void,
+  onToggle: (share: Share) => void,
+  onCopyPath: (path: string) => void
+): ColumnDef<Share>[] => [
+  {
+    accessorKey: 'name',
+    header: 'Name',
+    cell: ({ row }) => (
+      <div className="flex items-center gap-2">
+        <Share2 className="h-4 w-4 text-muted-foreground" />
+        <span className="font-medium">{row.original.name}</span>
+      </div>
+    ),
+  },
+  {
+    accessorKey: 'protocol',
+    header: 'Protocol',
+    cell: ({ row }) => (
+      <StatusPill variant="info">
+        {row.original.protocol.toUpperCase()}
+      </StatusPill>
+    ),
+  },
+  {
+    accessorKey: 'path',
+    header: 'Path',
+    cell: ({ row }) => (
+      <div className="flex items-center gap-1">
+        <code className="text-xs bg-muted px-2 py-1 rounded font-mono">
+          {row.original.path}
+        </code>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onCopyPath(row.original.path)}
+        >
+          <Copy className="h-3 w-3" />
+        </Button>
+      </div>
+    ),
+  },
+  {
+    accessorKey: 'access',
+    header: 'Access',
+    cell: ({ row }) => (
+      <div className="flex items-center gap-1">
+        {row.original.access === 'public' ? (
+          <>
+            <Globe className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm">Public</span>
+          </>
+        ) : (
+          <>
+            <Lock className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm">Private</span>
+            {row.original.users && (
+              <span className="ml-1 text-xs text-muted-foreground">
+                ({row.original.users.length} users)
+              </span>
+            )}
+          </>
+        )}
+      </div>
+    ),
+  },
+  {
+    accessorKey: 'status',
+    header: 'Status',
+    cell: ({ row }) => {
+      const isActive = row.original.status === 'active'
+      return (
+        <button
+          onClick={() => onToggle(row.original)}
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+        >
+          {isActive ? (
+            <ToggleRight className="h-5 w-5 text-green-500" />
+          ) : (
+            <ToggleLeft className="h-5 w-5 text-muted-foreground" />
+          )}
+          <StatusPill variant={isActive ? 'success' : 'muted'}>
+            {row.original.status}
+          </StatusPill>
+        </button>
+      )
+    },
+  },
+  {
+    id: 'actions',
+    header: 'Actions',
+    cell: ({ row }) => (
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onEdit(row.original)}
+        >
+          <Edit className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onDelete(row.original)}
+          className="text-destructive hover:text-destructive"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    ),
+  },
+]
+
+export function Shares() {
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [editingShare, setEditingShare] = useState<Share | null>(null)
+  const [selectedShare, setSelectedShare] = useState<Share | null>(null)
+  
+  const { data: shares, isLoading } = useShares()
+  const createMutation = useCreateShare()
+  const updateMutation = useUpdateShare()
+  const deleteMutation = useDeleteShare()
+
+  // Use mock data if API fails
+  const shareData = shares || mockShares
+
+  const handleCreate = async (data: Partial<Share>) => {
+    try {
+      await createMutation.mutateAsync(data)
+      pushToast('Share created successfully', 'success')
+      setIsCreateOpen(false)
+    } catch (error) {
+      pushToast('Failed to create share', 'error')
+    }
   }
-  return [{ name: '', path: '/' }, ...out]
+
+  const handleUpdate = async (data: Partial<Share>) => {
+    if (!editingShare) return
+    try {
+      await updateMutation.mutateAsync({ id: editingShare.id, data })
+      pushToast('Share updated successfully', 'success')
+      setEditingShare(null)
+    } catch (error) {
+      pushToast('Failed to update share', 'error')
+    }
+  }
+
+  const handleDelete = async (share: Share) => {
+    if (!confirm(`Delete share "${share.name}"?`)) return
+    try {
+      await deleteMutation.mutateAsync(share.id)
+      pushToast('Share deleted successfully', 'success')
+    } catch (error) {
+      pushToast('Failed to delete share', 'error')
+    }
+  }
+
+  const handleToggle = async (share: Share) => {
+    const newStatus = share.status === 'active' ? 'inactive' : 'active'
+    try {
+      await updateMutation.mutateAsync({ 
+        id: share.id, 
+        data: { status: newStatus } 
+      })
+      pushToast(`Share ${newStatus === 'active' ? 'enabled' : 'disabled'}`, 'success')
+    } catch (error) {
+      pushToast('Failed to toggle share', 'error')
+    }
+  }
+
+  const handleCopyPath = (path: string) => {
+    navigator.clipboard.writeText(path)
+    pushToast('Path copied to clipboard', 'success')
+  }
+
+  const columns = createShareColumns(
+    setEditingShare,
+    handleDelete,
+    handleToggle,
+    handleCopyPath
+  )
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Shares"
+        description="Network shares and file access configuration"
+        actions={
+          <Button size="sm" onClick={() => setIsCreateOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Share
+          </Button>
+        }
+      />
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Main table */}
+        <div className="lg:col-span-2">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Card
+              title="Network Shares"
+              description="Configure SMB and NFS shares"
+              isLoading={isLoading}
+            >
+              {shareData.length > 0 ? (
+                <DataTable
+                  columns={columns}
+                  data={shareData}
+                  searchKey="shares"
+                  onRowClick={setSelectedShare}
+                />
+              ) : (
+                <EmptyState
+                  variant="no-data"
+                  icon={Share2}
+                  title="No shares configured"
+                  description="Create your first network share to start sharing files"
+                  action={{
+                    label: "Create Share",
+                    onClick: () => setIsCreateOpen(true)
+                  }}
+                />
+              )}
+            </Card>
+          </motion.div>
+        </div>
+
+        {/* Sidebar - Share details / connections */}
+        <div className="lg:col-span-1">
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+          >
+            {selectedShare ? (
+              <Card
+                title="Share Details"
+                description={selectedShare.name}
+                actions={
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedShare(null)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                }
+              >
+                <div className="space-y-4">
+                  {/* Connection info */}
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Connection Info</h4>
+                    <div className="space-y-2">
+                      <div className="p-3 bg-muted/30 rounded-lg">
+                        <p className="text-xs text-muted-foreground mb-1">
+                          {selectedShare.protocol === 'smb' ? 'Windows (SMB)' : 'Linux/Mac (NFS)'}
+                        </p>
+                        <code className="text-xs block bg-background p-2 rounded border">
+                          {selectedShare.protocol === 'smb' 
+                            ? `\\\\nithron.os\\${selectedShare.name}`
+                            : `nithron.os:${selectedShare.path}`
+                          }
+                        </code>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Active connections */}
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Active Connections</h4>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">john@192.168.1.100</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">2h ago</span>
+                      </div>
+                      <div className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">admin@192.168.1.105</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">5m ago</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mount commands */}
+                  <div>
+                    <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                      <Terminal className="h-4 w-4" />
+                      Mount Commands
+                    </h4>
+                    <div className="space-y-2">
+                      <div className="p-2 bg-muted/30 rounded-lg">
+                        <p className="text-xs text-muted-foreground mb-1">Linux</p>
+                        <code className="text-xs block">
+                          {selectedShare.protocol === 'smb'
+                            ? `sudo mount -t cifs //nithron.os/${selectedShare.name} /mnt/share`
+                            : `sudo mount -t nfs nithron.os:${selectedShare.path} /mnt/share`
+                          }
+                        </code>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ) : (
+              <Card
+                title="Quick Tips"
+              >
+                <div className="space-y-3">
+                  <div className="flex gap-3">
+                    <Shield className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium">Security Best Practice</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Use private shares with specific user access for sensitive data.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <Globe className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium">Public Shares</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Public shares allow guest access without authentication.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <Share2 className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium">Protocol Choice</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Use SMB for Windows clients, NFS for Linux/Unix systems.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            )}
+          </motion.div>
+        </div>
+      </div>
+
+      {/* Create/Edit Share SlideOver */}
+      <SlideOver
+        isOpen={isCreateOpen || !!editingShare}
+        onClose={() => {
+          setIsCreateOpen(false)
+          setEditingShare(null)
+        }}
+        title={editingShare ? 'Edit Share' : 'Create New Share'}
+        description={editingShare ? `Editing ${editingShare.name}` : 'Configure a new network share'}
+        size="md"
+      >
+        <ShareForm
+          share={editingShare}
+          onSubmit={editingShare ? handleUpdate : handleCreate}
+          onCancel={() => {
+            setIsCreateOpen(false)
+            setEditingShare(null)
+          }}
+        />
+      </SlideOver>
+    </div>
+  )
 }
-
-function goUp(path: string, cb: (p: string) => void) {
-  if (!path || path === '/') return
-  const norm = path.replace(/\\+/g, '/').replace(/\/+$/, '')
-  const idx = norm.lastIndexOf('/')
-  const up = idx > 0 ? norm.slice(0, idx) : '/'
-  cb(up)
-}
-
-
