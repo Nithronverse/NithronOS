@@ -1,0 +1,9 @@
+nos-apps-runtime (0.3.0-1) unstable; urgency=medium
+
+  * Initial release of NithronOS Apps Runtime
+  * Docker Engine integration with security defaults
+  * Btrfs-aware snapshot support for app data
+  * Systemd templated units for app lifecycle
+  * CLI helpers for container operations
+
+ -- Nithron Team <hello@nithron.com>  Mon, 01 Jan 2024 00:00:00 +0000

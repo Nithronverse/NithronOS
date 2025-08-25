@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Code Server Configuration",
+  "properties": {
+    "CODE_SERVER_PORT": {
+      "type": "string",
+      "title": "Web Port",
+      "description": "Port to expose Code Server on",
+      "default": "8443",
+      "pattern": "^[0-9]{1,5}$"
+    },
+    "CODE_SERVER_VERSION": {
+      "type": "string",
+      "title": "Version",
+      "description": "Code Server version to install",
+      "default": "latest",
+      "enum": ["latest", "4.19.1", "4.19.0", "4.18.0"]
+    },
+    "CODE_SERVER_PASSWORD": {
+      "type": "string",
+      "title": "Access Password",
+      "description": "Password to access Code Server web interface",
+      "format": "password",
+      "minLength": 8
+    },
+    "SUDO_PASSWORD": {
+      "type": "string",
+      "title": "Sudo Password",
+      "description": "Password for sudo access in terminal (optional, defaults to access password)",
+      "format": "password",
+      "minLength": 8
+    },
+    "PROJECT_PATH": {
+      "type": "string",
+      "title": "Projects Path",
+      "description": "Host path to mount as projects directory",
+      "default": "./data/projects"
+    },
+    "DEFAULT_WORKSPACE": {
+      "type": "string",
+      "title": "Default Workspace",
+      "description": "Default workspace path to open",
+      "default": "/home/coder/workspace"
+    },
+    "PUID": {
+      "type": "string",
+      "title": "User ID",
+      "description": "User ID to run Code Server as",
+      "default": "1000",
+      "pattern": "^[0-9]+$"
+    },
+    "PGID": {
+      "type": "string",
+      "title": "Group ID",
+      "description": "Group ID to run Code Server as",
+      "default": "1000",
+      "pattern": "^[0-9]+$"
+    },
+    "TZ": {
+      "type": "string",
+      "title": "Timezone",
+      "description": "Timezone for the container",
+      "default": "UTC",
+      "examples": ["America/New_York", "Europe/London", "Asia/Tokyo"]
+    },
+    "PROXY_DOMAIN": {
+      "type": "string",
+      "title": "Proxy Domain",
+      "description": "Domain for proxy configuration",
+      "default": "localhost"
+    }
+  },
+  "required": ["CODE_SERVER_PASSWORD"]
+}

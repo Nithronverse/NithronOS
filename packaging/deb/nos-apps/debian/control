@@ -1,0 +1,24 @@
+Source: nos-apps
+Section: admin
+Priority: optional
+Maintainer: Nithron Team <hello@nithron.com>
+Build-Depends: debhelper (>= 12)
+Standards-Version: 4.5.0
+
+Package: nos-apps
+Architecture: all
+Depends: ${misc:Depends},
+         nosd,
+         nos-apps-runtime,
+         caddy | caddy-custom
+Recommends: nos-agent
+Description: NithronOS App Catalog and Templates
+ Provides the app catalog and templates for NithronOS applications:
+ - Built-in app catalog with popular applications
+ - Docker Compose templates for each app
+ - JSON Schema definitions for configuration
+ - App icons and metadata
+ - Integration with NithronOS web UI
+ .
+ This package contains the catalog data and templates that define
+ available applications in the NithronOS App Store.

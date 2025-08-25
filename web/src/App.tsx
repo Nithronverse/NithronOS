@@ -11,6 +11,9 @@ import { Settings } from './pages/Settings'
 import SettingsSchedules from './routes/settings/schedules'
 import { Remote } from './pages/Remote'
 import { Login } from './pages/Login'
+import { NetworkSettings } from './pages/NetworkSettings'
+import { RemoteAccessWizard } from './pages/RemoteAccessWizard'
+import { TwoFactorSettings } from './pages/TwoFactorSettings'
 import { PoolsCreate } from './pages/PoolsCreate'
 import { PoolDetails } from './pages/PoolDetails'
 import { SettingsUpdates } from './pages/SettingsUpdates'
@@ -104,6 +107,9 @@ const router = createBrowserRouter([
       { path: 'settings', element: <Settings /> },
       { path: 'settings/schedules', element: <SettingsSchedules /> },
       { path: 'settings/updates', element: <SettingsUpdates /> },
+      { path: 'settings/network', element: <NetworkSettings /> },
+      { path: 'settings/network/wizard', element: <RemoteAccessWizard /> },
+      { path: 'settings/2fa', element: <TwoFactorSettings /> },
       { path: 'remote', element: <Remote /> },
       { path: 'storage/create', element: <PoolsCreate /> },
       { path: 'storage/:id', element: <PoolDetails /> },

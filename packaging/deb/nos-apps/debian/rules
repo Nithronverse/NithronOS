@@ -1,0 +1,28 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_install:
+	# Create directory structure
+	install -d $(CURDIR)/debian/nos-apps/usr/share/nithronos/apps
+	install -d $(CURDIR)/debian/nos-apps/usr/share/nithronos/apps/templates
+	install -d $(CURDIR)/debian/nos-apps/usr/share/nithronos/apps/icons
+	install -d $(CURDIR)/debian/nos-apps/etc/caddy/Caddyfile.d
+	install -d $(CURDIR)/debian/nos-apps/etc/systemd/system
+	
+	# Copy catalog and templates from repository
+	if [ -f $(CURDIR)/../../../usr/share/nithronos/apps/catalog.yaml ]; then \
+		cp -r $(CURDIR)/../../../usr/share/nithronos/apps/* $(CURDIR)/debian/nos-apps/usr/share/nithronos/apps/; \
+	fi
+	
+	# Copy systemd unit (will be moved from nos-apps-runtime)
+	if [ -f $(CURDIR)/../nos-apps-runtime/nos-app@.service ]; then \
+		install -m 644 $(CURDIR)/../nos-apps-runtime/nos-app@.service $(CURDIR)/debian/nos-apps/etc/systemd/system/; \
+	fi
+	
+	# Create empty Caddyfile.d directory marker
+	touch $(CURDIR)/debian/nos-apps/etc/caddy/Caddyfile.d/.keep
+
+override_dh_installsystemd:
+	# Don't auto-enable services

@@ -209,7 +209,7 @@ Filters/jails under `deploy/fail2ban/`; see comments inside for enabling.
 - [x] **M1 — Storage Foundation (Btrfs + Health)**: create/import, SMART, scrub/repair, schedules, device ops, destroy, support bundle. (complete)
 - [x] **M2 — Shares & Permissions**: SMB/NFS with simple ACLs, guest toggle, recycle bin, Time Machine (fruit). (complete)
 - [x] **M3 — App Catalog v1 (Docker/Compose)**: one-click apps, lifecycle, health checks, pre-snapshot + rollback. (complete)
-- [ ] **M4 — Networking & Remote**: Remote Access Wizard (LAN-only, WireGuard, reverse tunnel), HTTPS (LE), plan/apply/rollback firewall with 2FA for non-LAN.
+- [x] **M4 — Networking & Remote**: Remote Access Wizard (LAN-only, WireGuard, reverse tunnel), HTTPS (LE), plan/apply/rollback firewall with 2FA for non-LAN. (complete)
 - [ ] **M5 — Updates & Releases**: signed packages, channels (stable/beta), atomic upgrades (snapshot safety net).
 - [ ] **M6 — Installer & First-boot++**: guided disk install (Btrfs subvols), hostname/timezone/network, telemetry opt-in.
 - [ ] **M7 — Backup & Replication**: scheduled snapshots + retention; send/receive (SSH), rclone, restore wizard.
@@ -231,6 +231,7 @@ Filters/jails under `deploy/fail2ban/`; see comments inside for enabling.
 - App runtime architecture → [docs/apps/runtime.md](docs/apps/runtime.md)  
 - Certificates & HTTPS configuration → [docs/admin/certificates.md](docs/admin/certificates.md)  
 - Network shares (SMB/NFS/Time Machine) → [docs/admin/shares.md](docs/admin/shares.md)  
+- Networking & Remote Access → [docs/networking.md](docs/networking.md)  
 - Config & hot reload → [docs/dev/config-and-reload.md](docs/dev/config-and-reload.md)  
 - Recovery mode → [docs/dev/recovery-mode.md](docs/dev/recovery-mode.md)  
 - Updates & rollback → [docs/updates.md](docs/updates.md)  

@@ -1,0 +1,25 @@
+{
+  "log-driver": "local",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  },
+  "storage-driver": "overlay2",
+  "iptables": true,
+  "live-restore": true,
+  "userland-proxy": false,
+  "default-ulimits": {
+    "nofile": {
+      "Name": "nofile",
+      "Hard": 64000,
+      "Soft": 64000
+    }
+  },
+  "shutdown-timeout": 25,
+  "default-address-pools": [
+    {
+      "base": "172.28.0.0/16",
+      "size": 24
+    }
+  ]
+}

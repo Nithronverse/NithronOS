@@ -33,7 +33,8 @@ import (
 	"nithronos/backend/nosd/pkg/firewall"
 	"nithronos/backend/nosd/pkg/httpx"
 	poolroots "nithronos/backend/nosd/pkg/pools"
-	"nithronos/backend/nosd/pkg/shares"
+
+	// "nithronos/backend/nosd/pkg/shares" // TODO: Restore when integrating old shares
 	"nithronos/backend/nosd/pkg/snapdb"
 
 	"nithronos/backend/nosd/internal/fsatomic"
@@ -44,6 +45,12 @@ import (
 
 	"github.com/gorilla/securecookie"
 )
+
+// AgentClient interface for nos-agent interactions
+type AgentClient interface {
+	GetJSON(ctx context.Context, path string, out interface{}) error
+	PostJSON(ctx context.Context, path string, body interface{}, out interface{}) error
+}
 
 // agentMetricsClient implements AgentMetricsClient to fetch text metrics from nos-agent
 type agentMetricsClient struct{ socket string }
@@ -165,14 +172,28 @@ func NewRouter(cfg config.Config) http.Handler {
 	codec := auth.NewSessionCodec(cfg.SessionHashKey, cfg.SessionBlockKey)
 
 	// Initialize shares handler
-	sharesManager := shares.NewManager("")
-	agentClient := agentclient.New(cfg.AgentSocket())
-	logger := Logger(cfg)
-	sharesHandler := &SharesHandler{
-		manager: sharesManager,
-		agent:   agentClient,
-		logger:  logger,
+	// sharesManager := shares.NewManager("")
+	// agentClient := agentclient.New(cfg.AgentSocket())
+	// logger := Logger(cfg)
+	// TODO: Integrate old shares handler with new v1 API
+	// sharesHandler := &SharesHandler{
+	// 	manager: sharesManager,
+	// 	agent:   agentClient,
+	// 	logger:  logger,
+	// }
+
+	// Initialize apps manager
+	appManagerConfig := &apps.Config{
+		AppsRoot:      "/srv/apps",
+		StateFile:     filepath.Join(filepath.Dir(cfg.UsersPath), "apps.json"),
+		CatalogPath:   "/usr/share/nithronos/apps",
+		CachePath:     "/var/lib/nos/apps/catalog.cache.json",
+		SourcesPath:   "/etc/nos/apps/catalogs.d",
+		TemplatesPath: "/usr/share/nithronos/apps",
+		AgentPath:     cfg.AgentSocket(),
+		CaddyPath:     "/etc/caddy/Caddyfile.d",
 	}
+	appsManager, _ := apps.NewManager(appManagerConfig)
 	// Disk-backed session and ratelimit stores
 	sessStore := sessions.New(cfg.SessionsPath)
 	rlStore := ratelimit.New(cfg.RateLimitPath)
@@ -1146,13 +1167,13 @@ func NewRouter(cfg config.Config) http.Handler {
 			}
 			writeJSON(w, out.Users)
 		})
-		// Shares endpoints
-		pr.With(adminRequired).Get("/api/shares", sharesHandler.ListShares)
-		pr.With(adminRequired).Post("/api/shares", sharesHandler.CreateShare)
-		pr.With(adminRequired).Get("/api/shares/{name}", sharesHandler.GetShare)
-		pr.With(adminRequired).Patch("/api/shares/{name}", sharesHandler.UpdateShare)
-		pr.With(adminRequired).Delete("/api/shares/{name}", sharesHandler.DeleteShare)
-		pr.With(adminRequired).Post("/api/shares/{name}/test", sharesHandler.TestShare)
+		// Shares endpoints (replaced by v1 API)
+		// pr.With(adminRequired).Get("/api/shares", sharesHandler.ListShares)
+		// pr.With(adminRequired).Post("/api/shares", sharesHandler.CreateShare)
+		// pr.With(adminRequired).Get("/api/shares/{name}", sharesHandler.GetShare)
+		// pr.With(adminRequired).Patch("/api/shares/{name}", sharesHandler.UpdateShare)
+		// pr.With(adminRequired).Delete("/api/shares/{name}", sharesHandler.DeleteShare)
+		// pr.With(adminRequired).Post("/api/shares/{name}/test", sharesHandler.TestShare)
 
 		pr.With(adminRequired).Post("/api/smb/users", func(w http.ResponseWriter, r *http.Request) {
 			var body struct{ Username, Password string }
@@ -1213,19 +1234,101 @@ func NewRouter(cfg config.Config) http.Handler {
 			w.WriteHeader(http.StatusNoContent)
 		}) */
 
+		// App management routes
+		if appsManager != nil {
+			// Start app manager
+			go appsManager.Start(context.Background())
+
+			// Catalog and installed apps
+			pr.Get("/api/v1/apps/catalog", handleGetCatalog(appsManager))
+			pr.Get("/api/v1/apps/installed", handleGetInstalledApps(appsManager))
+
+			// Individual app operations
+			pr.Get("/api/v1/apps/{id}", handleGetApp(appsManager))
+			pr.Get("/api/v1/apps/{id}/logs", handleGetAppLogs(appsManager))
+			pr.Get("/api/v1/apps/{id}/events", handleGetAppEvents(appsManager))
+
+			// App lifecycle operations (admin only)
+			pr.With(adminRequired).Post("/api/v1/apps/install", handleInstallApp(appsManager))
+			pr.With(adminRequired).Post("/api/v1/apps/{id}/upgrade", handleUpgradeApp(appsManager))
+			pr.With(adminRequired).Post("/api/v1/apps/{id}/start", handleStartApp(appsManager))
+			pr.With(adminRequired).Post("/api/v1/apps/{id}/stop", handleStopApp(appsManager))
+			pr.With(adminRequired).Post("/api/v1/apps/{id}/restart", handleRestartApp(appsManager))
+			pr.With(adminRequired).Post("/api/v1/apps/{id}/rollback", handleRollbackApp(appsManager))
+			pr.With(adminRequired).Delete("/api/v1/apps/{id}", handleDeleteApp(appsManager))
+			pr.With(adminRequired).Post("/api/v1/apps/{id}/health", handleForceHealthCheck(appsManager))
+
+			// Admin operations
+			pr.With(adminRequired).Post("/api/v1/apps/catalog/sync", handleSyncCatalogs(appsManager))
+		}
+
+		// System endpoints
+		systemHandler := NewSystemHandler()
+		pr.Mount("/api/v1/system", systemHandler.Routes())
+
+		// Health endpoints
+		healthHandler := NewHealthHandler(agentclient.New(cfg.AgentSocket()))
+		pr.Mount("/api/v1/health", healthHandler.Routes())
+
+		// Storage endpoints
+		storageHandler := NewStorageHandler(agentclient.New(cfg.AgentSocket()))
+		pr.Mount("/api/v1/storage", storageHandler.Routes())
+
+		// Btrfs endpoints
+		btrfsHandler := NewBtrfsHandler(agentclient.New(cfg.AgentSocket()))
+		pr.Mount("/api/v1/btrfs", btrfsHandler.Routes())
+
+		// Schedule endpoints
+		schedulesHandler := NewSchedulesHandler()
+		pr.Mount("/api/v1/schedules", schedulesHandler.Routes())
+
+		// Share endpoints (v1 API)
+		sharesHandlerV1 := NewSharesHandlerV1()
+		pr.Mount("/api/v1/shares", sharesHandlerV1.Routes())
+
+		// Jobs endpoints
+		jobsHandler := NewJobsHandler()
+		pr.Mount("/api/v1/jobs", jobsHandler.Routes())
+
+		// Network endpoints (M4)
+		netLogger := Logger(cfg)
+		netHandler, err := NewNetHandler(*netLogger)
+		if err != nil {
+			netLogger.Error().Err(err).Msg("Failed to create network handler")
+			// Continue without networking features
+		} else {
+			pr.Mount("/api/v1/net", netHandler.Routes())
+			pr.Mount("/api/v1/auth", netHandler.AuthRoutes())
+		}
+
+		// Legacy app routes (keep for backward compatibility)
 		pr.Get("/api/apps", func(w http.ResponseWriter, r *http.Request) {
-			writeJSON(w, apps.Catalog(cfg.AppsInstallDir))
+			if appsManager != nil {
+				catalog, _ := appsManager.GetCatalog()
+				writeJSON(w, catalog)
+			} else {
+				writeJSON(w, apps.Catalog(cfg.AppsInstallDir))
+			}
 		})
 
 		pr.Get("/api/apps/{id}/status", func(w http.ResponseWriter, r *http.Request) {
 			id := chi.URLParam(r, "id")
-			for _, a := range apps.Catalog(cfg.AppsInstallDir) {
-				if a.ID == id {
-					writeJSON(w, a)
+			if appsManager != nil {
+				app, err := appsManager.GetApp(id)
+				if err != nil {
+					httpx.WriteError(w, http.StatusNotFound, "not found")
 					return
 				}
+				writeJSON(w, app)
+			} else {
+				for _, a := range apps.Catalog(cfg.AppsInstallDir) {
+					if a.ID == id {
+						writeJSON(w, a)
+						return
+					}
+				}
+				httpx.WriteError(w, http.StatusNotFound, "not found")
 			}
-			httpx.WriteError(w, http.StatusNotFound, "not found")
 		})
 
 		pr.With(adminRequired).Post("/api/apps/install", func(w http.ResponseWriter, r *http.Request) {

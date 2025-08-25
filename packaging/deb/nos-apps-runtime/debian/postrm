@@ -1,0 +1,38 @@
+#!/bin/bash
+set -e
+
+# NithronOS Apps Runtime post-removal script
+
+case "$1" in
+    purge)
+        echo "Purging NithronOS Apps Runtime configuration..."
+        
+        # Remove configuration files
+        rm -rf /etc/nos/apps
+        
+        # Remove state files
+        rm -rf /var/lib/nos/apps
+        
+        # Optionally remove app data (commented out to preserve user data by default)
+        # echo "WARNING: To completely remove app data, manually delete /srv/apps"
+        # rm -rf /srv/apps
+        
+        # Remove shared app catalog
+        rm -rf /usr/share/nithronos/apps
+        
+        # Note: We don't remove the service user from docker group
+        # or remove Docker itself as it may be used by other services
+        ;;
+        
+    remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+        ;;
+        
+    *)
+        echo "postrm called with unknown argument: $1" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

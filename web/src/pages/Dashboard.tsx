@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { 
   Activity, 
@@ -7,18 +7,34 @@ import {
   Package,
   RefreshCw,
   Download,
-
   Clock,
   Cpu,
   MemoryStick,
-
+  AlertCircle,
+  CheckCircle,
+  XCircle,
+  Server,
+  Database,
+  FolderOpen,
 } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card-enhanced'
 import { EmptyState } from '@/components/ui/empty-state'
 import { StatusPill, HealthBadge, Metric } from '@/components/ui/status'
 import { Button } from '@/components/ui/button'
-import { useHealth, useDisks, useVolumes, useShares, useApps } from '@/hooks/use-api'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Skeleton } from '@/components/ui/skeleton'
+import { 
+  useSystemInfo, 
+  usePoolsSummary, 
+  useSmartSummary,
+  useScrubStatus,
+  useBalanceStatus,
+  useRecentJobs,
+  useShares,
+  useInstalledApps,
+  useApiStatus,
+} from '@/hooks/use-api'
 import { cn } from '@/lib/utils'
 import { 
   PieChart, 
@@ -32,40 +48,6 @@ import {
   YAxis,
   CartesianGrid
 } from 'recharts'
-
-// Mock data for development - remove when API is ready
-const mockHealth = {
-  status: 'healthy' as const,
-  cpu: 45,
-  memory: 62,
-  uptime: 1234567,
-  alerts: []
-}
-
-const mockDisks = [
-  { name: 'sda', model: 'Samsung SSD', size: 500000000000, used: 250000000000, health: 'healthy' as const, temperature: 35 },
-  { name: 'sdb', model: 'WD Red', size: 2000000000000, used: 1500000000000, health: 'healthy' as const, temperature: 38 },
-]
-
-const mockVolumes = [
-  { id: '1', name: 'main-pool', type: 'zfs' as const, size: 2000000000000, used: 1200000000000, status: 'online' as const, mountpoint: '/mnt/main' },
-]
-
-const mockShares = [
-  { id: '1', name: 'Documents', protocol: 'smb' as const, path: '/mnt/main/docs', access: 'private' as const, status: 'active' as const },
-  { id: '2', name: 'Media', protocol: 'smb' as const, path: '/mnt/main/media', access: 'public' as const, status: 'active' as const },
-]
-
-const mockApps = [
-  { id: '1', name: 'Plex', version: '1.32.5', status: 'running' as const, autoUpdate: true },
-  { id: '2', name: 'Nextcloud', version: '27.1.0', status: 'running' as const, autoUpdate: false },
-]
-
-const mockActivity = [
-  { id: '1', type: 'share', action: 'created', target: 'Documents', time: '2 hours ago', icon: Share2 },
-  { id: '2', type: 'app', action: 'updated', target: 'Plex', time: '5 hours ago', icon: Package },
-  { id: '3', type: 'backup', action: 'completed', target: 'Daily Backup', time: '1 day ago', icon: Download },
-]
 
 // Helper functions
 function formatBytes(bytes: number): string {
@@ -112,47 +94,73 @@ const itemVariants = {
 export function Dashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   
-  // Use real hooks with fallback to mock data
-  const { data: healthData, isLoading: healthLoading, refetch: refetchHealth } = useHealth()
-  const { data: disksData, isLoading: disksLoading, refetch: refetchDisks } = useDisks()
-  const { data: volumesData, isLoading: volumesLoading, refetch: refetchVolumes } = useVolumes()
-  const { data: sharesData, isLoading: sharesLoading, refetch: refetchShares } = useShares()
-  const { data: appsData, isLoading: appsLoading, refetch: refetchApps } = useApps()
-
-  // Use mock data if API fails
-  const health = healthData || mockHealth
-  const disks = disksData || mockDisks
-  const volumes = volumesData || mockVolumes
-  const shares = sharesData || mockShares
-  const apps = appsData || mockApps
-  const activity = mockActivity // TODO: Replace with real activity API
+  // Check API status
+  const { data: apiStatus } = useApiStatus()
+  
+  // Fetch real data from API
+  const { data: systemInfo, isLoading: systemLoading, refetch: refetchSystem } = useSystemInfo()
+  const { data: poolsSummary, isLoading: poolsLoading, refetch: refetchPools } = usePoolsSummary()
+  const { data: smartSummary, isLoading: smartLoading, refetch: refetchSmart } = useSmartSummary()
+  const { data: scrubStatus, isLoading: scrubLoading, refetch: refetchScrub } = useScrubStatus()
+  const { data: balanceStatus, isLoading: balanceLoading, refetch: refetchBalance } = useBalanceStatus()
+  const { data: recentJobs, isLoading: jobsLoading, refetch: refetchJobs } = useRecentJobs(10)
+  const { data: shares, isLoading: sharesLoading, refetch: refetchShares } = useShares()
+  const { data: apps, isLoading: appsLoading, refetch: refetchApps } = useInstalledApps()
 
   const handleRefresh = async () => {
     setIsRefreshing(true)
     await Promise.all([
-      refetchHealth(),
-      refetchDisks(),
-      refetchVolumes(),
+      refetchSystem(),
+      refetchPools(),
+      refetchSmart(),
+      refetchScrub(),
+      refetchBalance(),
+      refetchJobs(),
       refetchShares(),
       refetchApps(),
     ])
     setTimeout(() => setIsRefreshing(false), 500)
   }
 
+  // Show backend error banner if API is unreachable
+  if (apiStatus && !apiStatus.isReachable) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Dashboard"
+          description="System overview and health status"
+        />
+        <Alert className="border-destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Backend unreachable or proxy misconfigured. Please check that the backend service is running.
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+
+  // Calculate overall health status based on SMART and pool status
+  const overallHealth = (() => {
+    if (!smartSummary && !poolsSummary) return 'unknown'
+    if (smartSummary?.criticalDevices || poolsSummary?.poolsDegraded) return 'critical'
+    if (smartSummary?.warningDevices) return 'degraded'
+    return 'healthy'
+  })()
+
   // Calculate storage usage
-  const totalStorage = disks.reduce((acc, disk) => acc + disk.size, 0)
-  const usedStorage = disks.reduce((acc, disk) => acc + (disk.used || 0), 0)
-  const storagePercentage = totalStorage > 0 ? (usedStorage / totalStorage) * 100 : 0
+  const storageData = poolsSummary ? [
+    { name: 'Used', value: poolsSummary.totalUsed, fill: 'hsl(var(--primary))' },
+    { name: 'Free', value: poolsSummary.totalSize - poolsSummary.totalUsed, fill: 'hsl(var(--muted))' },
+  ] : []
 
-  const storageData = [
-    { name: 'Used', value: usedStorage, fill: 'hsl(var(--primary))' },
-    { name: 'Free', value: totalStorage - usedStorage, fill: 'hsl(var(--muted))' },
-  ]
+  const storagePercentage = poolsSummary && poolsSummary.totalSize > 0 
+    ? (poolsSummary.totalUsed / poolsSummary.totalSize) * 100 
+    : 0
 
-  const diskUsageData = disks.slice(0, 5).map(disk => ({
-    name: disk.name,
-    usage: disk.used ? (disk.used / disk.size) * 100 : 0,
-  }))
+  // Get running scrub/balance operations
+  const runningScrubs = scrubStatus?.filter(s => s.status === 'running') || []
+  const runningBalances = balanceStatus?.filter(b => b.status === 'running') || []
 
   return (
     <div className="space-y-6">
@@ -168,7 +176,7 @@ export function Dashboard() {
               disabled={isRefreshing}
             >
               <RefreshCw className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")} />
-              Rescan
+              Refresh
             </Button>
             <Button size="sm">
               <Download className="h-4 w-4 mr-2" />
@@ -188,7 +196,7 @@ export function Dashboard() {
         <motion.div variants={itemVariants}>
           <Card
             title="System Health"
-            isLoading={healthLoading}
+            isLoading={systemLoading || smartLoading}
             className="h-full"
           >
             <div className="space-y-4">
@@ -196,298 +204,388 @@ export function Dashboard() {
                 <div>
                   <p className="text-sm text-muted-foreground">Overall Status</p>
                   <div className="mt-1">
-                    <HealthBadge status={health.status} />
+                    <HealthBadge status={overallHealth} />
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Uptime: {formatUptime(health.uptime)}
-                  </p>
                 </div>
-                <Activity className="h-8 w-8 text-muted-foreground" />
               </div>
               
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2">
-                    <Cpu className="h-4 w-4 text-muted-foreground" />
-                    CPU Load
-                  </span>
-                  <span className="font-medium">{health.cpu}%</span>
-                </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <div 
-                    className={cn(
-                      "h-full transition-all",
-                      health.cpu < 70 ? "bg-green-500" : 
-                      health.cpu < 90 ? "bg-yellow-500" : "bg-red-500"
-                    )}
-                    style={{ width: `${health.cpu}%` }}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2">
-                    <MemoryStick className="h-4 w-4 text-muted-foreground" />
-                    Memory
-                  </span>
-                  <span className="font-medium">{health.memory}%</span>
-                </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <div 
-                    className={cn(
-                      "h-full transition-all",
-                      health.memory < 70 ? "bg-green-500" : 
-                      health.memory < 90 ? "bg-yellow-500" : "bg-red-500"
-                    )}
-                    style={{ width: `${health.memory}%` }}
-                  />
-                </div>
-              </div>
-
-              {health.alerts.length > 0 && (
-                <div className="pt-2 border-t">
-                  <StatusPill variant="warning">
-                    {health.alerts.length} Active Alert{health.alerts.length !== 1 ? 's' : ''}
-                  </StatusPill>
-                </div>
+              {systemInfo && (
+                <>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <Cpu className="h-3 w-3" />
+                        CPU
+                      </span>
+                      <span>{systemInfo.cpuCount || 'N/A'} cores</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <MemoryStick className="h-3 w-3" />
+                        Memory
+                      </span>
+                      <span>
+                        {systemInfo.memoryUsed && systemInfo.memoryTotal 
+                          ? `${formatBytes(systemInfo.memoryUsed)} / ${formatBytes(systemInfo.memoryTotal)}`
+                          : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        Uptime
+                      </span>
+                      <span>{formatUptime(systemInfo.uptime)}</span>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t text-xs text-muted-foreground">
+                    {systemInfo.hostname} • {systemInfo.kernel}
+                  </div>
+                </>
               )}
             </div>
           </Card>
         </motion.div>
 
-        {/* Storage Card */}
+        {/* Storage Overview Card */}
         <motion.div variants={itemVariants}>
           <Card
             title="Storage"
-            isLoading={disksLoading || volumesLoading}
+            isLoading={poolsLoading}
             className="h-full"
+          >
+            {poolsSummary ? (
+              <div className="space-y-4">
+                <div className="h-[100px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={storageData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={30}
+                        outerRadius={40}
+                        dataKey="value"
+                        strokeWidth={0}
+                      >
+                        {storageData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value: number) => formatBytes(value)}
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '6px',
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Used</span>
+                    <span>{formatBytes(poolsSummary.totalUsed)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Total</span>
+                    <span>{formatBytes(poolsSummary.totalSize)}</span>
+                  </div>
+                  <div className="w-full bg-secondary rounded-full h-2">
+                    <div
+                      className="bg-primary h-2 rounded-full transition-all"
+                      style={{ width: `${Math.min(storagePercentage, 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t text-xs text-muted-foreground">
+                  {poolsSummary.totalPools} pool{poolsSummary.totalPools !== 1 ? 's' : ''} • 
+                  {poolsSummary.poolsOnline} online
+                  {poolsSummary.poolsDegraded > 0 && ` • ${poolsSummary.poolsDegraded} degraded`}
+                </div>
+              </div>
+            ) : (
+              <EmptyState
+                icon={Database}
+                title="No pools"
+                description="Create a storage pool to get started"
+                size="sm"
+              />
+            )}
+          </Card>
+        </motion.div>
+
+        {/* SMART Health Card */}
+        <motion.div variants={itemVariants}>
+          <Card
+            title="Disk Health"
+            isLoading={smartLoading}
+            className="h-full"
+          >
+            {smartSummary ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-500">
+                      {smartSummary.healthyDevices}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Healthy</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-yellow-500">
+                      {smartSummary.warningDevices}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Warning</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-red-500">
+                      {smartSummary.criticalDevices}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Critical</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Total Devices</span>
+                    <span>{smartSummary.totalDevices}</span>
+                  </div>
+                  {smartSummary.lastScan && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Last Scan</span>
+                      <span>{new Date(smartSummary.lastScan).toLocaleTimeString()}</span>
+                    </div>
+                  )}
+                </div>
+
+                {smartSummary.criticalDevices > 0 && (
+                  <Alert className="py-2">
+                    <AlertCircle className="h-3 w-3" />
+                    <AlertDescription className="text-xs">
+                      {smartSummary.criticalDevices} disk{smartSummary.criticalDevices !== 1 ? 's' : ''} need attention
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            ) : (
+              <EmptyState
+                icon={HardDrive}
+                title="No data"
+                description="Run SMART scan to check disk health"
+                size="sm"
+              />
+            )}
+          </Card>
+        </motion.div>
+
+        {/* Activity Card */}
+        <motion.div variants={itemVariants}>
+          <Card
+            title="Recent Activity"
+            isLoading={jobsLoading}
+            className="h-full"
+          >
+            {recentJobs && recentJobs.length > 0 ? (
+              <div className="space-y-2">
+                {recentJobs.slice(0, 5).map((job) => (
+                  <div key={job.id} className="flex items-start gap-2 text-sm">
+                    <div className={cn(
+                      "mt-1 h-2 w-2 rounded-full",
+                      job.status === 'completed' && "bg-green-500",
+                      job.status === 'running' && "bg-blue-500 animate-pulse",
+                      job.status === 'failed' && "bg-red-500",
+                      job.status === 'pending' && "bg-yellow-500"
+                    )} />
+                    <div className="flex-1 min-w-0">
+                      <p className="truncate">{job.type}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(job.startedAt).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon={Activity}
+                title="No activity"
+                description="Recent jobs will appear here"
+                size="sm"
+              />
+            )}
+          </Card>
+        </motion.div>
+      </motion.div>
+
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+      >
+        {/* Shares Card */}
+        <motion.div variants={itemVariants}>
+          <Card
+            title="Network Shares"
+            subtitle={`${shares?.length || 0} configured`}
+            isLoading={sharesLoading}
             actions={
-              <Button variant="ghost" size="sm" onClick={() => window.location.href = '/storage'}>
+              <Button variant="outline" size="sm" onClick={() => window.location.href = '/shares'}>
                 View All
               </Button>
             }
           >
-            <div className="space-y-4">
-              <div className="h-32">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={storageData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={40}
-                      outerRadius={60}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {storageData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value: number) => formatBytes(value)} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              
-              <div className="text-center">
-                <p className="text-2xl font-bold">{formatBytes(usedStorage)}</p>
-                <p className="text-sm text-muted-foreground">
-                  of {formatBytes(totalStorage)} used ({storagePercentage.toFixed(1)}%)
-                </p>
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-1">
-                    <HardDrive className="h-3 w-3" />
-                    {disks.length} Disk{disks.length !== 1 ? 's' : ''}
-                  </span>
-                  <span>{volumes.length} Volume{volumes.length !== 1 ? 's' : ''}</span>
-                </div>
-              </div>
-            </div>
-          </Card>
-        </motion.div>
-
-        {/* Shares Card */}
-        <motion.div variants={itemVariants}>
-          <Card
-            title="Shares"
-            isLoading={sharesLoading}
-            className="h-full"
-            actions={
-              <Button variant="ghost" size="sm" onClick={() => window.location.href = '/shares'}>
-                Manage
-              </Button>
-            }
-          >
-            <div className="space-y-4">
-              <Metric
-                label="Active Shares"
-                value={shares.filter(s => s.status === 'active').length}
-                sublabel={`${shares.length} total configured`}
-              />
-              
-              {shares.length > 0 ? (
-                <div className="space-y-2">
-                  {shares.slice(0, 3).map(share => (
-                    <div key={share.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
-                      <div className="flex items-center gap-2">
-                        <Share2 className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">{share.name}</span>
+            {shares && shares.length > 0 ? (
+              <div className="space-y-3">
+                {shares.slice(0, 4).map((share) => (
+                  <div key={share.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">{share.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {share.protocol.toUpperCase()} • {share.path}
+                        </p>
                       </div>
-                      <StatusPill variant={share.status === 'active' ? 'success' : 'muted'}>
-                        {share.protocol.toUpperCase()}
-                      </StatusPill>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <EmptyState
-                  variant="no-data"
-                  title="No shares"
-                  description="Create your first share"
-                  action={{
-                    label: "Create Share",
-                    onClick: () => window.location.href = '/shares'
-                  }}
-                  className="py-4"
-                />
-              )}
-            </div>
+                    <StatusPill 
+                      status={share.enabled ? 'active' : 'inactive'} 
+                      size="sm" 
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon={Share2}
+                title="No shares"
+                description="Create a network share to get started"
+                size="sm"
+                action={
+                  <Button size="sm" onClick={() => window.location.href = '/shares'}>
+                    Create Share
+                  </Button>
+                }
+              />
+            )}
           </Card>
         </motion.div>
 
         {/* Apps Card */}
         <motion.div variants={itemVariants}>
           <Card
-            title="Applications"
+            title="Installed Apps"
+            subtitle={`${apps?.length || 0} installed`}
             isLoading={appsLoading}
-            className="h-full"
             actions={
-              <Button variant="ghost" size="sm" onClick={() => window.location.href = '/apps'}>
+              <Button variant="outline" size="sm" onClick={() => window.location.href = '/apps'}>
                 View All
               </Button>
             }
           >
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <Metric
-                  label="Installed"
-                  value={apps.length}
-                />
-                <Metric
-                  label="Running"
-                  value={apps.filter(a => a.status === 'running').length}
-                />
-              </div>
-              
-              {apps.length > 0 ? (
-                <div className="space-y-2">
-                  {apps.slice(0, 3).map(app => (
-                    <div key={app.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
-                      <div className="flex items-center gap-2">
-                        <Package className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">{app.name}</span>
+            {apps && apps.length > 0 ? (
+              <div className="space-y-3">
+                {apps.slice(0, 4).map((app) => (
+                  <div key={app.id} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Package className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">{app.name}</p>
+                        <p className="text-xs text-muted-foreground">v{app.version}</p>
                       </div>
-                      <StatusPill 
-                        variant={
-                          app.status === 'running' ? 'success' : 
-                          app.status === 'stopped' ? 'muted' : 'error'
-                        }
-                      >
-                        {app.status}
-                      </StatusPill>
                     </div>
-                  ))}
-                </div>
+                    <StatusPill 
+                      status={app.status === 'running' ? 'running' : app.status === 'stopped' ? 'stopped' : 'error'} 
+                      size="sm" 
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon={Package}
+                title="No apps"
+                description="Install apps from the catalog"
+                size="sm"
+                action={
+                  <Button size="sm" onClick={() => window.location.href = '/apps'}>
+                    Browse Catalog
+                  </Button>
+                }
+              />
+            )}
+          </Card>
+        </motion.div>
+
+        {/* Operations Card */}
+        <motion.div variants={itemVariants}>
+          <Card
+            title="Maintenance Operations"
+            isLoading={scrubLoading || balanceLoading}
+          >
+            <div className="space-y-3">
+              {/* Scrub Status */}
+              {runningScrubs.length > 0 ? (
+                runningScrubs.map((scrub) => (
+                  <div key={scrub.poolId} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Scrubbing {scrub.poolId}</span>
+                      <StatusPill status="running" size="sm" />
+                    </div>
+                    {scrub.progress !== undefined && (
+                      <div className="w-full bg-secondary rounded-full h-2">
+                        <div
+                          className="bg-primary h-2 rounded-full transition-all"
+                          style={{ width: `${Math.min(scrub.progress, 100)}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))
               ) : (
-                <EmptyState
-                  variant="no-data"
-                  title="No apps"
-                  description="Install your first app"
-                  action={{
-                    label: "Browse Marketplace",
-                    onClick: () => window.location.href = '/apps'
-                  }}
-                  className="py-4"
-                />
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Scrub</span>
+                  <span>Idle</span>
+                </div>
+              )}
+
+              {/* Balance Status */}
+              {runningBalances.length > 0 ? (
+                runningBalances.map((balance) => (
+                  <div key={balance.poolId} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Balancing {balance.poolId}</span>
+                      <StatusPill status="running" size="sm" />
+                    </div>
+                    {balance.progress !== undefined && (
+                      <div className="w-full bg-secondary rounded-full h-2">
+                        <div
+                          className="bg-primary h-2 rounded-full transition-all"
+                          style={{ width: `${Math.min(balance.progress, 100)}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Balance</span>
+                  <span>Idle</span>
+                </div>
+              )}
+
+              {/* Next scheduled operations */}
+              {scrubStatus && scrubStatus[0]?.nextRun && (
+                <div className="pt-2 border-t text-xs text-muted-foreground">
+                  Next scrub: {new Date(scrubStatus[0].nextRun).toLocaleString()}
+                </div>
               )}
             </div>
           </Card>
         </motion.div>
-      </motion.div>
-
-      {/* Disk Usage Chart */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="grid gap-4 lg:grid-cols-2"
-      >
-        <Card
-          title="Disk Usage"
-          description="Storage utilization by disk"
-          isLoading={disksLoading}
-        >
-          {diskUsageData.length > 0 ? (
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={diskUsageData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="name" className="text-xs" />
-                  <YAxis className="text-xs" />
-                  <Tooltip formatter={(value: number) => `${value.toFixed(1)}%`} />
-                  <Bar dataKey="usage" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <EmptyState
-              variant="no-data"
-              title="No disk data"
-              description="Disk information will appear here"
-            />
-          )}
-        </Card>
-
-        {/* Recent Activity */}
-        <Card
-          title="Recent Activity"
-          description="Latest system events"
-        >
-          {activity.length > 0 ? (
-            <div className="space-y-2">
-              {activity.map((item) => {
-                const Icon = item.icon
-                return (
-                  <div key={item.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/30 transition-colors">
-                    <div className="p-2 rounded-full bg-muted">
-                      <Icon className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm">
-                        <span className="font-medium">{item.target}</span>
-                        <span className="text-muted-foreground"> was {item.action}</span>
-                      </p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {item.time}
-                      </p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            <EmptyState
-              variant="no-data"
-              title="No recent activity"
-              description="System events will appear here"
-            />
-          )}
-        </Card>
       </motion.div>
     </div>
   )

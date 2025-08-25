@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Jellyfin Configuration",
+  "properties": {
+    "JELLYFIN_PORT": {
+      "type": "string",
+      "title": "Web Port",
+      "description": "Port to expose Jellyfin web interface on",
+      "default": "8096",
+      "pattern": "^[0-9]{1,5}$"
+    },
+    "JELLYFIN_DISCOVERY_PORT": {
+      "type": "string",
+      "title": "Discovery Port",
+      "description": "UDP port for service discovery",
+      "default": "7359",
+      "pattern": "^[0-9]{1,5}$"
+    },
+    "JELLYFIN_DLNA_PORT": {
+      "type": "string",
+      "title": "DLNA Port",
+      "description": "UDP port for DLNA",
+      "default": "1900",
+      "pattern": "^[0-9]{1,5}$"
+    },
+    "JELLYFIN_VERSION": {
+      "type": "string",
+      "title": "Jellyfin Version",
+      "description": "Jellyfin version to install",
+      "default": "10.8",
+      "enum": ["10.8", "10.7", "latest"]
+    },
+    "JELLYFIN_URL": {
+      "type": "string",
+      "title": "Public URL",
+      "description": "Public URL for Jellyfin (used for discovery)",
+      "default": "http://localhost:8096"
+    },
+    "MEDIA_PATH": {
+      "type": "string",
+      "title": "Media Path",
+      "description": "Path to your media library",
+      "default": "./data/media"
+    },
+    "PUID": {
+      "type": "string",
+      "title": "User ID",
+      "description": "User ID to run Jellyfin as",
+      "default": "1000",
+      "pattern": "^[0-9]+$"
+    },
+    "PGID": {
+      "type": "string",
+      "title": "Group ID",
+      "description": "Group ID to run Jellyfin as",
+      "default": "1000",
+      "pattern": "^[0-9]+$"
+    },
+    "TZ": {
+      "type": "string",
+      "title": "Timezone",
+      "description": "Timezone for the container",
+      "default": "UTC",
+      "examples": ["America/New_York", "Europe/London", "Asia/Tokyo"]
+    }
+  },
+  "required": []
+}

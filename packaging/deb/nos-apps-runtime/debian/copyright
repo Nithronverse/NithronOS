@@ -1,0 +1,10 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: nos-apps-runtime
+Upstream-Contact: Nithron Team <hello@nithron.com>
+Source: https://github.com/NotTekk/NithronOS
+
+Files: *
+Copyright: 2024 Nithron
+License: NithronOS-Community
+ This software is licensed under the NithronOS Community License.
+ See the LICENSE file in the source distribution for full terms.

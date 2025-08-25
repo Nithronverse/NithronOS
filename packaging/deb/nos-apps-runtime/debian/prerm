@@ -1,0 +1,36 @@
+#!/bin/bash
+set -e
+
+# NithronOS Apps Runtime pre-removal script
+
+case "$1" in
+    remove|upgrade|deconfigure)
+        # Stop all running apps
+        if systemctl is-active --quiet nos-apps.target; then
+            echo "Stopping all NithronOS apps..."
+            systemctl stop nos-apps.target || true
+        fi
+        
+        # Stop individual app services
+        for service in $(systemctl list-units --all --no-legend 'nos-app@*.service' | awk '{print $1}'); do
+            echo "Stopping $service..."
+            systemctl stop "$service" || true
+            systemctl disable "$service" || true
+        done
+        
+        # Note: We don't remove Docker or stop docker.service as other services may depend on it
+        # We also don't remove app data in /srv/apps to preserve user data
+        ;;
+        
+    failed-upgrade)
+        ;;
+        
+    *)
+        echo "prerm called with unknown argument: $1" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

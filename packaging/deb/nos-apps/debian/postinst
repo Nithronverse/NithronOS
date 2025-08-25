@@ -1,0 +1,110 @@
+#!/bin/bash
+set -e
+
+# NithronOS Apps Catalog post-installation script
+
+case "$1" in
+    configure)
+        echo "Setting up NithronOS App Catalog..."
+        
+        # Create required directories
+        mkdir -p /srv/apps
+        mkdir -p /var/lib/nos/apps/state
+        mkdir -p /etc/nos/apps
+        mkdir -p /etc/caddy/Caddyfile.d
+        
+        # Set proper ownership
+        # Use nosd user if it exists, otherwise nos
+        SERVICE_USER="nos"
+        if id "nosd" &>/dev/null; then
+            SERVICE_USER="nosd"
+        elif ! id "nos" &>/dev/null; then
+            # Create nos user if neither exists
+            useradd --system --shell /bin/false --home /nonexistent --no-create-home nos || true
+            SERVICE_USER="nos"
+        fi
+        
+        chown -R "$SERVICE_USER:$SERVICE_USER" /var/lib/nos/apps
+        chown -R "$SERVICE_USER:$SERVICE_USER" /etc/nos/apps
+        
+        # Ensure Docker service is enabled
+        if command -v docker &>/dev/null; then
+            systemctl enable docker.service || true
+            if ! systemctl is-active --quiet docker; then
+                echo "Starting Docker service..."
+                systemctl start docker.service || true
+            fi
+        else
+            echo "WARNING: Docker is not installed. Install nos-apps-runtime package."
+        fi
+        
+        # Reload systemd for new units
+        systemctl daemon-reload
+        
+        # Enable nos-apps target
+        systemctl enable nos-apps.target || true
+        
+        # Update Caddy configuration to include Caddyfile.d
+        CADDY_MAIN="/etc/caddy/Caddyfile"
+        if [ -f "$CADDY_MAIN" ]; then
+            # Check if import directive already exists
+            if ! grep -q "import /etc/caddy/Caddyfile.d/\*.caddy" "$CADDY_MAIN"; then
+                echo "Adding import directive to Caddy configuration..."
+                # Add import at the end of the file, before the last closing brace if it exists
+                if grep -q "^}" "$CADDY_MAIN"; then
+                    # Insert before the last closing brace
+                    sed -i '/^}$/i\    import /etc/caddy/Caddyfile.d/*.caddy' "$CADDY_MAIN"
+                else
+                    # Append to the end
+                    echo "import /etc/caddy/Caddyfile.d/*.caddy" >> "$CADDY_MAIN"
+                fi
+            fi
+            
+            # Reload Caddy
+            if systemctl is-active --quiet caddy; then
+                echo "Reloading Caddy configuration..."
+                caddy reload --config "$CADDY_MAIN" 2>/dev/null || \
+                systemctl reload caddy || \
+                systemctl restart caddy || true
+            fi
+        fi
+        
+        # Create initial catalog cache
+        if [ ! -f /var/lib/nos/apps/catalog.cache.json ]; then
+            # Copy built-in catalog as initial cache
+            if [ -f /usr/share/nithronos/apps/catalog.yaml ]; then
+                echo "Creating initial catalog cache..."
+                # Simple YAML to JSON conversion (requires yq or python)
+                if command -v python3 &>/dev/null; then
+                    python3 -c "
+import yaml, json, sys
+with open('/usr/share/nithronos/apps/catalog.yaml') as f:
+    data = yaml.safe_load(f)
+with open('/var/lib/nos/apps/catalog.cache.json', 'w') as f:
+    json.dump(data, f, indent=2)
+" 2>/dev/null || true
+                fi
+                chown "$SERVICE_USER:$SERVICE_USER" /var/lib/nos/apps/catalog.cache.json 2>/dev/null || true
+            fi
+        fi
+        
+        echo "NithronOS App Catalog setup complete"
+        echo ""
+        echo "App templates installed in: /usr/share/nithronos/apps/templates/"
+        echo "App data will be stored in: /srv/apps/"
+        echo ""
+        echo "Access the App Catalog at: https://your-server/apps"
+        ;;
+        
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+        
+    *)
+        echo "postinst called with unknown argument: $1" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

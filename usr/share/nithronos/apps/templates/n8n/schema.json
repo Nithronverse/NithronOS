@@ -1,0 +1,117 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "n8n Configuration",
+  "properties": {
+    "N8N_PORT": {
+      "type": "string",
+      "title": "Web Port",
+      "description": "Port to expose n8n web interface on",
+      "default": "5678",
+      "pattern": "^[0-9]{1,5}$"
+    },
+    "N8N_VERSION": {
+      "type": "string",
+      "title": "n8n Version",
+      "description": "n8n version to install",
+      "default": "latest",
+      "enum": ["latest", "1.18.0", "1.17.1", "1.16.0"]
+    },
+    "N8N_BASIC_AUTH_USER": {
+      "type": "string",
+      "title": "Username",
+      "description": "Username for n8n web interface",
+      "minLength": 3,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "N8N_BASIC_AUTH_PASSWORD": {
+      "type": "string",
+      "title": "Password",
+      "description": "Password for n8n web interface",
+      "format": "password",
+      "minLength": 8
+    },
+    "N8N_ENCRYPTION_KEY": {
+      "type": "string",
+      "title": "Encryption Key",
+      "description": "Key to encrypt credentials in database (auto-generated if not provided)",
+      "format": "password",
+      "minLength": 16
+    },
+    "DB_PASSWORD": {
+      "type": "string",
+      "title": "Database Password",
+      "description": "Password for PostgreSQL database",
+      "format": "password",
+      "minLength": 8
+    },
+    "DB_USER": {
+      "type": "string",
+      "title": "Database User",
+      "description": "PostgreSQL database username",
+      "default": "n8n",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+    },
+    "DB_NAME": {
+      "type": "string",
+      "title": "Database Name",
+      "description": "PostgreSQL database name",
+      "default": "n8n",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+    },
+    "POSTGRES_VERSION": {
+      "type": "string",
+      "title": "PostgreSQL Version",
+      "description": "PostgreSQL version to use",
+      "default": "15-alpine",
+      "enum": ["15-alpine", "14-alpine", "13-alpine"]
+    },
+    "N8N_HOST": {
+      "type": "string",
+      "title": "n8n Host",
+      "description": "Hostname for n8n (used for webhooks)",
+      "default": "localhost"
+    },
+    "N8N_PROTOCOL": {
+      "type": "string",
+      "title": "Protocol",
+      "description": "Protocol for n8n URLs",
+      "default": "http",
+      "enum": ["http", "https"]
+    },
+    "WEBHOOK_URL": {
+      "type": "string",
+      "title": "Webhook Base URL",
+      "description": "Base URL for webhooks (e.g., https://n8n.yourdomain.com)",
+      "default": "http://localhost:5678",
+      "format": "uri"
+    },
+    "EXECUTIONS_PROCESS": {
+      "type": "string",
+      "title": "Execution Process",
+      "description": "How to process workflow executions",
+      "default": "main",
+      "enum": ["main", "own"]
+    },
+    "TZ": {
+      "type": "string",
+      "title": "Timezone",
+      "description": "Timezone for the container",
+      "default": "UTC",
+      "examples": ["America/New_York", "Europe/London", "Asia/Tokyo"]
+    },
+    "N8N_BASIC_AUTH_ACTIVE": {
+      "type": "string",
+      "title": "Enable Basic Auth",
+      "description": "Enable basic authentication for web interface",
+      "default": "true",
+      "enum": ["true", "false"]
+    }
+  },
+  "required": [
+    "N8N_BASIC_AUTH_USER",
+    "N8N_BASIC_AUTH_PASSWORD",
+    "DB_PASSWORD",
+    "N8N_ENCRYPTION_KEY"
+  ]
+}

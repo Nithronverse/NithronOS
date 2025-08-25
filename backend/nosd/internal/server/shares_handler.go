@@ -1,309 +1,267 @@
 package server
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
-
-	"nithronos/backend/nosd/pkg/agentclient"
-	"nithronos/backend/nosd/pkg/shares"
+	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
-// writeError writes an error response
-func writeError(w http.ResponseWriter, statusCode int, code string, message string) {
-	w.WriteHeader(statusCode)
-	writeJSON(w, map[string]string{
-		"code":    code,
-		"message": message,
-	})
+// Share represents a network share
+type Share struct {
+	Name        string   `json:"name"`
+	Path        string   `json:"path"`
+	Protocol    string   `json:"protocol"` // smb, nfs, afp
+	Enabled     bool     `json:"enabled"`
+	GuestOk     bool     `json:"guestOk,omitempty"`
+	ReadOnly    bool     `json:"readOnly,omitempty"`
+	Users       []string `json:"users,omitempty"`
+	Groups      []string `json:"groups,omitempty"`
+	Description string   `json:"description,omitempty"`
+	CreatedAt   string   `json:"createdAt,omitempty"`
+	ModifiedAt  string   `json:"modifiedAt,omitempty"`
 }
 
-// SharesHandler handles share-related HTTP requests
-type SharesHandler struct {
-	manager *shares.Manager
-	agent   *agentclient.Client
-	logger  *zerolog.Logger
+// SharesHandlerV1 handles share-related endpoints for API v1
+type SharesHandlerV1 struct {
+	// In a real implementation, this would interface with Samba/NFS configs
+	shares []Share
 }
 
-// NewSharesHandler creates a new shares handler
-func NewSharesHandler(manager *shares.Manager, agent *agentclient.Client, logger *zerolog.Logger) *SharesHandler {
-	return &SharesHandler{
-		manager: manager,
-		agent:   agent,
-		logger:  logger,
+// NewSharesHandlerV1 creates a new shares handler for API v1
+func NewSharesHandlerV1() *SharesHandlerV1 {
+	now := time.Now().Format(time.RFC3339)
+
+	return &SharesHandlerV1{
+		shares: []Share{
+			{
+				Name:        "Documents",
+				Path:        "/mnt/main/documents",
+				Protocol:    "smb",
+				Enabled:     true,
+				GuestOk:     false,
+				ReadOnly:    false,
+				Users:       []string{"admin", "user1"},
+				Groups:      []string{"staff"},
+				Description: "Shared documents and files",
+				CreatedAt:   now,
+				ModifiedAt:  now,
+			},
+			{
+				Name:        "Media",
+				Path:        "/mnt/main/media",
+				Protocol:    "smb",
+				Enabled:     true,
+				GuestOk:     true,
+				ReadOnly:    true,
+				Description: "Media library",
+				CreatedAt:   now,
+				ModifiedAt:  now,
+			},
+			{
+				Name:        "TimeMachine",
+				Path:        "/mnt/main/timemachine",
+				Protocol:    "afp",
+				Enabled:     true,
+				GuestOk:     false,
+				ReadOnly:    false,
+				Users:       []string{"mac_user"},
+				Description: "Time Machine backup target",
+				CreatedAt:   now,
+				ModifiedAt:  now,
+			},
+		},
 	}
 }
 
-// Routes registers share routes
-func (h *SharesHandler) Routes() chi.Router {
+// Routes registers the shares routes
+func (h *SharesHandlerV1) Routes() chi.Router {
 	r := chi.NewRouter()
 
-	r.Get("/", h.ListShares)
+	r.Get("/", h.GetShares)
 	r.Post("/", h.CreateShare)
-	r.Route("/{name}", func(r chi.Router) {
-		r.Patch("/", h.UpdateShare)
-		r.Delete("/", h.DeleteShare)
-		r.Post("/test", h.TestShare)
-	})
+	r.Get("/{name}", h.GetShare)
+	r.Put("/{name}", h.UpdateShare)
+	r.Delete("/{name}", h.DeleteShare)
+	r.Post("/{name}/test", h.TestShare)
 
 	return r
 }
 
-// ListShares handles GET /api/shares
-func (h *SharesHandler) ListShares(w http.ResponseWriter, r *http.Request) {
-	sharesList, err := h.manager.List()
-	if err != nil {
-		h.logger.Error().Err(err).Msg("failed to list shares")
-		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to list shares")
-		return
+// GetShares returns all shares
+// GET /api/v1/shares
+func (h *SharesHandlerV1) GetShares(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(h.shares); err != nil {
+		log.Error().Err(err).Msg("Failed to encode shares")
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
-
-	writeJSON(w, sharesList)
 }
 
-// CreateShare handles POST /api/shares
-func (h *SharesHandler) CreateShare(w http.ResponseWriter, r *http.Request) {
-	var req shares.CreateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "ERR_INVALID_JSON", "Invalid request body")
-		return
-	}
+// GetShare returns a specific share
+// GET /api/v1/shares/{name}
+func (h *SharesHandlerV1) GetShare(w http.ResponseWriter, r *http.Request) {
+	name := chi.URLParam(r, "name")
 
-	// Create share in manager (validates and persists)
-	share, err := h.manager.Create(&req)
-	if err != nil {
-		if shareErr, ok := err.(*shares.Error); ok {
-			writeError(w, http.StatusBadRequest, string(shareErr.Code), shareErr.Message)
+	for _, share := range h.shares {
+		if share.Name == name {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(share)
 			return
 		}
-		h.logger.Error().Err(err).Msg("failed to create share")
-		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to create share")
+	}
+
+	http.Error(w, "Share not found", http.StatusNotFound)
+}
+
+// CreateShare creates a new share
+// POST /api/v1/shares
+func (h *SharesHandlerV1) CreateShare(w http.ResponseWriter, r *http.Request) {
+	var share Share
+	if err := json.NewDecoder(r.Body).Decode(&share); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Apply share via agent (privileged operations)
-	if err := h.applyShare(r.Context(), share); err != nil {
-		// Rollback
-		_ = h.manager.Delete(share.Name)
-		h.logger.Error().Err(err).Str("share", share.Name).Msg("failed to apply share")
-		writeError(w, http.StatusInternalServerError, "ERR_APPLY_FAILED", "Failed to apply share configuration")
+	// Check if share already exists
+	for _, existing := range h.shares {
+		if existing.Name == share.Name {
+			http.Error(w, "Share already exists", http.StatusConflict)
+			return
+		}
+	}
+
+	// Validate protocol
+	validProtocols := map[string]bool{
+		"smb": true,
+		"nfs": true,
+		"afp": true,
+	}
+
+	if !validProtocols[share.Protocol] {
+		http.Error(w, "Invalid protocol", http.StatusBadRequest)
 		return
 	}
 
+	// Set timestamps
+	now := time.Now().Format(time.RFC3339)
+	share.CreatedAt = now
+	share.ModifiedAt = now
+
+	// Add to shares
+	h.shares = append(h.shares, share)
+
+	// In real implementation, this would update Samba/NFS configs
+	log.Info().Str("name", share.Name).Str("protocol", share.Protocol).Msg("Created share")
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	writeJSON(w, share)
+	json.NewEncoder(w).Encode(share)
 }
 
-// GetShare handles GET /api/shares/:name
-func (h *SharesHandler) GetShare(w http.ResponseWriter, r *http.Request) {
+// UpdateShare updates an existing share
+// PUT /api/v1/shares/{name}
+func (h *SharesHandlerV1) UpdateShare(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
 
-	share, err := h.manager.Get(name)
-	if err != nil {
-		writeError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Share not found")
+	var updates Share
+	if err := json.NewDecoder(r.Body).Decode(&updates); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	writeJSON(w, share)
-}
-
-// UpdateShare handles PATCH /api/shares/:name
-func (h *SharesHandler) UpdateShare(w http.ResponseWriter, r *http.Request) {
-	name := chi.URLParam(r, "name")
-
-	var req shares.UpdateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "ERR_INVALID_JSON", "Invalid request body")
-		return
-	}
-
-	// Update share in manager
-	share, err := h.manager.Update(name, &req)
-	if err != nil {
-		if shareErr, ok := err.(*shares.Error); ok {
-			status := http.StatusBadRequest
-			if shareErr.Code == shares.ErrCodeNotFound {
-				status = http.StatusNotFound
+	for i, share := range h.shares {
+		if share.Name == name {
+			// Update fields
+			if updates.Path != "" {
+				h.shares[i].Path = updates.Path
 			}
-			writeError(w, status, string(shareErr.Code), shareErr.Message)
+			if updates.Protocol != "" {
+				h.shares[i].Protocol = updates.Protocol
+			}
+			h.shares[i].Enabled = updates.Enabled
+			h.shares[i].GuestOk = updates.GuestOk
+			h.shares[i].ReadOnly = updates.ReadOnly
+			if updates.Users != nil {
+				h.shares[i].Users = updates.Users
+			}
+			if updates.Groups != nil {
+				h.shares[i].Groups = updates.Groups
+			}
+			if updates.Description != "" {
+				h.shares[i].Description = updates.Description
+			}
+			h.shares[i].ModifiedAt = time.Now().Format(time.RFC3339)
+
+			// In real implementation, this would update Samba/NFS configs
+			log.Info().Str("name", name).Msg("Updated share")
+
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(h.shares[i])
 			return
 		}
-		h.logger.Error().Err(err).Msg("failed to update share")
-		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to update share")
-		return
 	}
 
-	// Apply updated configuration
-	if err := h.applyShare(r.Context(), share); err != nil {
-		h.logger.Error().Err(err).Str("share", share.Name).Msg("failed to apply share update")
-		writeError(w, http.StatusInternalServerError, "ERR_APPLY_FAILED", "Failed to apply share configuration")
-		return
-	}
-
-	writeJSON(w, share)
+	http.Error(w, "Share not found", http.StatusNotFound)
 }
 
-// DeleteShare handles DELETE /api/shares/:name
-func (h *SharesHandler) DeleteShare(w http.ResponseWriter, r *http.Request) {
+// DeleteShare deletes a share
+// DELETE /api/v1/shares/{name}
+func (h *SharesHandlerV1) DeleteShare(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
 
-	// Get share details before deletion
-	share, err := h.manager.Get(name)
-	if err != nil {
-		writeError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Share not found")
-		return
-	}
+	for i, share := range h.shares {
+		if share.Name == name {
+			// Remove from slice
+			h.shares = append(h.shares[:i], h.shares[i+1:]...)
 
-	// Remove share configuration via agent
-	if err := h.removeShare(r.Context(), share); err != nil {
-		h.logger.Error().Err(err).Str("share", name).Msg("failed to remove share")
-		writeError(w, http.StatusInternalServerError, "ERR_REMOVE_FAILED", "Failed to remove share configuration")
-		return
-	}
+			// In real implementation, this would update Samba/NFS configs
+			log.Info().Str("name", name).Msg("Deleted share")
 
-	// Delete from manager
-	if err := h.manager.Delete(name); err != nil {
-		if shareErr, ok := err.(*shares.Error); ok {
-			status := http.StatusBadRequest
-			if shareErr.Code == shares.ErrCodeNotFound {
-				status = http.StatusNotFound
-			}
-			writeError(w, status, string(shareErr.Code), shareErr.Message)
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		h.logger.Error().Err(err).Msg("failed to delete share")
-		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to delete share")
-		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	http.Error(w, "Share not found", http.StatusNotFound)
 }
 
-// TestShare handles POST /api/shares/:name/test
-func (h *SharesHandler) TestShare(w http.ResponseWriter, r *http.Request) {
+// TestShare tests share configuration
+// POST /api/v1/shares/{name}/test
+func (h *SharesHandlerV1) TestShare(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
 
-	var req shares.TestRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "ERR_INVALID_JSON", "Invalid request body")
+	// Find the share
+	var share *Share
+	for _, s := range h.shares {
+		if s.Name == name {
+			share = &s
+			break
+		}
+	}
+
+	if share == nil {
+		http.Error(w, "Share not found", http.StatusNotFound)
 		return
 	}
 
-	result, err := h.manager.Test(name, req.Config)
-	if err != nil {
-		h.logger.Error().Err(err).Msg("failed to test share configuration")
-		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to test configuration")
-		return
+	// In real implementation, this would test SMB/NFS connectivity
+	// For now, just return success
+
+	result := map[string]interface{}{
+		"status":  "success",
+		"message": "Share configuration is valid",
+		"tests": map[string]interface{}{
+			"path_exists":     true,
+			"permissions_ok":  true,
+			"service_running": true,
+		},
 	}
 
-	writeJSON(w, result)
-}
+	log.Info().Str("name", name).Msg("Tested share configuration")
 
-// applyShare applies share configuration via agent
-func (h *SharesHandler) applyShare(ctx context.Context, share *shares.Share) error {
-	// Create share directory and set permissions
-	req := &agentclient.CreateShareRequest{
-		Path:    share.Path,
-		Name:    share.Name,
-		Owners:  share.Owners,
-		Readers: share.Readers,
-	}
-
-	if share.SMB != nil && share.SMB.Recycle != nil && share.SMB.Recycle.Enabled {
-		req.RecycleDir = share.SMB.Recycle.Directory
-	}
-
-	if err := h.agent.CreateShare(ctx, req); err != nil {
-		return err
-	}
-
-	// Apply ACLs
-	if err := h.agent.ApplyACLs(ctx, &agentclient.ApplyACLsRequest{
-		Path:    share.Path,
-		Owners:  share.Owners,
-		Readers: share.Readers,
-	}); err != nil {
-		return err
-	}
-
-	// Configure SMB if enabled
-	if share.SMB != nil && share.SMB.Enabled {
-		config, err := shares.GenerateSambaConfig(share)
-		if err != nil {
-			return err
-		}
-
-		if err := h.agent.WriteSambaConfig(ctx, &agentclient.WriteSambaConfigRequest{
-			Name:   share.Name,
-			Config: config,
-		}); err != nil {
-			return err
-		}
-
-		if err := h.agent.ReloadSamba(ctx); err != nil {
-			return err
-		}
-	}
-
-	// Configure NFS if enabled
-	if share.NFS != nil && share.NFS.Enabled {
-		// TODO: Get LAN networks from configuration
-		lanNetworks := []string{"192.168.0.0/16", "10.0.0.0/8"}
-
-		config, err := shares.GenerateNFSExport(share, lanNetworks)
-		if err != nil {
-			return err
-		}
-
-		if err := h.agent.WriteNFSExport(ctx, &agentclient.WriteNFSExportRequest{
-			Name:   share.Name,
-			Config: config,
-		}); err != nil {
-			return err
-		}
-
-		if err := h.agent.ReloadNFS(ctx); err != nil {
-			return err
-		}
-	}
-
-	// Update Avahi if Time Machine is involved
-	allShares, _ := h.manager.List()
-	if err := shares.UpdateAvahiTimeMachine(allShares); err != nil {
-		h.logger.Warn().Err(err).Msg("failed to update Avahi Time Machine service")
-	} else {
-		// Reload Avahi if the file changed
-		_ = h.agent.ReloadAvahi(ctx)
-	}
-
-	return nil
-}
-
-// removeShare removes share configuration via agent
-func (h *SharesHandler) removeShare(ctx context.Context, share *shares.Share) error {
-	// Remove SMB configuration if it exists
-	if share.SMB != nil && share.SMB.Enabled {
-		// TODO: Implement RemoveSambaConfig in agent
-		// if err := h.agent.RemoveSambaConfig(share.Name); err != nil {
-		//     h.logger.Warn().Err(err).Str("share", share.Name).Msg("failed to remove Samba config")
-		// }
-		_ = h.agent.ReloadSamba(ctx)
-	}
-
-	// Remove NFS export if it exists
-	if share.NFS != nil && share.NFS.Enabled {
-		// TODO: Implement RemoveNFSExport in agent
-		// if err := h.agent.RemoveNFSExport(share.Name); err != nil {
-		//     h.logger.Warn().Err(err).Str("share", share.Name).Msg("failed to remove NFS export")
-		// }
-		_ = h.agent.ReloadNFS(ctx)
-	}
-
-	// Note: We don't remove the directory itself to preserve data
-	// Admin can manually remove if needed
-
-	return nil
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
 }

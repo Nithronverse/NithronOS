@@ -1,0 +1,165 @@
+#!/bin/bash
+set -e
+
+# NithronOS Apps Runtime post-installation script
+
+# Determine the service user (nos or nosd)
+SERVICE_USER="nos"
+if id "nosd" &>/dev/null; then
+    SERVICE_USER="nosd"
+elif ! id "nos" &>/dev/null; then
+    # Create nos user if neither exists
+    useradd --system --shell /bin/false --home /nonexistent --no-create-home nos || true
+    SERVICE_USER="nos"
+fi
+
+case "$1" in
+    configure)
+        # Setup Docker repository if Docker is not installed
+        if ! dpkg -l docker-ce &>/dev/null 2>&1; then
+            echo "Setting up Docker repository..."
+            /usr/lib/nos/apps/setup-docker-repo.sh || true
+            
+            # Install Docker packages
+            echo "Installing Docker packages..."
+            apt-get update
+            apt-get install -y \
+                docker-ce \
+                docker-ce-cli \
+                containerd.io \
+                docker-buildx-plugin \
+                docker-compose-plugin || {
+                    echo "WARNING: Failed to install Docker packages."
+                    echo "You may need to install them manually."
+                }
+        fi
+        
+        # Create docker group if it doesn't exist
+        if ! getent group docker >/dev/null; then
+            groupadd --system docker
+        fi
+        
+        # Add service user to docker group
+        if ! groups "$SERVICE_USER" | grep -q docker; then
+            usermod -a -G docker "$SERVICE_USER"
+            echo "Added $SERVICE_USER to docker group"
+        fi
+        
+        # Create directory structure with proper permissions
+        echo "Creating directory structure..."
+        
+        # Main app directories
+        install -d -m 0755 /srv/apps
+        install -d -m 0755 /srv/apps/.snapshots
+        
+        # State and config directories (owned by service user)
+        install -d -m 0700 -o "$SERVICE_USER" -g "$SERVICE_USER" /var/lib/nos/apps
+        install -d -m 0700 -o "$SERVICE_USER" -g "$SERVICE_USER" /var/lib/nos/apps/state
+        install -d -m 0700 -o "$SERVICE_USER" -g "$SERVICE_USER" /etc/nos/apps
+        
+        # Shared app catalog (read-only)
+        install -d -m 0755 /usr/share/nithronos/apps
+        
+        # Apply Docker daemon configuration
+        if [[ -f /etc/docker/daemon.json ]]; then
+            # Backup existing config
+            if [[ -f /etc/docker/daemon.json.pre-nos ]]; then
+                echo "Docker daemon config already configured"
+            else
+                cp /etc/docker/daemon.json /etc/docker/daemon.json.pre-nos
+                echo "Backed up existing Docker config to /etc/docker/daemon.json.pre-nos"
+            fi
+        fi
+        
+        # Reload Docker daemon if running
+        if systemctl is-active --quiet docker; then
+            echo "Reloading Docker daemon configuration..."
+            systemctl reload docker || systemctl restart docker
+        else
+            echo "Starting Docker service..."
+            systemctl enable docker
+            systemctl start docker
+        fi
+        
+        # Wait for Docker to be ready
+        echo "Waiting for Docker to be ready..."
+        for i in {1..30}; do
+            if docker info &>/dev/null; then
+                echo "Docker is ready"
+                break
+            fi
+            sleep 1
+        done
+        
+        # Enable nos-apps.target but don't start it
+        systemctl enable nos-apps.target || true
+        
+        # Create initial app catalog config
+        if [[ ! -f /etc/nos/apps/catalog.json ]]; then
+            cat > /etc/nos/apps/catalog.json <<'EOF'
+{
+    "version": "1.0",
+    "channel": "stable",
+    "catalog_url": "https://raw.githubusercontent.com/NotTekk/NithronOS/main/app-catalog/catalog.json",
+    "auto_update": false,
+    "last_updated": null
+}
+EOF
+            chown "$SERVICE_USER:$SERVICE_USER" /etc/nos/apps/catalog.json
+            chmod 0600 /etc/nos/apps/catalog.json
+        fi
+        
+        # Create example app catalog entry
+        mkdir -p /usr/share/nithronos/apps/templates
+        cat > /usr/share/nithronos/apps/templates/hello-world.json <<'EOF'
+{
+    "id": "hello-world",
+    "name": "Hello World",
+    "version": "latest",
+    "description": "Simple test container",
+    "icon": "docker.svg",
+    "category": "testing",
+    "compose": {
+        "version": "3.8",
+        "services": {
+            "hello": {
+                "image": "hello-world:latest",
+                "restart": "no",
+                "read_only": true,
+                "security_opt": [
+                    "no-new-privileges:true"
+                ]
+            }
+        }
+    },
+    "requirements": {
+        "min_memory": 128,
+        "min_disk": 100,
+        "needs_privileged": false
+    }
+}
+EOF
+        
+        echo "NithronOS Apps Runtime installation completed successfully"
+        
+        # Show status
+        if docker info &>/dev/null; then
+            echo "Docker is operational"
+            docker --version
+        else
+            echo "WARNING: Docker is not yet operational. You may need to restart the system."
+        fi
+        ;;
+        
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+        
+    *)
+        echo "postinst called with unknown argument: $1" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { 
   HardDrive, 
@@ -16,7 +16,8 @@ import {
   ChevronRight,
   Thermometer,
   Zap,
-  Clock
+  Clock,
+  AlertCircle
 } from 'lucide-react'
 import { ColumnDef } from '@tanstack/react-table'
 import { PageHeader } from '@/components/ui/page-header'
@@ -26,23 +27,20 @@ import { StatusPill, HealthBadge } from '@/components/ui/status'
 import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/ui/data-table'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { useDisks, useVolumes } from '@/hooks/use-api'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Skeleton } from '@/components/ui/skeleton'
+import { 
+  usePools, 
+  useDevices, 
+  useSmartDevice,
+  useScrubStatus,
+  useBalanceStatus,
+  useStartScrub,
+  useStartBalance,
+  useApiStatus
+} from '@/hooks/use-api'
 import { cn } from '@/lib/utils'
-import type { Disk, Volume } from '@/lib/api-client'
-
-// Mock SMART data
-const mockSmartData = {
-  sda: {
-    temperature: 35,
-    powerOnHours: 8760,
-    attributes: [
-      { id: 5, name: 'Reallocated Sectors', value: 0, threshold: 36, status: 'ok' },
-      { id: 9, name: 'Power On Hours', value: 8760, threshold: 0, status: 'ok' },
-      { id: 194, name: 'Temperature', value: 35, threshold: 0, status: 'ok' },
-      { id: 197, name: 'Current Pending Sectors', value: 0, threshold: 0, status: 'ok' },
-    ]
-  }
-}
+import type { Device, Pool, SmartData } from '@/lib/api'
 
 // Helper functions
 function formatBytes(bytes: number): string {
@@ -53,15 +51,15 @@ function formatBytes(bytes: number): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
 }
 
-// Disk columns
-const diskColumns: ColumnDef<Disk>[] = [
+// Device columns
+const deviceColumns: ColumnDef<Device>[] = [
   {
-    accessorKey: 'name',
+    accessorKey: 'path',
     header: 'Device',
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
         <HardDrive className="h-4 w-4 text-muted-foreground" />
-        <span className="font-mono">{row.original.name}</span>
+        <span className="font-mono">{row.original.path}</span>
       </div>
     ),
   },
@@ -76,113 +74,83 @@ const diskColumns: ColumnDef<Disk>[] = [
     cell: ({ row }) => formatBytes(row.original.size),
   },
   {
-    accessorKey: 'used',
-    header: 'Usage',
-    cell: ({ row }) => {
-      const used = row.original.used || 0
-      const size = row.original.size
-      const percentage = size > 0 ? (used / size) * 100 : 0
-      return (
-        <div className="flex items-center gap-2">
-          <div className="w-24">
-            <div className="h-2 bg-muted rounded-full overflow-hidden">
-              <div 
-                className={cn(
-                  "h-full transition-all",
-                  percentage < 70 ? "bg-green-500" : 
-                  percentage < 90 ? "bg-yellow-500" : "bg-red-500"
-                )}
-                style={{ width: `${percentage}%` }}
-              />
-            </div>
-          </div>
-          <span className="text-sm text-muted-foreground">
-            {percentage.toFixed(1)}%
-          </span>
-        </div>
-      )
-    },
+    accessorKey: 'type',
+    header: 'Type',
+    cell: ({ row }) => (
+      <span className="uppercase text-xs font-medium">
+        {row.original.type || 'Unknown'}
+      </span>
+    ),
   },
   {
-    accessorKey: 'health',
-    header: 'Health',
-    cell: ({ row }) => {
-      const health = row.original.health || 'healthy'
-      return <HealthBadge status={health === 'healthy' ? 'healthy' : health === 'warning' ? 'degraded' : 'critical'} />
-    },
+    accessorKey: 'inUse',
+    header: 'Status',
+    cell: ({ row }) => (
+      <StatusPill 
+        status={row.original.inUse ? 'active' : 'inactive'} 
+        size="sm"
+        label={row.original.inUse ? `In use (${row.original.pool})` : 'Available'}
+      />
+    ),
   },
   {
-    accessorKey: 'temperature',
-    header: 'Temp',
-    cell: ({ row }) => {
-      const temp = row.original.temperature
-      if (!temp) return '-'
-      return (
-        <div className="flex items-center gap-1">
-          <Thermometer className="h-4 w-4 text-muted-foreground" />
-          <span className={cn(
-            "text-sm",
-            temp < 40 ? "text-green-600" :
-            temp < 50 ? "text-yellow-600" : "text-red-600"
-          )}>
-            {temp}°C
-          </span>
-        </div>
-      )
-    },
-  },
-  {
-    id: 'actions',
-    header: 'Actions',
-    cell: () => (
-      <div className="flex items-center gap-1">
-        <Button variant="ghost" size="sm">
-          <Info className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="sm">
-          <Lightbulb className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="sm">
-          <Power className="h-4 w-4" />
-        </Button>
-      </div>
+    accessorKey: 'actions',
+    header: '',
+    cell: ({ row }) => (
+      <Button 
+        variant="ghost" 
+        size="xs"
+        disabled={row.original.inUse}
+      >
+        <ChevronRight className="h-4 w-4" />
+      </Button>
     ),
   },
 ]
 
-// Volume columns
-const volumeColumns: ColumnDef<Volume>[] = [
+// Pool columns
+const poolColumns: ColumnDef<Pool>[] = [
   {
-    accessorKey: 'name',
-    header: 'Name',
+    accessorKey: 'label',
+    header: 'Pool',
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
         <Database className="h-4 w-4 text-muted-foreground" />
-        <span className="font-medium">{row.original.name}</span>
+        <div>
+          <div className="font-medium">{row.original.label || row.original.id}</div>
+          <div className="text-xs text-muted-foreground">{row.original.mountpoint}</div>
+        </div>
       </div>
     ),
   },
   {
-    accessorKey: 'type',
-    header: 'Type',
+    accessorKey: 'raid',
+    header: 'RAID',
     cell: ({ row }) => (
-      <StatusPill variant="info">
-        {row.original.type.toUpperCase()}
-      </StatusPill>
+      <span className="uppercase text-xs font-medium">
+        {row.original.raid}
+      </span>
     ),
   },
   {
     accessorKey: 'size',
-    header: 'Size',
+    header: 'Capacity',
     cell: ({ row }) => {
       const { size, used } = row.original
+      const percentage = size > 0 ? (used / size) * 100 : 0
       return (
-        <div>
-          <div className="text-sm">{formatBytes(used)} / {formatBytes(size)}</div>
-          <div className="mt-1 h-1.5 bg-muted rounded-full overflow-hidden w-20">
+        <div className="space-y-1">
+          <div className="text-sm">
+            {formatBytes(used)} / {formatBytes(size)}
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden w-24">
             <div 
-              className="h-full bg-primary transition-all"
-              style={{ width: `${(used / size) * 100}%` }}
+              className={cn(
+                "h-full transition-all",
+                percentage < 70 ? "bg-green-500" : 
+                percentage < 90 ? "bg-yellow-500" : "bg-red-500"
+              )}
+              style={{ width: `${percentage}%` }}
             />
           </div>
         </div>
@@ -190,88 +158,102 @@ const volumeColumns: ColumnDef<Volume>[] = [
     },
   },
   {
-    accessorKey: 'pool',
-    header: 'Pool',
-    cell: ({ row }) => row.original.pool || '-',
-  },
-  {
     accessorKey: 'status',
     header: 'Status',
-    cell: ({ row }) => {
-      const status = row.original.status
-      return (
-        <StatusPill variant={
-          status === 'online' ? 'success' :
-          status === 'degraded' ? 'warning' : 'error'
-        }>
-          {status}
-        </StatusPill>
-      )
-    },
-  },
-  {
-    accessorKey: 'mountpoint',
-    header: 'Mount',
     cell: ({ row }) => (
-      <code className="text-xs bg-muted px-1 py-0.5 rounded">
-        {row.original.mountpoint}
-      </code>
+      <HealthBadge status={
+        row.original.status === 'online' ? 'healthy' :
+        row.original.status === 'degraded' ? 'degraded' : 'critical'
+      } />
     ),
   },
   {
-    id: 'actions',
-    header: 'Actions',
-    cell: () => (
-      <div className="flex items-center gap-1">
-        <Button variant="ghost" size="sm">
-          <Settings className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="sm" className="text-destructive">
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
+    accessorKey: 'devices',
+    header: 'Devices',
+    cell: ({ row }) => (
+      <span className="text-sm">
+        {row.original.devices.length} device{row.original.devices.length !== 1 ? 's' : ''}
+      </span>
+    ),
+  },
+  {
+    accessorKey: 'actions',
+    header: '',
+    cell: ({ row }) => (
+      <Button 
+        variant="ghost" 
+        size="xs"
+        onClick={() => window.location.href = `/storage/${row.original.id}`}
+      >
+        <ChevronRight className="h-4 w-4" />
+      </Button>
     ),
   },
 ]
 
 export function Storage() {
-  const [activeTab, setActiveTab] = useState('disks')
-  const [selectedDisk, setSelectedDisk] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'pools' | 'devices'>('pools')
+  const [selectedDevice, setSelectedDevice] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
   
-  const { data: disks, isLoading: disksLoading, refetch: refetchDisks } = useDisks()
-  const { data: volumes, isLoading: volumesLoading, refetch: refetchVolumes } = useVolumes()
+  // Check API status
+  const { data: apiStatus } = useApiStatus()
+  
+  // Fetch data from API
+  const { data: pools, isLoading: poolsLoading, refetch: refetchPools } = usePools()
+  const { data: devices, isLoading: devicesLoading, refetch: refetchDevices } = useDevices()
+  const { data: scrubStatus, refetch: refetchScrub } = useScrubStatus()
+  const { data: balanceStatus, refetch: refetchBalance } = useBalanceStatus()
+  const { data: smartData } = useSmartDevice(selectedDevice || '')
+  
+  // Mutations
+  const startScrub = useStartScrub()
+  const startBalance = useStartBalance()
 
   const handleRefresh = async () => {
     setIsRefreshing(true)
-    await Promise.all([refetchDisks(), refetchVolumes()])
+    await Promise.all([
+      refetchPools(),
+      refetchDevices(),
+      refetchScrub(),
+      refetchBalance(),
+    ])
     setTimeout(() => setIsRefreshing(false), 500)
   }
 
-  const handleCreateVolume = () => {
-    // TODO: Open create volume wizard
-    console.log('Create volume')
+  const handleStartScrub = async (poolId: string) => {
+    await startScrub.mutateAsync(poolId)
+    refetchScrub()
   }
 
-  // Use mock data if API fails
-  const diskData = disks || [
-    { name: 'sda', model: 'Samsung SSD 970', size: 500000000000, used: 250000000000, health: 'healthy' as const, temperature: 35 },
-    { name: 'sdb', model: 'WD Red Plus', size: 4000000000000, used: 3200000000000, health: 'healthy' as const, temperature: 38 },
-    { name: 'sdc', model: 'Seagate IronWolf', size: 8000000000000, used: 1000000000000, health: 'warning' as const, temperature: 42 },
-  ]
+  const handleStartBalance = async (poolId: string) => {
+    await startBalance.mutateAsync(poolId)
+    refetchBalance()
+  }
 
-  const volumeData = volumes || [
-    { id: '1', name: 'main-pool', type: 'zfs' as const, size: 12000000000000, used: 4450000000000, status: 'online' as const, mountpoint: '/mnt/main', pool: 'tank' },
-    { id: '2', name: 'backup-vol', type: 'btrfs' as const, size: 4000000000000, used: 2800000000000, status: 'online' as const, mountpoint: '/mnt/backup' },
-  ]
-
-  const smartData = selectedDisk ? mockSmartData[selectedDisk as keyof typeof mockSmartData] : null
+  // Show backend error if API is unreachable
+  if (apiStatus && !apiStatus.isReachable) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Storage"
+          description="Manage storage pools and devices"
+        />
+        <Alert className="border-destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Backend unreachable or proxy misconfigured. Please check that the backend service is running.
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Storage"
-        description="Manage disks, volumes, and storage pools"
+        description="Manage storage pools and devices"
         actions={
           <>
             <Button
@@ -281,233 +263,325 @@ export function Storage() {
               disabled={isRefreshing}
             >
               <RefreshCw className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")} />
-              Rescan
+              Refresh
             </Button>
-            <Button size="sm" onClick={handleCreateVolume}>
+            <Button 
+              size="sm"
+              onClick={() => window.location.href = '/storage/create'}
+            >
               <Plus className="h-4 w-4 mr-2" />
-              Create Volume
+              Create Pool
             </Button>
           </>
         }
       />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
         <TabsList>
-          <TabsTrigger value="disks">
-            <HardDrive className="h-4 w-4 mr-2" />
-            Disks
-          </TabsTrigger>
-          <TabsTrigger value="volumes">
-            <Database className="h-4 w-4 mr-2" />
-            Volumes
-          </TabsTrigger>
-          <TabsTrigger value="smart">
-            <Activity className="h-4 w-4 mr-2" />
-            SMART
-          </TabsTrigger>
+          <TabsTrigger value="pools">Storage Pools</TabsTrigger>
+          <TabsTrigger value="devices">Devices</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="disks">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Card
-              title="Physical Disks"
-              description="All connected storage devices"
-              isLoading={disksLoading}
-            >
-              {diskData.length > 0 ? (
-                <DataTable
-                  columns={diskColumns}
-                  data={diskData}
-                  searchKey="disks"
-                />
-              ) : (
-                <EmptyState
-                  variant="no-data"
-                  icon={HardDrive}
-                  title="No disks detected"
-                  description="No storage devices are connected to the system"
-                />
-              )}
-            </Card>
-
-            {/* Disk warnings */}
-            {diskData.some(d => d.health === 'warning' || d.health === 'critical') && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="mt-4"
-              >
-                <Card className="border-yellow-600/50 bg-yellow-600/10">
-                  <div className="flex items-start gap-3">
-                    <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
-                    <div className="flex-1">
-                      <h4 className="font-medium text-yellow-600">Disk Health Warning</h4>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        One or more disks are reporting health issues. Check SMART data for details.
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setActiveTab('smart')}
-                    >
-                      View SMART
-                      <ChevronRight className="h-4 w-4 ml-1" />
-                    </Button>
+        <TabsContent value="pools" className="space-y-6">
+          {/* Pool Summary Cards */}
+          {pools && pools.length > 0 && (
+            <div className="grid gap-4 md:grid-cols-3">
+              <Card className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Capacity</p>
+                    <p className="text-2xl font-bold">
+                      {formatBytes(pools.reduce((acc, p) => acc + p.size, 0))}
+                    </p>
                   </div>
-                </Card>
-              </motion.div>
-            )}
-          </motion.div>
-        </TabsContent>
-
-        <TabsContent value="volumes">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Card
-              title="Storage Volumes"
-              description="Logical volumes and pools"
-              isLoading={volumesLoading}
-            >
-              {volumeData.length > 0 ? (
-                <DataTable
-                  columns={volumeColumns}
-                  data={volumeData}
-                  searchKey="volumes"
-                />
-              ) : (
-                <EmptyState
-                  variant="no-data"
-                  icon={Database}
-                  title="No volumes configured"
-                  description="Create your first storage volume to get started"
-                  action={{
-                    label: "Create Volume",
-                    onClick: handleCreateVolume
-                  }}
-                />
-              )}
-            </Card>
-          </motion.div>
-        </TabsContent>
-
-        <TabsContent value="smart">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="grid gap-4 lg:grid-cols-3">
-              {/* Disk selector */}
-              <Card title="Select Disk" className="lg:col-span-1">
-                <div className="space-y-2">
-                  {diskData.map(disk => (
-                    <button
-                      key={disk.name}
-                      onClick={() => setSelectedDisk(disk.name)}
-                      className={cn(
-                        "w-full flex items-center justify-between p-3 rounded-lg transition-colors",
-                        selectedDisk === disk.name
-                          ? "bg-primary/10 border border-primary"
-                          : "bg-muted/30 hover:bg-muted/50 border border-transparent"
-                      )}
-                    >
-                      <div className="flex items-center gap-2">
-                        <HardDrive className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-mono text-sm">{disk.name}</span>
-                      </div>
-                      <HealthBadge status={
-                        disk.health === 'healthy' ? 'healthy' :
-                        disk.health === 'warning' ? 'degraded' : 'critical'
-                      } />
-                    </button>
-                  ))}
+                  <Database className="h-8 w-8 text-muted-foreground" />
                 </div>
               </Card>
-
-              {/* SMART details */}
-              <Card 
-                title={selectedDisk ? `SMART Data - ${selectedDisk}` : 'SMART Data'}
-                className="lg:col-span-2"
-              >
-                {selectedDisk && smartData ? (
-                  <div className="space-y-4">
-                    {/* Overview */}
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="p-3 bg-muted/30 rounded-lg">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                          <Thermometer className="h-4 w-4" />
-                          Temperature
-                        </div>
-                        <div className="text-xl font-bold">{smartData.temperature}°C</div>
-                      </div>
-                      <div className="p-3 bg-muted/30 rounded-lg">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                          <Clock className="h-4 w-4" />
-                          Power On Hours
-                        </div>
-                        <div className="text-xl font-bold">{smartData.powerOnHours.toLocaleString()}</div>
-                      </div>
-                      <div className="p-3 bg-muted/30 rounded-lg">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                          <Zap className="h-4 w-4" />
-                          Overall Status
-                        </div>
-                        <div className="mt-1">
-                          <StatusPill variant="success">Healthy</StatusPill>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Attributes table */}
-                    <div className="border rounded-lg overflow-hidden">
-                      <table className="w-full">
-                        <thead className="bg-muted/30">
-                          <tr>
-                            <th className="px-4 py-2 text-left text-sm font-medium">ID</th>
-                            <th className="px-4 py-2 text-left text-sm font-medium">Attribute</th>
-                            <th className="px-4 py-2 text-left text-sm font-medium">Value</th>
-                            <th className="px-4 py-2 text-left text-sm font-medium">Threshold</th>
-                            <th className="px-4 py-2 text-left text-sm font-medium">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {smartData.attributes.map((attr, idx) => (
-                            <tr key={attr.id} className={idx % 2 === 0 ? 'bg-muted/10' : ''}>
-                              <td className="px-4 py-2 text-sm font-mono">{attr.id}</td>
-                              <td className="px-4 py-2 text-sm">{attr.name}</td>
-                              <td className="px-4 py-2 text-sm font-mono">{attr.value}</td>
-                              <td className="px-4 py-2 text-sm font-mono">{attr.threshold}</td>
-                              <td className="px-4 py-2">
-                                {attr.status === 'ok' ? (
-                                  <CheckCircle className="h-4 w-4 text-green-500" />
-                                ) : (
-                                  <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+              
+              <Card className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Used Space</p>
+                    <p className="text-2xl font-bold">
+                      {formatBytes(pools.reduce((acc, p) => acc + p.used, 0))}
+                    </p>
+                  </div>
+                  <HardDrive className="h-8 w-8 text-muted-foreground" />
+                </div>
+              </Card>
+              
+              <Card className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Pool Health</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-2xl font-bold">
+                        {pools.filter(p => p.status === 'online').length}/{pools.length}
+                      </span>
+                      <span className="text-sm text-muted-foreground">healthy</span>
                     </div>
                   </div>
+                  <Activity className="h-8 w-8 text-muted-foreground" />
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Pools Table */}
+          <Card
+            title="Storage Pools"
+            subtitle={`${pools?.length || 0} configured`}
+            isLoading={poolsLoading}
+          >
+            {pools && pools.length > 0 ? (
+              <DataTable 
+                columns={poolColumns} 
+                data={pools}
+                searchKey="label"
+                searchPlaceholder="Search pools..."
+              />
+            ) : (
+              <EmptyState
+                icon={Database}
+                title="No storage pools"
+                description="Create your first storage pool to start storing data"
+                action={
+                  <Button onClick={() => window.location.href = '/storage/create'}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Pool
+                  </Button>
+                }
+              />
+            )}
+          </Card>
+
+          {/* Maintenance Operations */}
+          {pools && pools.length > 0 && (
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* Scrub Status */}
+              <Card
+                title="Data Scrub"
+                subtitle="Verify data integrity"
+                actions={
+                  pools[0] && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleStartScrub(pools[0].id)}
+                      disabled={scrubStatus?.some(s => s.status === 'running')}
+                    >
+                      Start Scrub
+                    </Button>
+                  )
+                }
+              >
+                {scrubStatus && scrubStatus.length > 0 ? (
+                  <div className="space-y-3">
+                    {scrubStatus.map((scrub) => (
+                      <div key={scrub.poolId} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">{scrub.poolId}</span>
+                          <StatusPill 
+                            status={scrub.status === 'running' ? 'running' : 
+                                   scrub.status === 'finished' ? 'completed' : 'idle'} 
+                            size="sm" 
+                          />
+                        </div>
+                        {scrub.progress !== undefined && scrub.status === 'running' && (
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>Progress</span>
+                              <span>{scrub.progress}%</span>
+                            </div>
+                            <div className="h-2 bg-muted rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-primary transition-all"
+                                style={{ width: `${scrub.progress}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {scrub.nextRun && (
+                          <p className="text-xs text-muted-foreground">
+                            Next run: {new Date(scrub.nextRun).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 ) : (
-                  <EmptyState
-                    variant="no-data"
-                    title="Select a disk"
-                    description="Choose a disk from the list to view its SMART data"
-                  />
+                  <p className="text-sm text-muted-foreground">
+                    No scrub operations scheduled
+                  </p>
+                )}
+              </Card>
+
+              {/* Balance Status */}
+              <Card
+                title="Data Balance"
+                subtitle="Redistribute data across devices"
+                actions={
+                  pools[0] && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleStartBalance(pools[0].id)}
+                      disabled={balanceStatus?.some(b => b.status === 'running')}
+                    >
+                      Start Balance
+                    </Button>
+                  )
+                }
+              >
+                {balanceStatus && balanceStatus.length > 0 ? (
+                  <div className="space-y-3">
+                    {balanceStatus.map((balance) => (
+                      <div key={balance.poolId} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">{balance.poolId}</span>
+                          <StatusPill 
+                            status={balance.status === 'running' ? 'running' : 
+                                   balance.status === 'finished' ? 'completed' : 'idle'} 
+                            size="sm" 
+                          />
+                        </div>
+                        {balance.progress !== undefined && balance.status === 'running' && (
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>Progress</span>
+                              <span>{balance.progress}%</span>
+                            </div>
+                            <div className="h-2 bg-muted rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-primary transition-all"
+                                style={{ width: `${balance.progress}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No balance operations in progress
+                  </p>
                 )}
               </Card>
             </div>
-          </motion.div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="devices" className="space-y-6">
+          {/* Devices Table */}
+          <Card
+            title="Storage Devices"
+            subtitle={`${devices?.length || 0} detected`}
+            isLoading={devicesLoading}
+          >
+            {devices && devices.length > 0 ? (
+              <DataTable 
+                columns={deviceColumns} 
+                data={devices}
+                searchKey="path"
+                searchPlaceholder="Search devices..."
+                onRowClick={(device) => setSelectedDevice(device.path)}
+              />
+            ) : (
+              <EmptyState
+                icon={HardDrive}
+                title="No devices found"
+                description="No storage devices were detected in the system"
+              />
+            )}
+          </Card>
+
+          {/* SMART Details */}
+          {selectedDevice && (
+            <Card
+              title="SMART Details"
+              subtitle={selectedDevice}
+            >
+              {smartData ? (
+                <div className="space-y-4">
+                  {/* SMART Status */}
+                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "h-3 w-3 rounded-full",
+                        smartData.status === 'healthy' && "bg-green-500",
+                        smartData.status === 'warning' && "bg-yellow-500",
+                        smartData.status === 'critical' && "bg-red-500"
+                      )} />
+                      <div>
+                        <p className="font-medium">Overall Health</p>
+                        <p className="text-sm text-muted-foreground capitalize">
+                          {smartData.status}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      {smartData.temperature && (
+                        <div className="flex items-center gap-2">
+                          <Thermometer className="h-4 w-4 text-muted-foreground" />
+                          <span>{smartData.temperature}°C</span>
+                        </div>
+                      )}
+                      {smartData.powerOnHours && (
+                        <div className="flex items-center gap-2 mt-1">
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">
+                            {smartData.powerOnHours} hours
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* SMART Attributes */}
+                  {smartData.attributes && smartData.attributes.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-medium">Attributes</h4>
+                      <div className="space-y-1">
+                        {smartData.attributes.map((attr) => (
+                          <div 
+                            key={attr.id}
+                            className="flex items-center justify-between p-2 rounded hover:bg-muted/50"
+                          >
+                            <div className="flex items-center gap-3">
+                              {attr.status === 'ok' ? (
+                                <CheckCircle className="h-4 w-4 text-green-500" />
+                              ) : attr.status === 'warning' ? (
+                                <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                              ) : (
+                                <AlertCircle className="h-4 w-4 text-red-500" />
+                              )}
+                              <div>
+                                <p className="text-sm font-medium">{attr.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  ID: {attr.id}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm">{attr.value}/{attr.threshold}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {attr.rawValue}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Select a device to view SMART details
+                </p>
+              )}
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>

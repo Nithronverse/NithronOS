@@ -1,0 +1,217 @@
+version: "1.0"
+entries:
+  - id: whoami
+    name: Whoami
+    version: "latest"
+    description: Simple HTTP service that returns information about the request
+    categories:
+      - testing
+      - utilities
+    icon: icons/whoami.svg
+    compose: templates/whoami/compose.yaml
+    schema: templates/whoami/schema.json
+    defaults:
+      env:
+        WHOAMI_PORT: "8080"
+      volumes: []
+      ports:
+        - host: 8080
+          container: 80
+          protocol: tcp
+      resources:
+        cpu_limit: "0.5"
+        memory_limit: "128m"
+    health:
+      type: http
+      url: "http://nos-app-whoami-app-1:80/health"
+      interval_s: 10
+      timeout_s: 3
+      healthy_after: 3
+      unhealthy_after: 3
+    needs_privileged: false
+    notes: "A simple test application useful for verifying the app runtime is working"
+
+  - id: nextcloud
+    name: Nextcloud
+    version: "28.0"
+    description: Self-hosted file sync, sharing, and collaboration platform
+    categories:
+      - productivity
+      - storage
+    icon: icons/nextcloud.svg
+    compose: templates/nextcloud/compose.yaml
+    schema: templates/nextcloud/schema.json
+    defaults:
+      env:
+        POSTGRES_DB: nextcloud
+        POSTGRES_USER: nextcloud
+        POSTGRES_PASSWORD: changeme
+        NEXTCLOUD_ADMIN_USER: admin
+        NEXTCLOUD_ADMIN_PASSWORD: changeme
+        NEXTCLOUD_TRUSTED_DOMAINS: localhost
+        REDIS_HOST: redis
+      volumes:
+        - host: ./data/nextcloud
+          container: /var/www/html
+          read_only: false
+        - host: ./data/postgres
+          container: /var/lib/postgresql/data
+          read_only: false
+      ports:
+        - host: 8081
+          container: 80
+          protocol: tcp
+      resources:
+        cpu_limit: "2.0"
+        memory_limit: "2048m"
+    health:
+      type: http
+      url: "http://nos-app-nextcloud-app-1:80/status.php"
+      interval_s: 30
+      timeout_s: 5
+      healthy_after: 3
+      unhealthy_after: 3
+    needs_privileged: false
+    notes: "Nextcloud requires initial setup via web interface. Default admin credentials are provided."
+
+  - id: jellyfin
+    name: Jellyfin
+    version: "10.8"
+    description: Free and open-source media server for streaming movies, TV shows, and music
+    categories:
+      - media
+      - entertainment
+    icon: icons/jellyfin.svg
+    compose: templates/jellyfin/compose.yaml
+    schema: templates/jellyfin/schema.json
+    defaults:
+      env:
+        PUID: "1000"
+        PGID: "1000"
+        TZ: "UTC"
+      volumes:
+        - host: ./data/config
+          container: /config
+          read_only: false
+        - host: ./data/cache
+          container: /cache
+          read_only: false
+      ports:
+        - host: 8096
+          container: 8096
+          protocol: tcp
+        - host: 7359
+          container: 7359
+          protocol: udp
+        - host: 1900
+          container: 1900
+          protocol: udp
+      resources:
+        cpu_limit: "4.0"
+        memory_limit: "4096m"
+    health:
+      type: http
+      url: "http://nos-app-jellyfin-jellyfin-1:8096/health"
+      interval_s: 30
+      timeout_s: 5
+      healthy_after: 3
+      unhealthy_after: 3
+    needs_privileged: false
+    notes: "Jellyfin may need additional configuration for hardware transcoding. Media folders should be mounted separately."
+
+  - id: code-server
+    name: Code Server
+    version: "latest"
+    description: VS Code in the browser - a full development environment accessible from anywhere
+    categories:
+      - development
+      - productivity
+    icon: icons/code-server.svg
+    compose: templates/code-server/compose.yaml
+    schema: templates/code-server/schema.json
+    defaults:
+      env:
+        CODE_SERVER_PORT: "8443"
+        CODE_SERVER_VERSION: "latest"
+        PUID: "1000"
+        PGID: "1000"
+        TZ: "UTC"
+        DEFAULT_WORKSPACE: "/home/coder/workspace"
+        PROXY_DOMAIN: "localhost"
+      volumes:
+        - host: ./data/config
+          container: /home/coder/.config
+          read_only: false
+        - host: ./data/workspace
+          container: /home/coder/workspace
+          read_only: false
+        - host: ./data/projects
+          container: /home/coder/projects
+          read_only: false
+      ports:
+        - host: 8443
+          container: 8080
+          protocol: tcp
+      resources:
+        cpu_limit: "2.0"
+        memory_limit: "2048m"
+    health:
+      type: http
+      url: "http://nos-app-code-server-app-1:8080/healthz"
+      interval_s: 30
+      timeout_s: 10
+      healthy_after: 3
+      unhealthy_after: 3
+    needs_privileged: false
+    notes: "Code Server requires a password for access. Sudo access in terminal also requires password authentication."
+
+  - id: n8n
+    name: n8n Workflow Automation
+    version: "latest"
+    description: Free and open workflow automation tool to connect anything to everything
+    categories:
+      - automation
+      - productivity
+      - integration
+    icon: icons/n8n.svg
+    compose: templates/n8n/compose.yaml
+    schema: templates/n8n/schema.json
+    defaults:
+      env:
+        N8N_PORT: "5678"
+        N8N_VERSION: "latest"
+        N8N_BASIC_AUTH_ACTIVE: "true"
+        N8N_HOST: "localhost"
+        N8N_PROTOCOL: "http"
+        WEBHOOK_URL: "http://localhost:5678"
+        DB_USER: "n8n"
+        DB_NAME: "n8n"
+        POSTGRES_VERSION: "15-alpine"
+        EXECUTIONS_PROCESS: "main"
+        TZ: "UTC"
+      volumes:
+        - host: ./data/n8n
+          container: /home/node/.n8n
+          read_only: false
+        - host: ./data/files
+          container: /files
+          read_only: false
+        - host: ./data/postgres
+          container: /var/lib/postgresql/data
+          read_only: false
+      ports:
+        - host: 5678
+          container: 5678
+          protocol: tcp
+      resources:
+        cpu_limit: "2.0"
+        memory_limit: "2048m"
+    health:
+      type: http
+      url: "http://nos-app-n8n-app-1:5678/healthz"
+      interval_s: 30
+      timeout_s: 10
+      healthy_after: 3
+      unhealthy_after: 3
+    needs_privileged: false
+    notes: "n8n includes a PostgreSQL database for storing workflows and credentials. All credentials are encrypted."

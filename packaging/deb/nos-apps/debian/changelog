@@ -1,0 +1,11 @@
+nos-apps (0.3.0-1) unstable; urgency=medium
+
+  * Initial release of NithronOS App Catalog
+  * Built-in catalog with popular applications
+  * Whoami test application
+  * Nextcloud collaboration suite
+  * Jellyfin media server
+  * Code-server development environment
+  * n8n workflow automation
+
+ -- Nithron Team <hello@nithron.com>  Mon, 01 Jan 2024 00:00:00 +0000

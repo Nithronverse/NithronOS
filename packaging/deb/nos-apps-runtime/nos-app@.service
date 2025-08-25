@@ -1,0 +1,46 @@
+[Unit]
+Description=NithronOS App - %i
+Documentation=https://github.com/NotTekk/NithronOS
+After=docker.service network-online.target
+Requires=docker.service
+PartOf=nos-apps.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/srv/apps/%i/config
+ExecStartPre=/usr/lib/nos/apps/nos-app-helper.sh pre-start %i
+ExecStart=/usr/bin/docker compose --project-directory /srv/apps/%i/config --project-name nos-app-%i up -d --remove-orphans
+ExecStop=/usr/bin/docker compose --project-directory /srv/apps/%i/config --project-name nos-app-%i down
+ExecReload=/usr/bin/docker compose --project-directory /srv/apps/%i/config --project-name nos-app-%i restart
+TimeoutStartSec=300
+TimeoutStopSec=25
+Restart=on-failure
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Security
+User=nos
+Group=docker
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+
+# Allow access to app directories
+ReadWritePaths=/srv/apps/%i
+ReadWritePaths=/var/lib/nos/apps/state
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nos-app-%i
+
+[Install]
+WantedBy=nos-apps.target

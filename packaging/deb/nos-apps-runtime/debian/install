@@ -1,0 +1,6 @@
+docker-daemon.json etc/docker/daemon.json
+nos-app@.service lib/systemd/system/
+nos-apps.target lib/systemd/system/
+nos-app-helper.sh usr/lib/nos/apps/
+nos-app-snapshot.sh usr/lib/nos/apps/
+setup-docker-repo.sh usr/lib/nos/apps/

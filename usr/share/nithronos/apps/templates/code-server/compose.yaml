@@ -1,0 +1,32 @@
+version: '3.9'
+
+services:
+  code-server:
+    image: codercom/code-server:${CODE_SERVER_VERSION:-latest}
+    container_name: nos-app-code-server-app-1
+    restart: unless-stopped
+    ports:
+      - "${CODE_SERVER_PORT:-8443}:8080"
+    volumes:
+      - ./data/config:/home/coder/.config
+      - ./data/workspace:/home/coder/workspace
+      - ${PROJECT_PATH:-./data/projects}:/home/coder/projects
+    environment:
+      - PASSWORD=${CODE_SERVER_PASSWORD}
+      - SUDO_PASSWORD=${SUDO_PASSWORD:-${CODE_SERVER_PASSWORD}}
+      - TZ=${TZ:-UTC}
+      - PROXY_DOMAIN=${PROXY_DOMAIN:-localhost}
+      - DEFAULT_WORKSPACE=${DEFAULT_WORKSPACE:-/home/coder/workspace}
+    user: "${PUID:-1000}:${PGID:-1000}"
+    security_opt:
+      - no-new-privileges:true
+    labels:
+      - "nos.app.id=code-server"
+      - "nos.app.name=Code Server"
+      - "nos.app.version=${CODE_SERVER_VERSION:-latest}"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s

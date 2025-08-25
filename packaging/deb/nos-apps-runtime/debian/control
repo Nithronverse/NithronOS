@@ -1,0 +1,30 @@
+Source: nos-apps-runtime
+Section: admin
+Priority: optional
+Maintainer: Nithron Team <hello@nithron.com>
+Build-Depends: debhelper (>= 12)
+Standards-Version: 4.5.0
+
+Package: nos-apps-runtime
+Architecture: all
+Depends: ${misc:Depends},
+         docker-ce | docker.io,
+         docker-ce-cli | docker.io,
+         containerd.io | containerd,
+         docker-buildx-plugin,
+         docker-compose-plugin | docker-compose,
+         acl,
+         rsync,
+         curl,
+         jq
+Recommends: btrfs-progs
+Description: NithronOS Apps Runtime - Docker-based application platform
+ Provides a hardened Docker runtime for NithronOS applications with:
+ - Pre-configured Docker daemon with security defaults
+ - Btrfs-aware snapshot support for app data
+ - Systemd integration for app lifecycle management
+ - CLI helpers for container operations
+ .
+ This package sets up the Docker environment, creates necessary
+ directories, and provides tools for managing containerized
+ applications on NithronOS.

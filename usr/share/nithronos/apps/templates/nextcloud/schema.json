@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Nextcloud Configuration",
+  "properties": {
+    "NEXTCLOUD_PORT": {
+      "type": "string",
+      "title": "Web Port",
+      "description": "Port to expose Nextcloud on",
+      "default": "8081",
+      "pattern": "^[0-9]{1,5}$"
+    },
+    "NEXTCLOUD_VERSION": {
+      "type": "string",
+      "title": "Nextcloud Version",
+      "description": "Nextcloud version to install",
+      "default": "28",
+      "enum": ["28", "27", "26"]
+    },
+    "NEXTCLOUD_ADMIN_USER": {
+      "type": "string",
+      "title": "Admin Username",
+      "description": "Username for the Nextcloud admin account",
+      "default": "admin",
+      "minLength": 3,
+      "maxLength": 32
+    },
+    "NEXTCLOUD_ADMIN_PASSWORD": {
+      "type": "string",
+      "title": "Admin Password",
+      "description": "Password for the Nextcloud admin account",
+      "minLength": 8,
+      "format": "password"
+    },
+    "POSTGRES_PASSWORD": {
+      "type": "string",
+      "title": "Database Password",
+      "description": "Password for the PostgreSQL database",
+      "minLength": 8,
+      "format": "password"
+    },
+    "REDIS_PASSWORD": {
+      "type": "string",
+      "title": "Redis Password",
+      "description": "Password for Redis cache",
+      "default": "changeme",
+      "minLength": 8,
+      "format": "password"
+    },
+    "NEXTCLOUD_TRUSTED_DOMAINS": {
+      "type": "string",
+      "title": "Trusted Domains",
+      "description": "Space-separated list of trusted domains",
+      "default": "localhost"
+    },
+    "OVERWRITE_PROTOCOL": {
+      "type": "string",
+      "title": "Protocol",
+      "description": "Protocol to use (http or https)",
+      "default": "http",
+      "enum": ["http", "https"]
+    },
+    "OVERWRITE_HOST": {
+      "type": "string",
+      "title": "Host Override",
+      "description": "Hostname and port for URL generation",
+      "default": "localhost:8081"
+    }
+  },
+  "required": ["NEXTCLOUD_ADMIN_PASSWORD", "POSTGRES_PASSWORD"]
+}
