@@ -18,7 +18,6 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 
 	"nithronos/backend/nosd/internal/apps"
 	pwhash "nithronos/backend/nosd/internal/auth/hash"
@@ -63,7 +62,7 @@ func (a agentMetricsClient) FetchMetrics(ctx context.Context) ([]byte, error) {
 func Logger(cfg config.Config) *zerolog.Logger {
 	zerolog.TimeFieldFormat = time.RFC3339
 	level := currentLevel
-	logger := log.Logger.Level(level).With().Timestamp().Logger()
+	logger := zerolog.New(os.Stderr).Level(level).With().Timestamp().Logger()
 	return &logger
 }
 
@@ -168,9 +167,11 @@ func NewRouter(cfg config.Config) http.Handler {
 	// Initialize shares handler
 	sharesManager := shares.NewManager("")
 	agentClient := agentclient.New(cfg.AgentSocket())
+	logger := Logger(cfg)
 	sharesHandler := &SharesHandler{
 		manager: sharesManager,
 		agent:   agentClient,
+		logger:  logger,
 	}
 	// Disk-backed session and ratelimit stores
 	sessStore := sessions.New(cfg.SessionsPath)

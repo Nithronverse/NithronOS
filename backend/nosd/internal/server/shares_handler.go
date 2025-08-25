@@ -9,7 +9,7 @@ import (
 	"nithronos/backend/nosd/pkg/shares"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 )
 
 // writeError writes an error response
@@ -25,13 +25,15 @@ func writeError(w http.ResponseWriter, statusCode int, code string, message stri
 type SharesHandler struct {
 	manager *shares.Manager
 	agent   *agentclient.Client
+	logger  *zerolog.Logger
 }
 
 // NewSharesHandler creates a new shares handler
-func NewSharesHandler(manager *shares.Manager, agent *agentclient.Client) *SharesHandler {
+func NewSharesHandler(manager *shares.Manager, agent *agentclient.Client, logger *zerolog.Logger) *SharesHandler {
 	return &SharesHandler{
 		manager: manager,
 		agent:   agent,
+		logger:  logger,
 	}
 }
 
@@ -54,7 +56,7 @@ func (h *SharesHandler) Routes() chi.Router {
 func (h *SharesHandler) ListShares(w http.ResponseWriter, r *http.Request) {
 	sharesList, err := h.manager.List()
 	if err != nil {
-		log.Error().Err(err).Msg("failed to list shares")
+		h.logger.Error().Err(err).Msg("failed to list shares")
 		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to list shares")
 		return
 	}
@@ -77,7 +79,7 @@ func (h *SharesHandler) CreateShare(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, string(shareErr.Code), shareErr.Message)
 			return
 		}
-		log.Error().Err(err).Msg("failed to create share")
+		h.logger.Error().Err(err).Msg("failed to create share")
 		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to create share")
 		return
 	}
@@ -86,7 +88,7 @@ func (h *SharesHandler) CreateShare(w http.ResponseWriter, r *http.Request) {
 	if err := h.applyShare(r.Context(), share); err != nil {
 		// Rollback
 		_ = h.manager.Delete(share.Name)
-		log.Error().Err(err).Str("share", share.Name).Msg("failed to apply share")
+		h.logger.Error().Err(err).Str("share", share.Name).Msg("failed to apply share")
 		writeError(w, http.StatusInternalServerError, "ERR_APPLY_FAILED", "Failed to apply share configuration")
 		return
 	}
@@ -129,14 +131,14 @@ func (h *SharesHandler) UpdateShare(w http.ResponseWriter, r *http.Request) {
 			writeError(w, status, string(shareErr.Code), shareErr.Message)
 			return
 		}
-		log.Error().Err(err).Msg("failed to update share")
+		h.logger.Error().Err(err).Msg("failed to update share")
 		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to update share")
 		return
 	}
 
 	// Apply updated configuration
 	if err := h.applyShare(r.Context(), share); err != nil {
-		log.Error().Err(err).Str("share", share.Name).Msg("failed to apply share update")
+		h.logger.Error().Err(err).Str("share", share.Name).Msg("failed to apply share update")
 		writeError(w, http.StatusInternalServerError, "ERR_APPLY_FAILED", "Failed to apply share configuration")
 		return
 	}
@@ -157,7 +159,7 @@ func (h *SharesHandler) DeleteShare(w http.ResponseWriter, r *http.Request) {
 
 	// Remove share configuration via agent
 	if err := h.removeShare(r.Context(), share); err != nil {
-		log.Error().Err(err).Str("share", name).Msg("failed to remove share")
+		h.logger.Error().Err(err).Str("share", name).Msg("failed to remove share")
 		writeError(w, http.StatusInternalServerError, "ERR_REMOVE_FAILED", "Failed to remove share configuration")
 		return
 	}
@@ -172,7 +174,7 @@ func (h *SharesHandler) DeleteShare(w http.ResponseWriter, r *http.Request) {
 			writeError(w, status, string(shareErr.Code), shareErr.Message)
 			return
 		}
-		log.Error().Err(err).Msg("failed to delete share")
+		h.logger.Error().Err(err).Msg("failed to delete share")
 		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to delete share")
 		return
 	}
@@ -192,7 +194,7 @@ func (h *SharesHandler) TestShare(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.manager.Test(name, req.Config)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to test share configuration")
+		h.logger.Error().Err(err).Msg("failed to test share configuration")
 		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to test configuration")
 		return
 	}
@@ -271,7 +273,7 @@ func (h *SharesHandler) applyShare(ctx context.Context, share *shares.Share) err
 	// Update Avahi if Time Machine is involved
 	allShares, _ := h.manager.List()
 	if err := shares.UpdateAvahiTimeMachine(allShares); err != nil {
-		log.Warn().Err(err).Msg("failed to update Avahi Time Machine service")
+		h.logger.Warn().Err(err).Msg("failed to update Avahi Time Machine service")
 	} else {
 		// Reload Avahi if the file changed
 		_ = h.agent.ReloadAvahi(ctx)
@@ -286,7 +288,7 @@ func (h *SharesHandler) removeShare(ctx context.Context, share *shares.Share) er
 	if share.SMB != nil && share.SMB.Enabled {
 		// TODO: Implement RemoveSambaConfig in agent
 		// if err := h.agent.RemoveSambaConfig(share.Name); err != nil {
-		//     log.Warn().Err(err).Str("share", share.Name).Msg("failed to remove Samba config")
+		//     h.logger.Warn().Err(err).Str("share", share.Name).Msg("failed to remove Samba config")
 		// }
 		_ = h.agent.ReloadSamba(ctx)
 	}
@@ -295,7 +297,7 @@ func (h *SharesHandler) removeShare(ctx context.Context, share *shares.Share) er
 	if share.NFS != nil && share.NFS.Enabled {
 		// TODO: Implement RemoveNFSExport in agent
 		// if err := h.agent.RemoveNFSExport(share.Name); err != nil {
-		//     log.Warn().Err(err).Str("share", share.Name).Msg("failed to remove NFS export")
+		//     h.logger.Warn().Err(err).Str("share", share.Name).Msg("failed to remove NFS export")
 		// }
 		_ = h.agent.ReloadNFS(ctx)
 	}
