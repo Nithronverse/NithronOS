@@ -1,39 +1,17 @@
+# NithronOS managed Caddyfile
 {
   admin localhost:2019
-  # We’ll conditionally enable HTTPS below via a separate server block.
-  auto_https off
 }
 
-# === HTTP (always) ===
-:80, nithron.os:80 {
-  encode gzip zstd
-  header {
-    X-Content-Type-Options "nosniff"
-    Referrer-Policy "no-referrer"
-    Cross-Origin-Opener-Policy "same-origin"
-    Cross-Origin-Embedder-Policy "require-corp"
-  }
-
-  route /health* {
-    respond 200
-  }
-
+http://:80 {
   @api path /api/*
-  handle @api {
-    reverse_proxy 127.0.0.1:9000
-  }
-
-  # Single-page app UI
-  handle {
-    root * /usr/share/nithronos/web
-    try_files {path} /index.html
-    file_server
-  }
+  reverse_proxy @api 127.0.0.1:9000
+  redir https://{host}{uri} 308
 }
 
-# === HTTPS ===
 https://:443 {
-  tls /etc/nithronos/tls/cert.pem /etc/nithronos/tls/key.pem
+  tls internal
+
   encode gzip zstd
   header {
     X-Content-Type-Options "nosniff"
@@ -42,14 +20,9 @@ https://:443 {
     Cross-Origin-Embedder-Policy "require-corp"
   }
 
-  route /health* {
-    respond 200
-  }
-
   @api path /api/*
-  handle @api {
-    reverse_proxy 127.0.0.1:9000
-  }
+  reverse_proxy @api 127.0.0.1:9000
+
   handle {
     root * /usr/share/nithronos/web
     try_files {path} /index.html
