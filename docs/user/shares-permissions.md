@@ -1,4 +1,4 @@
-# Shares & Permissions User Guide
+make su # Shares & Permissions User Guide
 
 ## Overview
 
