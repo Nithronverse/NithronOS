@@ -15,8 +15,9 @@ The NithronOS GRUB theme provides a branded boot experience for both BIOS and UE
 ### Theme Files
 Located in `includes.chroot/boot/grub/themes/nithron/`:
 - `theme.txt` - GRUB theme configuration with NithronOS colors
-- `background.png` - Dark background with centered NithronOS logo (to be generated)
-- `terminal_font.pf2` - DejaVu Sans font for terminal display (to be generated)
+- `background.png` - Dark background with centered NithronOS logo
+- `DroidSans-32.pf2` - DroidSans font for menu items and text
+- `DroidSans-Bold-32.pf2` - DroidSans Bold font for selected items and title
 
 ### Configuration Files
 - `includes.chroot/etc/default/grub.d/99-nithronos.cfg` - GRUB defaults and theme activation
@@ -57,14 +58,19 @@ convert background.png ../../../../assets/brand/nithronos-logo-mark.png \
 convert background.png -quality 85 -strip background.png
 ```
 
-### Terminal Font
-```bash
-# Install grub tools and fonts
-apt-get install -y grub-common fonts-dejavu-core
+### Font Files
+The theme uses DroidSans fonts which are included:
+- `DroidSans-32.pf2` - Regular font for menu items
+- `DroidSans-Bold-32.pf2` - Bold font for selected items
 
-# Generate GRUB font file
-grub-mkfont -s 16 -o terminal_font.pf2 \
-  /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
+To regenerate or create different sizes:
+```bash
+# Install grub tools
+apt-get install -y grub-common
+
+# Generate from TTF files (if you have DroidSans.ttf)
+grub-mkfont -s 32 -o DroidSans-32.pf2 DroidSans.ttf
+grub-mkfont -s 32 -o DroidSans-Bold-32.pf2 DroidSans-Bold.ttf
 ```
 
 ## Menu Entries
@@ -107,7 +113,7 @@ During live-build ISO creation:
 To modify the theme:
 1. Edit `theme.txt` for colors and layout
 2. Replace `background.png` with custom artwork
-3. Regenerate `terminal_font.pf2` with different font/size
+3. Replace font files (`DroidSans-32.pf2`, `DroidSans-Bold-32.pf2`) with different fonts/sizes
 4. Update `99-nithronos.cfg` for boot behavior changes
 
 ## Troubleshooting
