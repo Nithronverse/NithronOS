@@ -302,8 +302,8 @@ jobs:
         run: |
           set -Eeuo pipefail
           echo "[ci] Verifying GRUB theme in ISO..."
-          # Install 7z if needed
-          sudo apt-get update && sudo apt-get install -y p7zip-full
+          # Install 7z (we're running as root in container, no sudo needed)
+          apt-get update && apt-get install -y p7zip-full
           # Find the ISO file
           ISO_FILE=$(find dist/iso -name "*.iso" -type f | head -1)
           if [ -n "$ISO_FILE" ]; then
