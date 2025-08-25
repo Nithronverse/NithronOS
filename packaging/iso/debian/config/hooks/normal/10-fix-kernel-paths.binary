@@ -1,0 +1,66 @@
+#!/bin/sh
+set -e
+
+echo "[kernel-paths] Fixing kernel and initrd paths for GRUB..."
+
+# Check if /live directory exists
+if [ ! -d binary/live ]; then
+    echo "[kernel-paths] Warning: binary/live directory doesn't exist!"
+    exit 0
+fi
+
+# Find versioned kernel and initrd files
+KERNEL_FILE=$(ls binary/live/vmlinuz-* 2>/dev/null | head -n1)
+INITRD_FILE=$(ls binary/live/initrd.img-* 2>/dev/null | head -n1)
+
+# If versioned files exist, create symlinks with standard names
+if [ -n "$KERNEL_FILE" ]; then
+    echo "[kernel-paths] Found kernel: $(basename $KERNEL_FILE)"
+    ln -sf $(basename "$KERNEL_FILE") binary/live/vmlinuz
+    echo "[kernel-paths] Created symlink: binary/live/vmlinuz -> $(basename $KERNEL_FILE)"
+else
+    echo "[kernel-paths] Warning: No versioned kernel found in binary/live/"
+    # Check if kernel exists with standard name already
+    if [ ! -f binary/live/vmlinuz ]; then
+        echo "[kernel-paths] ERROR: No kernel file found at all!"
+        ls -la binary/live/ || true
+    fi
+fi
+
+if [ -n "$INITRD_FILE" ]; then
+    echo "[kernel-paths] Found initrd: $(basename $INITRD_FILE)"
+    ln -sf $(basename "$INITRD_FILE") binary/live/initrd.img
+    echo "[kernel-paths] Created symlink: binary/live/initrd.img -> $(basename $INITRD_FILE)"
+else
+    echo "[kernel-paths] Warning: No versioned initrd found in binary/live/"
+    # Check if initrd exists with standard name already
+    if [ ! -f binary/live/initrd.img ]; then
+        echo "[kernel-paths] ERROR: No initrd file found at all!"
+        ls -la binary/live/ || true
+    fi
+fi
+
+# Also check filesystem.squashfs which is needed for live boot
+if [ -f binary/live/filesystem.squashfs ]; then
+    echo "[kernel-paths] ✓ filesystem.squashfs found"
+else
+    echo "[kernel-paths] Warning: filesystem.squashfs not found in binary/live/"
+fi
+
+# Verify the symlinks or files exist
+echo "[kernel-paths] Verifying kernel files..."
+if [ -e binary/live/vmlinuz ]; then
+    echo "[kernel-paths] ✓ vmlinuz exists"
+    ls -la binary/live/vmlinuz
+else
+    echo "[kernel-paths] ✗ vmlinuz missing!"
+fi
+
+if [ -e binary/live/initrd.img ]; then
+    echo "[kernel-paths] ✓ initrd.img exists"
+    ls -la binary/live/initrd.img
+else
+    echo "[kernel-paths] ✗ initrd.img missing!"
+fi
+
+echo "[kernel-paths] Done"
