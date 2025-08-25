@@ -1,0 +1,44 @@
+#!/bin/sh
+set -e
+
+echo "[grub-binary-theme] Copying GRUB theme to binary boot partition..."
+
+# Ensure the theme is available in the ISO's boot partition
+# This makes it accessible during GRUB boot before the live system starts
+
+# Create theme directory in binary
+mkdir -p binary/boot/grub/themes/nithron
+
+# Copy theme files if they exist in chroot
+if [ -d chroot/boot/grub/themes/nithron ]; then
+    echo "[grub-binary-theme] Copying theme files from chroot to binary..."
+    cp -r chroot/boot/grub/themes/nithron/* binary/boot/grub/themes/nithron/ 2>/dev/null || true
+fi
+
+# Also ensure theme is in EFI partition for UEFI boot
+if [ -d binary/EFI ]; then
+    echo "[grub-binary-theme] Setting up theme for EFI boot..."
+    mkdir -p binary/EFI/boot/grub/themes/nithron
+    cp -r chroot/boot/grub/themes/nithron/* binary/EFI/boot/grub/themes/nithron/ 2>/dev/null || true
+fi
+
+# Update grub.cfg files to use our theme
+for grub_cfg in binary/boot/grub/grub.cfg binary/EFI/boot/grub.cfg binary/isolinux/grub.cfg; do
+    if [ -f "$grub_cfg" ]; then
+        echo "[grub-binary-theme] Updating $grub_cfg to use NithronOS theme..."
+        
+        # Add theme configuration at the beginning of grub.cfg
+        sed -i '1i\
+# NithronOS Theme Configuration\
+set theme=/boot/grub/themes/nithron/theme.txt\
+set gfxmode=1024x768,auto\
+set gfxpayload=keep\
+terminal_output gfxterm\
+' "$grub_cfg"
+        
+        # Update distributor name
+        sed -i 's/Debian GNU\/Linux/NithronOS/g' "$grub_cfg"
+    fi
+done
+
+echo "[grub-binary-theme] Done"

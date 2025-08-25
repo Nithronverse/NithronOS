@@ -1,0 +1,24 @@
+#!/bin/sh
+set -e
+
+echo "[grub-theme] Ensuring GRUB theme is configured..."
+
+# Ensure GRUB directories exist
+mkdir -p /boot/grub/themes/nithron
+
+# Update GRUB configuration to apply theme
+if command -v update-grub >/dev/null 2>&1; then
+    echo "[grub-theme] Running update-grub to apply theme..."
+    update-grub || true
+else
+    echo "[grub-theme] update-grub not found, skipping..."
+fi
+
+# Verify theme files are in place
+if [ -f /boot/grub/themes/nithron/theme.txt ]; then
+    echo "[grub-theme] Theme file verified at /boot/grub/themes/nithron/theme.txt"
+else
+    echo "[grub-theme] Warning: Theme file not found"
+fi
+
+echo "[grub-theme] Done"

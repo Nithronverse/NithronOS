@@ -1,0 +1,74 @@
+# NithronOS GRUB Theme
+# Based on brand colors from palette.json
+
+# Global properties
+title-text: "NithronOS"
+title-font: "DejaVu Sans Regular 20"
+title-color: "#E6EDF7"
+desktop-image: "background.png"
+desktop-color: "#0B0E13"
+terminal-font: "DejaVu Sans Regular 14"
+terminal-box: "terminal_*.png"
+
+# Boot menu styling
++ boot_menu {
+  left = 15%
+  width = 70%
+  top = 30%
+  height = 45%
+  
+  # Menu item appearance
+  item_font = "DejaVu Sans Regular 16"
+  item_color = "#9AA7B8"
+  item_height = 32
+  item_padding = 8
+  item_spacing = 4
+  
+  # Selected item highlighting
+  selected_item_font = "DejaVu Sans Bold 16"
+  selected_item_color = "#E6EDF7"
+  selected_item_pixmap_style = "highlight_*.png"
+  
+  # Scrollbar
+  scrollbar = true
+  scrollbar_width = 8
+  scrollbar_thumb = "scrollbar_thumb_*.png"
+  scrollbar_frame = "scrollbar_frame_*.png"
+}
+
+# Progress bar for timeout
++ progress_bar {
+  id = "__timeout__"
+  left = 15%
+  width = 70%
+  top = 78%
+  height = 16
+  
+  font = "DejaVu Sans Regular 12"
+  text_color = "#9AA7B8"
+  fg_color = "#00D1FF"
+  bg_color = "#121622"
+  border_color = "#2D7FF9"
+  
+  text = "@TIMEOUT_NOTIFICATION_LONG@"
+}
+
+# Help text at bottom
++ label {
+  left = 15%
+  top = 85%
+  width = 70%
+  height = 20
+  
+  text = "Use ↑ and ↓ keys to select, Enter to boot, 'e' to edit, 'c' for command line"
+  font = "DejaVu Sans Regular 12"
+  color = "#9AA7B8"
+  align = "center"
+}
+
+# Terminal window styling (if accessed)
+terminal-left = "10%"
+terminal-top = "10%"
+terminal-width = "80%"
+terminal-height = "60%"
+terminal-border = "2"

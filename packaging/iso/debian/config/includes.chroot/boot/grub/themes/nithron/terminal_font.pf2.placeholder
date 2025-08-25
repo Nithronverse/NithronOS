@@ -1,0 +1,12 @@
+# PLACEHOLDER for terminal_font.pf2
+#
+# TO CREATE THE ACTUAL FONT FILE:
+# Run this command on a system with grub2-common installed:
+#
+# grub-mkfont -s 16 -o terminal_font.pf2 /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
+#
+# Or if DejaVu Sans is not available, use Liberation Sans:
+# grub-mkfont -s 16 -o terminal_font.pf2 /usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf
+#
+# The font file should be around 100-150KB for a basic Latin character set.
+# Delete this placeholder after creating the actual .pf2 file.

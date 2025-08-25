@@ -1,0 +1,61 @@
+#!/bin/sh
+set -e
+
+echo "[grub-titles] Customizing GRUB menu entry titles..."
+
+# Function to safely update grub.cfg titles
+update_grub_titles() {
+    local grub_cfg="$1"
+    
+    if [ ! -f "$grub_cfg" ]; then
+        echo "[grub-titles] $grub_cfg not found, skipping..."
+        return
+    fi
+    
+    echo "[grub-titles] Processing $grub_cfg..."
+    
+    # Backup original
+    cp -f "$grub_cfg" "${grub_cfg}.orig" 2>/dev/null || true
+    
+    # Update menu entry titles while preserving kernel parameters
+    # Pattern 1: Main live entry
+    sed -i "s/menuentry 'Debian GNU\/Linux - live'/menuentry 'NithronOS Live (amd64)'/g" "$grub_cfg"
+    sed -i "s/menuentry 'Debian GNU\/Linux Live'/menuentry 'NithronOS Live (amd64)'/g" "$grub_cfg"
+    sed -i "s/menuentry 'Live system (amd64)'/menuentry 'NithronOS Live (amd64)'/g" "$grub_cfg"
+    
+    # Pattern 2: Installer entries
+    sed -i "s/menuentry 'Debian Installer'/menuentry 'Install NithronOS'/g" "$grub_cfg"
+    sed -i "s/menuentry 'Install'/menuentry 'Install NithronOS'/g" "$grub_cfg"
+    sed -i "s/menuentry 'Graphical install'/menuentry 'Install NithronOS (Graphical)'/g" "$grub_cfg"
+    
+    # Pattern 3: Safe graphics mode
+    sed -i "s/menuentry 'Debian GNU\/Linux - live (safe graphics)'/menuentry 'NithronOS Live (safe graphics)'/g" "$grub_cfg"
+    sed -i "s/menuentry 'Live system (safe graphics)'/menuentry 'NithronOS Live (safe graphics)'/g" "$grub_cfg"
+    sed -i "s/menuentry '.*safe graphics.*'/menuentry 'NithronOS Live (safe graphics)'/g" "$grub_cfg"
+    
+    # Pattern 4: Failsafe/recovery modes
+    sed -i "s/menuentry 'Live system (failsafe)'/menuentry 'NithronOS Live (failsafe)'/g" "$grub_cfg"
+    sed -i "s/menuentry '.*failsafe.*'/menuentry 'NithronOS Live (failsafe)'/g" "$grub_cfg"
+    
+    # Pattern 5: Advanced options
+    sed -i "s/submenu 'Advanced options for Debian GNU\/Linux - live'/submenu 'Advanced options for NithronOS'/g" "$grub_cfg"
+    
+    # Count changes made
+    if diff -q "$grub_cfg" "${grub_cfg}.orig" >/dev/null 2>&1; then
+        echo "[grub-titles] No changes needed in $grub_cfg"
+    else
+        echo "[grub-titles] Successfully updated menu titles in $grub_cfg"
+    fi
+}
+
+# Update GRUB configs in multiple possible locations
+# Standard GRUB location
+update_grub_titles "/boot/grub/grub.cfg"
+
+# EFI boot loader location (if exists)
+update_grub_titles "/boot/efi/EFI/debian/grub.cfg"
+
+# Live-build might place configs here during ISO creation
+update_grub_titles "/isolinux/grub.cfg"
+
+echo "[grub-titles] Done"

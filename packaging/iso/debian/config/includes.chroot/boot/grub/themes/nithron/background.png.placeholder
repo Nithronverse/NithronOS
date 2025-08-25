@@ -1,0 +1,14 @@
+# PLACEHOLDER for background.png
+# 
+# TO CREATE THE ACTUAL FILE:
+# 1. Create a 1024x768 dark background (#0B0E13)
+# 2. Place the NithronOS logo mark centered
+# 3. Save as background.png (keep under 100KB)
+# 4. Delete this placeholder file
+#
+# Quick command to generate a basic dark background:
+# convert -size 1024x768 xc:'#0B0E13' background.png
+#
+# Then composite the logo:
+# convert background.png ../../../../../../assets/brand/nithronos-logo-mark.png \
+#   -gravity center -composite background.png
