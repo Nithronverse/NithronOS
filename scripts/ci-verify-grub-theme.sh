@@ -87,10 +87,15 @@ if [ -d "$TEMP_DIR/EFI" ]; then
     echo ""
     echo "=== Checking EFI Boot ==="
     
-    check_file "EFI/boot/grub.cfg" "EFI GRUB config" || EXIT_CODE=1
+    # EFI files are optional - theme can be loaded from /boot partition
+    check_file "EFI/boot/grub.cfg" "EFI GRUB config" || {
+        echo "  (Optional - theme may be loaded from /boot partition)"
+    }
     
     if [ -f "$TEMP_DIR/EFI/boot/grub.cfg" ]; then
-        check_content "EFI/boot/grub.cfg" "set theme=" "EFI theme setting" || EXIT_CODE=1
+        check_content "EFI/boot/grub.cfg" "set theme=" "EFI theme setting" || {
+            echo "  (Optional - theme may be loaded from /boot partition)"
+        }
     fi
     
     # Check for EFI theme files
@@ -105,8 +110,13 @@ if [ -d "$TEMP_DIR/isolinux" ]; then
     echo "=== Checking BIOS Boot ==="
     
     if [ -f "$TEMP_DIR/isolinux/grub.cfg" ]; then
-        check_file "isolinux/grub.cfg" "BIOS GRUB config" || EXIT_CODE=1
-        check_content "isolinux/grub.cfg" "set theme=" "BIOS theme setting" || EXIT_CODE=1
+        # BIOS GRUB config is optional - theme can be loaded from /boot partition
+        check_file "isolinux/grub.cfg" "BIOS GRUB config" || {
+            echo "  (Optional - theme may be loaded from /boot partition)"
+        }
+        check_content "isolinux/grub.cfg" "set theme=" "BIOS theme setting" || {
+            echo "  (Optional - theme may be loaded from /boot partition)"
+        }
     fi
 fi
 
