@@ -89,11 +89,18 @@ Observability → [docs/dev/observability.md](docs/dev/observability.md) (scrape
 On first boot, `nosd` generates a **one-time OTP**, logs it, and prints it to the console (`StandardOutput=journal+console`). The UI calls `/api/setup/state` and routes to `/setup` if required.
 
 1. **OTP** — enter the 6-digit code (15-minute TTL).  
-2. **Admin** — create the first admin (strong password).  
+2. **Admin** — create the first admin (strong password with real-time strength indicator).  
 3. **2FA (optional)** — TOTP QR + recovery codes.  
 4. **Done** — sign in at `/login`.
 
 After the first admin is created, `/api/setup/*` returns **410 Gone** and normal login applies.
+
+**Frontend Features**
+- **Smart error handling** — Specific messages for rate limiting, invalid credentials, TOTP required
+- **Session management** — Automatic token refresh on 401, no manual re-login needed
+- **Global error banner** — Backend unreachable detection with help link
+- **Password strength meter** — Real-time feedback during account creation
+- **Remember me** — Optional persistent sessions using localStorage
 
 **Where things live**
 - Users DB: `/etc/nos/users.json` (remove to rerun setup).  
@@ -105,6 +112,8 @@ After the first admin is created, `/api/setup/*` returns **410 Gone** and normal
 - Sessions: httpOnly cookies (`nos_session` ~15m, optional `nos_refresh` ~7d) + CSRF double-submit (`X-CSRF-Token`).  
 - 2FA: TOTP (XChaCha20-Poly1305-encrypted secrets), recovery codes hashed.  
 - Guardrails: rate limits per IP/username, generic auth errors, temporary lockout.
+
+📚 For detailed implementation: [Authentication Guide](docs/frontend/authentication.md) | [Migration Guide](docs/frontend/auth-migration-guide.md)
 
 ---
 
@@ -198,8 +207,8 @@ Filters/jails under `deploy/fail2ban/`; see comments inside for enabling.
 
 ### Milestones to v1
 - [x] **M1 — Storage Foundation (Btrfs + Health)**: create/import, SMART, scrub/repair, schedules, device ops, destroy, support bundle. (complete)
-- [ ] **M2 — Shares & Permissions**: SMB/NFS with simple ACLs, guest toggle, recycle bin, Time Machine (fruit).
-- [ ] **M3 — App Catalog v1 (Docker/Compose)**: one-click apps, lifecycle, health checks, pre-snapshot + rollback.
+- [x] **M2 — Shares & Permissions**: SMB/NFS with simple ACLs, guest toggle, recycle bin, Time Machine (fruit). (complete)
+- [x] **M3 — App Catalog v1 (Docker/Compose)**: one-click apps, lifecycle, health checks, pre-snapshot + rollback. (complete)
 - [ ] **M4 — Networking & Remote**: Remote Access Wizard (LAN-only, WireGuard, reverse tunnel), HTTPS (LE), plan/apply/rollback firewall with 2FA for non-LAN.
 - [ ] **M5 — Updates & Releases**: signed packages, channels (stable/beta), atomic upgrades (snapshot safety net).
 - [ ] **M6 — Installer & First-boot++**: guided disk install (Btrfs subvols), hostname/timezone/network, telemetry opt-in.
@@ -218,6 +227,8 @@ Filters/jails under `deploy/fail2ban/`; see comments inside for enabling.
 
 ### Administration
 - API versioning & typed errors → [docs/api/versioning-and-errors.md](docs/api/versioning-and-errors.md)  
+- App Catalog user guide → [docs/apps/catalog.md](docs/apps/catalog.md)  
+- App runtime architecture → [docs/apps/runtime.md](docs/apps/runtime.md)  
 - Certificates & HTTPS configuration → [docs/admin/certificates.md](docs/admin/certificates.md)  
 - Network shares (SMB/NFS/Time Machine) → [docs/admin/shares.md](docs/admin/shares.md)  
 - Config & hot reload → [docs/dev/config-and-reload.md](docs/dev/config-and-reload.md)  
