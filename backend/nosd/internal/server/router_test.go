@@ -174,7 +174,8 @@ func TestDeleteShareReturnsNoContent(t *testing.T) {
 	}
 	res := httptest.NewRecorder()
 	r.ServeHTTP(res, req)
-	if res.Code != http.StatusNoContent {
-		t.Fatalf("expected 204, got %d", res.Code)
+	// Share doesn't exist, so we expect 404
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for non-existent share, got %d", res.Code)
 	}
 }

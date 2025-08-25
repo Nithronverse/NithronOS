@@ -21,8 +21,8 @@ import (
 	"nithronos/backend/nosd/internal/ratelimit"
 	"nithronos/backend/nosd/internal/server"
 	"nithronos/backend/nosd/internal/sessions"
-	"nithronos/backend/nosd/internal/shares"
 	firstboot "nithronos/backend/nosd/internal/setup/firstboot"
+	"nithronos/backend/nosd/internal/shares"
 )
 
 func main() {
@@ -32,7 +32,7 @@ func main() {
 	server.SetLogLevel(cfg.LogLevel)
 	ensureSecret(cfg.SecretPath)
 	ensureAgentToken("/etc/nos/agent-token")
-	
+
 	// Run shares migration
 	if err := shares.RunMigration(); err != nil {
 		server.Logger(cfg).Error().Err(err).Msg("Failed to run shares migration")

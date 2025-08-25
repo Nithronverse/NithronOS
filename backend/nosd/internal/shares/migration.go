@@ -33,7 +33,7 @@ func InitializeSharesConfig() error {
 
 	// File doesn't exist, create it
 	log.Info().Msg("Creating initial shares configuration")
-	
+
 	// Ensure directory exists
 	dir := filepath.Dir(SharesConfigPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -153,7 +153,7 @@ func addManagedHeader(path string) error {
 	}
 
 	content := string(data)
-	
+
 	// Check if already has our header
 	if strings.Contains(content, ManagedByHeader) {
 		return nil // Already marked
@@ -166,12 +166,12 @@ func addManagedHeader(path string) error {
 
 	// Add preservation notice at the top
 	preserveNotice := fmt.Sprintf(
-		"# PRESERVED: Hand-written configuration (not managed by NithronOS)\n"+
-		"# To convert to managed share, remove this file and use the web UI\n\n",
+		"# PRESERVED: Hand-written configuration (not managed by NithronOS)\n" +
+			"# To convert to managed share, remove this file and use the web UI\n\n",
 	)
 
 	newContent := preserveNotice + content
-	
+
 	// Write back with same permissions
 	info, err := os.Stat(path)
 	if err != nil {

@@ -8,12 +8,12 @@ import (
 
 func TestBuildACLCommands(t *testing.T) {
 	tests := []struct {
-		name     string
-		path     string
-		owners   []string
-		readers  []string
-		want     []string
-		wantErr  bool
+		name    string
+		path    string
+		owners  []string
+		readers []string
+		want    []string
+		wantErr bool
 	}{
 		{
 			name:    "basic owners and readers",
@@ -70,23 +70,23 @@ func TestBuildACLCommands(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := BuildACLCommands(tt.path, tt.owners, tt.readers)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("BuildACLCommands() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if tt.wantErr {
 				return
 			}
-			
+
 			if len(got) != len(tt.want) {
 				t.Errorf("BuildACLCommands() returned %d commands, want %d", len(got), len(tt.want))
 				t.Errorf("Got: %v", got)
 				t.Errorf("Want: %v", tt.want)
 				return
 			}
-			
+
 			for i, cmd := range got {
 				if cmd != tt.want[i] {
 					t.Errorf("Command[%d] = %q, want %q", i, cmd, tt.want[i])
@@ -105,13 +105,13 @@ func TestValidatePrincipal(t *testing.T) {
 		{"group:admins", false},
 		{"user:alice-smith", false},
 		{"group:nos-share-docs", false},
-		{"alice", true},           // Missing type
-		{"user:", true},           // Missing name
-		{":alice", true},          // Missing type
-		{"role:admin", true},      // Invalid type
-		{"user:alice:extra", true}, // Too many parts
-		{"user:Alice", true},      // Uppercase not allowed
-		{"user:alice smith", true}, // Space not allowed
+		{"alice", true},             // Missing type
+		{"user:", true},             // Missing name
+		{":alice", true},            // Missing type
+		{"role:admin", true},        // Invalid type
+		{"user:alice:extra", true},  // Too many parts
+		{"user:Alice", true},        // Uppercase not allowed
+		{"user:alice smith", true},  // Space not allowed
 		{"user:alice@domain", true}, // @ not allowed
 	}
 
@@ -154,43 +154,43 @@ func TestEscapeForACL(t *testing.T) {
 // BuildACLCommands generates setfacl commands for the given principals
 func BuildACLCommands(path string, owners, readers []string) ([]string, error) {
 	var commands []string
-	
+
 	// Process owners (rwx)
 	for _, owner := range owners {
 		if err := ValidatePrincipal(owner); err != nil {
 			return nil, err
 		}
-		
+
 		parts := strings.Split(owner, ":")
 		aclType := "u"
 		if parts[0] == "group" {
 			aclType = "g"
 		}
-		
+
 		name := EscapeForACL(parts[1])
-		
+
 		// Access ACL
-		commands = append(commands, 
+		commands = append(commands,
 			"setfacl -m "+aclType+":"+name+":rwx "+path)
 		// Default ACL for new files
 		commands = append(commands,
 			"setfacl -m d:"+aclType+":"+name+":rwx "+path)
 	}
-	
+
 	// Process readers (rx)
 	for _, reader := range readers {
 		if err := ValidatePrincipal(reader); err != nil {
 			return nil, err
 		}
-		
+
 		parts := strings.Split(reader, ":")
 		aclType := "u"
 		if parts[0] == "group" {
 			aclType = "g"
 		}
-		
+
 		name := EscapeForACL(parts[1])
-		
+
 		// Access ACL
 		commands = append(commands,
 			"setfacl -m "+aclType+":"+name+":rx "+path)
@@ -198,7 +198,7 @@ func BuildACLCommands(path string, owners, readers []string) ([]string, error) {
 		commands = append(commands,
 			"setfacl -m d:"+aclType+":"+name+":rx "+path)
 	}
-	
+
 	return commands, nil
 }
 
@@ -208,22 +208,22 @@ func ValidatePrincipal(principal string) error {
 	if len(parts) != 2 {
 		return fmt.Errorf("invalid principal format: %s", principal)
 	}
-	
+
 	if parts[0] != "user" && parts[0] != "group" {
 		return fmt.Errorf("invalid principal type: %s", parts[0])
 	}
-	
+
 	if parts[1] == "" {
 		return fmt.Errorf("empty principal name")
 	}
-	
+
 	// Check name format (lowercase, alphanumeric, dash, underscore)
 	for _, r := range parts[1] {
 		if !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' || r == '_') {
 			return fmt.Errorf("invalid character in principal name: %c", r)
 		}
 	}
-	
+
 	return nil
 }
 
