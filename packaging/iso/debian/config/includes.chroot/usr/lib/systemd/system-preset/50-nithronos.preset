@@ -1,4 +1,7 @@
 enable caddy.service
+enable nosd.service
+enable nos-agent.service
 enable nos-tls-gen.service
+enable nithronos-ensure-services.service
 
 

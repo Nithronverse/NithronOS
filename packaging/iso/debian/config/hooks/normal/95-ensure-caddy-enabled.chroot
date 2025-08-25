@@ -1,0 +1,37 @@
+#!/bin/bash
+set -e
+
+echo "[95-ensure-caddy] Ensuring Caddy is properly enabled..."
+
+# Create necessary directories
+mkdir -p /etc/systemd/system/multi-user.target.wants
+mkdir -p /var/log/caddy
+mkdir -p /usr/share/nithronos/web
+
+# Create caddy user if it doesn't exist
+if ! id -u caddy >/dev/null 2>&1; then
+    useradd --system --home /var/lib/caddy --shell /bin/false caddy || true
+fi
+
+# Set permissions
+chown caddy:caddy /var/log/caddy || true
+
+# Enable the service multiple ways to ensure it starts
+systemctl enable caddy.service || true
+ln -sf /lib/systemd/system/caddy.service /etc/systemd/system/multi-user.target.wants/caddy.service || true
+
+# Make ensure services script executable
+chmod +x /usr/local/bin/nithronos-ensure-services.sh || true
+
+# Also enable dependent services
+systemctl enable nosd.service || true
+systemctl enable nos-agent.service || true
+systemctl enable nithronos-ensure-services.service || true
+
+# Verify services are enabled
+echo "[95-ensure-caddy] Checking service status..."
+systemctl is-enabled caddy || echo "Warning: Caddy may not be enabled"
+systemctl is-enabled nosd || echo "Warning: nosd may not be enabled"
+systemctl is-enabled nos-agent || echo "Warning: nos-agent may not be enabled"
+
+echo "[95-ensure-caddy] Done"

@@ -1,25 +1,65 @@
+# NithronOS Caddyfile - Development/Production
 {
   admin localhost:2019
-  auto_https off
+  # Accept self-signed certificates
+  auto_https disable_redirects
 }
 
-:80, nithron.os:80 {
+# HTTP on port 80 - no redirect, serve directly
+:80 {
   encode gzip zstd
+  
   header {
     X-Content-Type-Options "nosniff"
     Referrer-Policy "no-referrer"
     Cross-Origin-Opener-Policy "same-origin"
     Cross-Origin-Embedder-Policy "require-corp"
   }
+
   @api path /api/*
   handle @api {
     reverse_proxy 127.0.0.1:9000
   }
+
   handle {
     root * /usr/share/nithronos/web
     try_files {path} /index.html
     file_server
   }
+  
+  log {
+    output file /var/log/caddy/access.log
+  }
 }
 
+# HTTPS on port 443 with self-signed certificate (optional)
+:443 {
+  tls internal {
+    on_demand
+  }
+  
+  encode gzip zstd
+  
+  header {
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "no-referrer"
+    Cross-Origin-Opener-Policy "same-origin"
+    Cross-Origin-Embedder-Policy "require-corp"
+    Strict-Transport-Security "max-age=31536000"
+  }
 
+  @api path /api/*
+  handle @api {
+    reverse_proxy 127.0.0.1:9000
+  }
+
+  handle {
+    root * /usr/share/nithronos/web
+    try_files {path} /index.html
+    file_server
+  }
+  
+  log {
+    output file /var/log/caddy/access.log
+  }
+}
