@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
-import type { Share, CreateShareRequest, UpdateShareRequest } from '@/api/client'
+import type { CreateShareRequest, UpdateShareRequest } from '@/api/client'
 import { pushToast } from '@/components/ui/toast'
 
 export function useShares() {

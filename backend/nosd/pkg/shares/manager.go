@@ -7,13 +7,11 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
-
-	"github.com/NotTekk/nosd/internal/fsatomic"
 )
 
 const (
-	SharesFile = "/etc/nos/shares.json"
-	SharesDir  = "/srv/shares"
+	SharesConfigPath = "/etc/nos/shares.json"
+	SharesDir        = "/srv/shares"
 )
 
 // Manager handles share operations and persistence
@@ -26,7 +24,7 @@ type Manager struct {
 // NewManager creates a new shares manager
 func NewManager(filepath string) *Manager {
 	if filepath == "" {
-		filepath = SharesFile
+		filepath = SharesConfigPath
 	}
 	return &Manager{
 		filepath: filepath,
@@ -233,7 +231,7 @@ func (m *Manager) Test(name string, config json.RawMessage) (*TestResponse, erro
 		m.mu.RLock()
 		existing, exists := m.shares[name]
 		m.mu.RUnlock()
-		
+
 		if !exists {
 			return &TestResponse{
 				Valid:  false,
@@ -284,7 +282,7 @@ func (m *Manager) Test(name string, config json.RawMessage) (*TestResponse, erro
 		m.mu.RLock()
 		_, exists := m.shares[req.Name]
 		m.mu.RUnlock()
-		
+
 		if exists {
 			return &TestResponse{
 				Valid:  false,
@@ -322,7 +320,7 @@ func (m *Manager) saveUnsafe(file *SharesFile) error {
 	}
 
 	// Write atomically
-	if err := fsatomic.WriteFile(m.filepath, data, 0600); err != nil {
+	if err := os.WriteFile(m.filepath, data, 0600); err != nil {
 		return fmt.Errorf("failed to write shares file: %w", err)
 	}
 

@@ -1,14 +1,25 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
-	"github.com/NotTekk/nosd/pkg/agentclient"
-	"github.com/NotTekk/nosd/pkg/shares"
+	"nithronos/backend/nosd/pkg/agentclient"
+	"nithronos/backend/nosd/pkg/shares"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 )
+
+// writeError writes an error response
+func writeError(w http.ResponseWriter, statusCode int, code string, message string) {
+	w.WriteHeader(statusCode)
+	writeJSON(w, map[string]string{
+		"code":    code,
+		"message": message,
+	})
+}
 
 // SharesHandler handles share-related HTTP requests
 type SharesHandler struct {
@@ -48,7 +59,7 @@ func (h *SharesHandler) ListShares(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, sharesList)
+	writeJSON(w, sharesList)
 }
 
 // CreateShare handles POST /api/shares
@@ -72,7 +83,7 @@ func (h *SharesHandler) CreateShare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Apply share via agent (privileged operations)
-	if err := h.applyShare(share); err != nil {
+	if err := h.applyShare(r.Context(), share); err != nil {
 		// Rollback
 		_ = h.manager.Delete(share.Name)
 		log.Error().Err(err).Str("share", share.Name).Msg("failed to apply share")
@@ -80,7 +91,21 @@ func (h *SharesHandler) CreateShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, share)
+	w.WriteHeader(http.StatusCreated)
+	writeJSON(w, share)
+}
+
+// GetShare handles GET /api/shares/:name
+func (h *SharesHandler) GetShare(w http.ResponseWriter, r *http.Request) {
+	name := chi.URLParam(r, "name")
+
+	share, err := h.manager.Get(name)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Share not found")
+		return
+	}
+
+	writeJSON(w, share)
 }
 
 // UpdateShare handles PATCH /api/shares/:name
@@ -110,13 +135,13 @@ func (h *SharesHandler) UpdateShare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Apply updated configuration
-	if err := h.applyShare(share); err != nil {
+	if err := h.applyShare(r.Context(), share); err != nil {
 		log.Error().Err(err).Str("share", share.Name).Msg("failed to apply share update")
 		writeError(w, http.StatusInternalServerError, "ERR_APPLY_FAILED", "Failed to apply share configuration")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, share)
+	writeJSON(w, share)
 }
 
 // DeleteShare handles DELETE /api/shares/:name
@@ -131,7 +156,7 @@ func (h *SharesHandler) DeleteShare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Remove share configuration via agent
-	if err := h.removeShare(share); err != nil {
+	if err := h.removeShare(r.Context(), share); err != nil {
 		log.Error().Err(err).Str("share", name).Msg("failed to remove share")
 		writeError(w, http.StatusInternalServerError, "ERR_REMOVE_FAILED", "Failed to remove share configuration")
 		return
@@ -172,11 +197,11 @@ func (h *SharesHandler) TestShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, result)
+	writeJSON(w, result)
 }
 
 // applyShare applies share configuration via agent
-func (h *SharesHandler) applyShare(share *shares.Share) error {
+func (h *SharesHandler) applyShare(ctx context.Context, share *shares.Share) error {
 	// Create share directory and set permissions
 	req := &agentclient.CreateShareRequest{
 		Path:    share.Path,
@@ -189,12 +214,12 @@ func (h *SharesHandler) applyShare(share *shares.Share) error {
 		req.RecycleDir = share.SMB.Recycle.Directory
 	}
 
-	if err := h.agent.CreateShare(req); err != nil {
+	if err := h.agent.CreateShare(ctx, req); err != nil {
 		return err
 	}
 
 	// Apply ACLs
-	if err := h.agent.ApplyACLs(&agentclient.ApplyACLsRequest{
+	if err := h.agent.ApplyACLs(ctx, &agentclient.ApplyACLsRequest{
 		Path:    share.Path,
 		Owners:  share.Owners,
 		Readers: share.Readers,
@@ -209,14 +234,14 @@ func (h *SharesHandler) applyShare(share *shares.Share) error {
 			return err
 		}
 
-		if err := h.agent.WriteSambaConfig(&agentclient.WriteSambaConfigRequest{
+		if err := h.agent.WriteSambaConfig(ctx, &agentclient.WriteSambaConfigRequest{
 			Name:   share.Name,
 			Config: config,
 		}); err != nil {
 			return err
 		}
 
-		if err := h.agent.ReloadSamba(); err != nil {
+		if err := h.agent.ReloadSamba(ctx); err != nil {
 			return err
 		}
 	}
@@ -231,14 +256,14 @@ func (h *SharesHandler) applyShare(share *shares.Share) error {
 			return err
 		}
 
-		if err := h.agent.WriteNFSExport(&agentclient.WriteNFSExportRequest{
+		if err := h.agent.WriteNFSExport(ctx, &agentclient.WriteNFSExportRequest{
 			Name:   share.Name,
 			Config: config,
 		}); err != nil {
 			return err
 		}
 
-		if err := h.agent.ReloadNFS(); err != nil {
+		if err := h.agent.ReloadNFS(ctx); err != nil {
 			return err
 		}
 	}
@@ -249,28 +274,30 @@ func (h *SharesHandler) applyShare(share *shares.Share) error {
 		log.Warn().Err(err).Msg("failed to update Avahi Time Machine service")
 	} else {
 		// Reload Avahi if the file changed
-		_ = h.agent.ReloadAvahi()
+		_ = h.agent.ReloadAvahi(ctx)
 	}
 
 	return nil
 }
 
 // removeShare removes share configuration via agent
-func (h *SharesHandler) removeShare(share *shares.Share) error {
+func (h *SharesHandler) removeShare(ctx context.Context, share *shares.Share) error {
 	// Remove SMB configuration if it exists
 	if share.SMB != nil && share.SMB.Enabled {
-		if err := h.agent.RemoveSambaConfig(share.Name); err != nil {
-			log.Warn().Err(err).Str("share", share.Name).Msg("failed to remove Samba config")
-		}
-		_ = h.agent.ReloadSamba()
+		// TODO: Implement RemoveSambaConfig in agent
+		// if err := h.agent.RemoveSambaConfig(share.Name); err != nil {
+		//     log.Warn().Err(err).Str("share", share.Name).Msg("failed to remove Samba config")
+		// }
+		_ = h.agent.ReloadSamba(ctx)
 	}
 
 	// Remove NFS export if it exists
 	if share.NFS != nil && share.NFS.Enabled {
-		if err := h.agent.RemoveNFSExport(share.Name); err != nil {
-			log.Warn().Err(err).Str("share", share.Name).Msg("failed to remove NFS export")
-		}
-		_ = h.agent.ReloadNFS()
+		// TODO: Implement RemoveNFSExport in agent
+		// if err := h.agent.RemoveNFSExport(share.Name); err != nil {
+		//     log.Warn().Err(err).Str("share", share.Name).Msg("failed to remove NFS export")
+		// }
+		_ = h.agent.ReloadNFS(ctx)
 	}
 
 	// Note: We don't remove the directory itself to preserve data

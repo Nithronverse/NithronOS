@@ -1,10 +1,7 @@
 package agentclient
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"net/http"
+	"context"
 )
 
 // Share-related request/response types
@@ -46,209 +43,86 @@ type CreateSubvolRequest struct {
 // Share management methods
 
 // CreateShare creates a share directory with proper permissions
-func (c *Client) CreateShare(req *CreateShareRequest) error {
-	data, err := json.Marshal(req)
-	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	resp, err := c.doRequest("POST", "/shares/create", bytes.NewReader(data))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return c.parseError(resp)
-	}
-
-	return nil
+func (c *Client) CreateShare(ctx context.Context, req *CreateShareRequest) error {
+	return c.PostJSON(ctx, "/shares/create", req, nil)
 }
 
 // ApplyACLs applies POSIX ACLs to a share
-func (c *Client) ApplyACLs(req *ApplyACLsRequest) error {
-	data, err := json.Marshal(req)
-	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	resp, err := c.doRequest("POST", "/shares/acls", bytes.NewReader(data))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return c.parseError(resp)
-	}
-
-	return nil
+func (c *Client) ApplyACLs(ctx context.Context, req *ApplyACLsRequest) error {
+	return c.PostJSON(ctx, "/shares/acls", req, nil)
 }
 
-// WriteSambaConfig writes a Samba configuration snippet
-func (c *Client) WriteSambaConfig(req *WriteSambaConfigRequest) error {
-	data, err := json.Marshal(req)
-	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	resp, err := c.doRequest("POST", "/shares/samba/write", bytes.NewReader(data))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return c.parseError(resp)
-	}
-
-	return nil
+// WriteSambaConfig writes Samba configuration for a share
+func (c *Client) WriteSambaConfig(ctx context.Context, req *WriteSambaConfigRequest) error {
+	return c.PostJSON(ctx, "/shares/samba", req, nil)
 }
 
-// RemoveSambaConfig removes a Samba configuration snippet
-func (c *Client) RemoveSambaConfig(name string) error {
-	req := map[string]string{"name": name}
-	data, err := json.Marshal(req)
-	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	resp, err := c.doRequest("POST", "/shares/samba/remove", bytes.NewReader(data))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return c.parseError(resp)
-	}
-
-	return nil
+// WriteNFSExport writes NFS export configuration for a share
+func (c *Client) WriteNFSExport(ctx context.Context, req *WriteNFSExportRequest) error {
+	return c.PostJSON(ctx, "/shares/nfs", req, nil)
 }
 
-// ReloadSamba reloads the Samba service
-func (c *Client) ReloadSamba() error {
-	resp, err := c.doRequest("POST", "/shares/samba/reload", nil)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return c.parseError(resp)
-	}
-
-	return nil
+// ReloadSamba reloads Samba services
+func (c *Client) ReloadSamba(ctx context.Context) error {
+	return c.PostJSON(ctx, "/shares/reload-samba", nil, nil)
 }
 
-// WriteNFSExport writes an NFS export configuration
-func (c *Client) WriteNFSExport(req *WriteNFSExportRequest) error {
-	data, err := json.Marshal(req)
-	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	resp, err := c.doRequest("POST", "/shares/nfs/write", bytes.NewReader(data))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return c.parseError(resp)
-	}
-
-	return nil
-}
-
-// RemoveNFSExport removes an NFS export configuration
-func (c *Client) RemoveNFSExport(name string) error {
-	req := map[string]string{"name": name}
-	data, err := json.Marshal(req)
-	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	resp, err := c.doRequest("POST", "/shares/nfs/remove", bytes.NewReader(data))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return c.parseError(resp)
-	}
-
-	return nil
-}
-
-// ReloadNFS reloads the NFS exports
-func (c *Client) ReloadNFS() error {
-	resp, err := c.doRequest("POST", "/shares/nfs/reload", nil)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return c.parseError(resp)
-	}
-
-	return nil
-}
-
-// CreateSubvol creates a Btrfs subvolume if the filesystem supports it
-func (c *Client) CreateSubvol(req *CreateSubvolRequest) error {
-	data, err := json.Marshal(req)
-	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	resp, err := c.doRequest("POST", "/shares/subvol", bytes.NewReader(data))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return c.parseError(resp)
-	}
-
-	return nil
+// ReloadNFS reloads NFS exports
+func (c *Client) ReloadNFS(ctx context.Context) error {
+	return c.PostJSON(ctx, "/shares/reload-nfs", nil, nil)
 }
 
 // EnsureGroup ensures a system group exists
-func (c *Client) EnsureGroup(name string) error {
-	req := map[string]string{"name": name}
-	data, err := json.Marshal(req)
-	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
+func (c *Client) EnsureGroup(ctx context.Context, name string) error {
+	req := struct {
+		Name string `json:"name"`
+	}{
+		Name: name,
 	}
+	return c.PostJSON(ctx, "/shares/ensure-group", req, nil)
+}
 
-	resp, err := c.doRequest("POST", "/shares/group", bytes.NewReader(data))
-	if err != nil {
-		return err
+// CreateSubvol creates a Btrfs subvolume (if the filesystem is Btrfs)
+func (c *Client) CreateSubvol(ctx context.Context, req *CreateSubvolRequest) error {
+	return c.PostJSON(ctx, "/shares/subvol", req, nil)
+}
+
+// TestSambaConfig tests the Samba configuration
+func (c *Client) TestSambaConfig(ctx context.Context) error {
+	return c.GetJSON(ctx, "/shares/test-samba", nil)
+}
+
+// TestNFSExports tests the NFS exports configuration
+func (c *Client) TestNFSExports(ctx context.Context) error {
+	return c.GetJSON(ctx, "/shares/test-nfs", nil)
+}
+
+// WriteAvahiService writes an Avahi service file for Time Machine
+func (c *Client) WriteAvahiService(ctx context.Context, name string, content string) error {
+	req := struct {
+		Name    string `json:"name"`
+		Content string `json:"content"`
+	}{
+		Name:    name,
+		Content: content,
 	}
-	defer resp.Body.Close()
+	return c.PostJSON(ctx, "/shares/avahi", req, nil)
+}
 
-	if resp.StatusCode != http.StatusOK {
-		return c.parseError(resp)
+// RemoveAvahiService removes an Avahi service file
+func (c *Client) RemoveAvahiService(ctx context.Context, name string) error {
+	// For now, use POST with a delete action
+	req := struct {
+		Name   string `json:"name"`
+		Action string `json:"action"`
+	}{
+		Name:   name,
+		Action: "delete",
 	}
-
-	return nil
+	return c.PostJSON(ctx, "/shares/avahi", req, nil)
 }
 
 // ReloadAvahi reloads the Avahi daemon
-func (c *Client) ReloadAvahi() error {
-	resp, err := c.doRequest("POST", "/shares/avahi/reload", nil)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return c.parseError(resp)
-	}
-
-	return nil
+func (c *Client) ReloadAvahi(ctx context.Context) error {
+	return c.PostJSON(ctx, "/shares/reload-avahi", nil, nil)
 }

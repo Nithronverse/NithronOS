@@ -20,7 +20,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"nithronos/backend/nosd/handlers"
 	"nithronos/backend/nosd/internal/apps"
 	pwhash "nithronos/backend/nosd/internal/auth/hash"
 	"nithronos/backend/nosd/internal/auth/session"
@@ -30,12 +29,12 @@ import (
 	"nithronos/backend/nosd/internal/pools"
 	"nithronos/backend/nosd/internal/ratelimit"
 	"nithronos/backend/nosd/internal/sessions"
-	"nithronos/backend/nosd/internal/shares"
 	"nithronos/backend/nosd/pkg/agentclient"
 	"nithronos/backend/nosd/pkg/auth"
 	"nithronos/backend/nosd/pkg/firewall"
 	"nithronos/backend/nosd/pkg/httpx"
 	poolroots "nithronos/backend/nosd/pkg/pools"
+	"nithronos/backend/nosd/pkg/shares"
 	"nithronos/backend/nosd/pkg/snapdb"
 
 	"nithronos/backend/nosd/internal/fsatomic"
@@ -165,6 +164,14 @@ func NewRouter(cfg config.Config) http.Handler {
 	store, _ := auth.NewStore(cfg.UsersPath)
 	users, _ := userstore.New(cfg.UsersPath)
 	codec := auth.NewSessionCodec(cfg.SessionHashKey, cfg.SessionBlockKey)
+
+	// Initialize shares handler
+	sharesManager := shares.NewManager("")
+	agentClient := agentclient.New(cfg.AgentSocket())
+	sharesHandler := &SharesHandler{
+		manager: sharesManager,
+		agent:   agentClient,
+	}
 	// Disk-backed session and ratelimit stores
 	sessStore := sessions.New(cfg.SessionsPath)
 	rlStore := ratelimit.New(cfg.RateLimitPath)
@@ -1124,11 +1131,7 @@ func NewRouter(cfg config.Config) http.Handler {
 			writeJSON(w, map[string]any{"ok": true, "mount": target})
 		})
 
-		// Shares
-		pr.Get("/api/shares", func(w http.ResponseWriter, r *http.Request) {
-			st := shares.NewStore(cfg.SharesPath)
-			writeJSON(w, st.List())
-		})
+		// Shares endpoints are handled by SharesHandler below
 		// SMB users proxy
 		pr.Get("/api/smb/users", func(w http.ResponseWriter, r *http.Request) {
 			client := agentclient.New("/run/nos-agent.sock")
@@ -1142,7 +1145,13 @@ func NewRouter(cfg config.Config) http.Handler {
 			}
 			writeJSON(w, out.Users)
 		})
-		pr.With(adminRequired).Post("/api/shares", handlers.HandleCreateShare(cfg))
+		// Shares endpoints
+		pr.With(adminRequired).Get("/api/shares", sharesHandler.ListShares)
+		pr.With(adminRequired).Post("/api/shares", sharesHandler.CreateShare)
+		pr.With(adminRequired).Get("/api/shares/{name}", sharesHandler.GetShare)
+		pr.With(adminRequired).Patch("/api/shares/{name}", sharesHandler.UpdateShare)
+		pr.With(adminRequired).Delete("/api/shares/{name}", sharesHandler.DeleteShare)
+		pr.With(adminRequired).Post("/api/shares/{name}/test", sharesHandler.TestShare)
 
 		pr.With(adminRequired).Post("/api/smb/users", func(w http.ResponseWriter, r *http.Request) {
 			var body struct{ Username, Password string }
@@ -1160,9 +1169,19 @@ func NewRouter(cfg config.Config) http.Handler {
 			}
 			writeJSON(w, map[string]any{"ok": true})
 		})
+		/* Duplicate delete handler - removed
 		pr.With(adminRequired).Delete("/api/shares/{id}", func(w http.ResponseWriter, r *http.Request) {
 			id := chi.URLParam(r, "id")
-			st := shares.NewStore(cfg.SharesPath)
+			// st := shares.NewStore(cfg.SharesPath)
+			st := struct{
+				GetByID func(string) (interface{}, bool)
+				Delete func(string) error
+				RemoveByID func(string)
+			}{
+				GetByID: func(id string) (interface{}, bool) { return nil, false },
+				Delete: func(id string) error { return nil },
+				RemoveByID: func(id string) {},
+			}
 			sh, ok := st.GetByID(id)
 			if ok {
 				// Best-effort: in dev/test on Windows or when the agent socket isn't present, skip agent calls
@@ -1191,7 +1210,7 @@ func NewRouter(cfg config.Config) http.Handler {
 				}
 			}
 			w.WriteHeader(http.StatusNoContent)
-		})
+		}) */
 
 		pr.Get("/api/apps", func(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, apps.Catalog(cfg.AppsInstallDir))
@@ -1311,7 +1330,7 @@ func NewRouter(cfg config.Config) http.Handler {
 
 		// Updates: check
 		pr.Get("/api/updates/check", func(w http.ResponseWriter, r *http.Request) {
-			client := handlers.AgentClientFactory()
+			client := agentclient.New("/run/nos-agent.sock")
 			var planResp map[string]any
 			_ = client.PostJSON(r.Context(), "/v1/updates/plan", map[string]any{}, &planResp)
 			// attach snapshot targets (best-effort)
@@ -1331,7 +1350,7 @@ func NewRouter(cfg config.Config) http.Handler {
 				httpx.WriteError(w, http.StatusPreconditionRequired, "confirm\u003dyes required")
 				return
 			}
-			client := handlers.AgentClientFactory()
+			client := agentclient.New("/run/nos-agent.sock")
 			// create tx and persist initial state
 			txID := generateUUID()
 			tx := snapdb.UpdateTx{TxID: txID, StartedAt: time.Now().UTC(), Packages: body.Packages, Reason: "pre-update"}
@@ -1388,7 +1407,7 @@ func NewRouter(cfg config.Config) http.Handler {
 			if body.KeepPerTarget <= 0 {
 				body.KeepPerTarget = 5
 			}
-			client := handlers.AgentClientFactory()
+			client := agentclient.New("/run/nos-agent.sock")
 			var resp map[string]any
 			if err := client.PostJSON(r.Context(), "/v1/snapshot/prune", map[string]any{"keep_per_target": body.KeepPerTarget}, &resp); err != nil {
 				httpx.WriteError(w, http.StatusInternalServerError, err.Error())
@@ -1413,7 +1432,7 @@ func NewRouter(cfg config.Config) http.Handler {
 				httpx.WriteError(w, http.StatusNotFound, "tx not found")
 				return
 			}
-			client := handlers.AgentClientFactory()
+			client := agentclient.New("/run/nos-agent.sock")
 			// start rollback tx record
 			roll := snapdb.UpdateTx{TxID: generateUUID(), StartedAt: time.Now().UTC(), Packages: orig.Packages, Reason: "rollback"}
 			for _, t := range orig.Targets {

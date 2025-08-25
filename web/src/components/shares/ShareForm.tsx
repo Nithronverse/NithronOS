@@ -23,7 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { PermissionsEditor } from './PermissionsEditor'
+import { PermissionsEditor } from '@/components/shares/PermissionsEditor'
 import { usePolicy } from '@/hooks/use-shares'
 import type { Share, CreateShareRequest, UpdateShareRequest } from '@/api/client'
 
@@ -181,7 +181,7 @@ export function ShareForm({ share, onSubmit, onCancel, mode }: ShareFormProps) {
 							</div>
 							<Switch
 								checked={watchSmbEnabled}
-								onCheckedChange={(checked) => setValue('smb.enabled', checked)}
+								        onCheckedChange={(checked: boolean) => setValue('smb.enabled', checked)}
 							/>
 						</div>
 
@@ -201,7 +201,7 @@ export function ShareForm({ share, onSubmit, onCancel, mode }: ShareFormProps) {
 										</div>
 										<Switch
 											checked={watchSmbGuest}
-											onCheckedChange={(checked) => setValue('smb.guest', checked)}
+											           onCheckedChange={(checked: boolean) => setValue('smb.guest', checked)}
 											disabled={guestAccessForbidden}
 										/>
 									</div>
@@ -228,7 +228,7 @@ export function ShareForm({ share, onSubmit, onCancel, mode }: ShareFormProps) {
 										</div>
 										<Switch
 											checked={watch('smb.time_machine')}
-											onCheckedChange={(checked) => setValue('smb.time_machine', checked)}
+											           onCheckedChange={(checked: boolean) => setValue('smb.time_machine', checked)}
 										/>
 									</div>
 
@@ -244,7 +244,7 @@ export function ShareForm({ share, onSubmit, onCancel, mode }: ShareFormProps) {
 										</div>
 										<Switch
 											checked={watchSmbRecycleEnabled}
-											onCheckedChange={(checked) => setValue('smb.recycle.enabled', checked)}
+											           onCheckedChange={(checked: boolean) => setValue('smb.recycle.enabled', checked)}
 										/>
 									</div>
 
@@ -276,7 +276,7 @@ export function ShareForm({ share, onSubmit, onCancel, mode }: ShareFormProps) {
 							</div>
 							<Switch
 								checked={watchNfsEnabled}
-								onCheckedChange={(checked) => setValue('nfs.enabled', checked)}
+								        onCheckedChange={(checked: boolean) => setValue('nfs.enabled', checked)}
 							/>
 						</div>
 
@@ -296,7 +296,7 @@ export function ShareForm({ share, onSubmit, onCancel, mode }: ShareFormProps) {
 										</div>
 										<Switch
 											checked={watch('nfs.read_only')}
-											onCheckedChange={(checked) => setValue('nfs.read_only', checked)}
+											           onCheckedChange={(checked: boolean) => setValue('nfs.read_only', checked)}
 										/>
 									</div>
 
@@ -355,8 +355,8 @@ export function ShareForm({ share, onSubmit, onCancel, mode }: ShareFormProps) {
 					<PermissionsEditor
 						owners={watchOwners}
 						readers={watchReaders}
-						onOwnersChange={(owners) => setValue('owners', owners)}
-						onReadersChange={(readers) => setValue('readers', readers)}
+						onOwnersChange={(owners: string[]) => setValue('owners', owners)}
+						onReadersChange={(readers: string[]) => setValue('readers', readers)}
 						guestEnabled={watchSmbGuest}
 					/>
 				</TabsContent>
