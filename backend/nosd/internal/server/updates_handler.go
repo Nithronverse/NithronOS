@@ -310,14 +310,18 @@ func (h *UpdatesHandler) DeleteSnapshot(w http.ResponseWriter, r *http.Request) 
 
 func (h *UpdatesHandler) writeJSON(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(data)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		fmt.Printf("Failed to write response: %v\n", err)
+	}
 }
 
 func (h *UpdatesHandler) writeError(w http.ResponseWriter, code int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"error": message,
-	})
+	}); err != nil {
+		fmt.Printf("Failed to write error response: %v\n", err)
+	}
 }
 

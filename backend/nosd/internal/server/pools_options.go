@@ -165,7 +165,9 @@ func handlePoolOptionsPost(cfg config.Config) http.HandlerFunc {
 			case invalidTokenError:
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnprocessableEntity)
-				_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{"code": "mount.options.invalid", "message": "invalid mount option", "details": map[string]any{"token": e.token}}})
+				if err := json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{"code": "mount.options.invalid", "message": "invalid mount option", "details": map[string]any{"token": e.token}}}); err != nil {
+					fmt.Printf("Failed to write error response: %v\n", err)
+				}
 				return
 			default:
 				httpx.WriteError(w, http.StatusBadRequest, err.Error())

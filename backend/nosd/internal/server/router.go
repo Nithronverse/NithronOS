@@ -859,9 +859,11 @@ func NewRouter(cfg config.Config) http.Handler {
 			return
 		}
 		if u.TOTPSecret != "" {
-			w.WriteHeader(http.StatusConflict)
-			_ = json.NewEncoder(w).Encode(map[string]any{"error": "totp_already_enabled"})
-			return
+					w.WriteHeader(http.StatusConflict)
+		if err := json.NewEncoder(w).Encode(map[string]any{"error": "totp_already_enabled"}); err != nil {
+			fmt.Printf("Failed to write response: %v\n", err)
+		}
+		return
 		}
 		secret, uri, err := auth.GenerateTOTPSecret("NithronOS", u.Email)
 		if err != nil {
@@ -1644,7 +1646,9 @@ func NewRouter(cfg config.Config) http.Handler {
 
 func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(v)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		fmt.Printf("Failed to write response: %v\n", err)
+	}
 }
 
 func hasCommand(name string) bool {

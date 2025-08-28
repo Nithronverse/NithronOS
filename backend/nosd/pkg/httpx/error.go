@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 )
@@ -18,7 +19,9 @@ type ErrorPayload struct {
 func WriteError(w http.ResponseWriter, statusCode int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	_ = json.NewEncoder(w).Encode(map[string]any{"error": ErrorPayload{Code: http.StatusText(statusCode), Message: message}})
+	if err := json.NewEncoder(w).Encode(map[string]any{"error": ErrorPayload{Code: http.StatusText(statusCode), Message: message}}); err != nil {
+		fmt.Printf("Failed to write error response: %v\n", err)
+	}
 }
 
 // WriteTypedError writes a JSON error with explicit code and optional retryAfterSec.
@@ -28,12 +31,16 @@ func WriteTypedError(w http.ResponseWriter, statusCode int, code, message string
 		w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
 	}
 	w.WriteHeader(statusCode)
-	_ = json.NewEncoder(w).Encode(map[string]any{"error": ErrorPayload{Code: code, Message: message, RetryAfterSec: retryAfter}})
+	if err := json.NewEncoder(w).Encode(map[string]any{"error": ErrorPayload{Code: code, Message: message, RetryAfterSec: retryAfter}}); err != nil {
+		fmt.Printf("Failed to write error response: %v\n", err)
+	}
 }
 
 // WriteErrorWithDetails writes a JSON error with a stable code and additional details map.
 func WriteErrorWithDetails(w http.ResponseWriter, statusCode int, code, message string, details map[string]any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	_ = json.NewEncoder(w).Encode(map[string]any{"error": ErrorPayload{Code: code, Message: message, Details: details}})
+	if err := json.NewEncoder(w).Encode(map[string]any{"error": ErrorPayload{Code: code, Message: message, Details: details}}); err != nil {
+		fmt.Printf("Failed to write error response: %v\n", err)
+	}
 }
