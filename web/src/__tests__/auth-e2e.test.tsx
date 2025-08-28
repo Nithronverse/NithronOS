@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { BrowserRouter } from 'react-router-dom'
-import React from 'react'
 import App from '../App'
 
 // Mock backend API responses
@@ -190,8 +188,6 @@ describe('Auth E2E Flow', () => {
     })
 
     it('should redirect to login when refresh fails', async () => {
-      const user = userEvent.setup()
-      
       // Setup logged in state
       sessionStorage.setItem('access_token', 'expired-token')
       sessionStorage.setItem('refresh_token', 'expired-refresh')

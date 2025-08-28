@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { endpoints, type SystemInfo, type Pool, type PoolSummary, type Device, 
+import { endpoints, type PoolSummary, type Device, 
          type SmartData, type SmartSummary, type ScrubStatus, type BalanceStatus,
          type Schedule, type Service, type Job, type Share, type AppCatalogEntry, 
          type InstalledApp } from '@/lib/api'
