@@ -132,7 +132,7 @@ func TestTOTPManager_DisableUser(t *testing.T) {
 	}
 
 	code, _ := totp.GenerateCode(enrollment.Secret, time.Now())
-	_ = tm.VerifyCode(userID, code)
+	_, _ = tm.VerifyCode(userID, code)
 
 	// User should be enrolled
 	if !tm.IsUserEnrolled(userID) {
@@ -160,7 +160,7 @@ func TestRequiresTwoFactor(t *testing.T) {
 	// Enroll user
 	enrollment, _ := tm.EnrollUser(userID, username)
 	code, _ := totp.GenerateCode(enrollment.Secret, time.Now())
-	_ = tm.VerifyCode(userID, code)
+	_, _ = tm.VerifyCode(userID, code)
 
 	tests := []struct {
 		name     string
