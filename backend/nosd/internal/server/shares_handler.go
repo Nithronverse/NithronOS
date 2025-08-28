@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -108,7 +109,9 @@ func (h *SharesHandlerV1) GetShare(w http.ResponseWriter, r *http.Request) {
 	for _, share := range h.shares {
 		if share.Name == name {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(share)
+			if err := json.NewEncoder(w).Encode(share); err != nil {
+				fmt.Printf("Failed to write response: %v\n", err)
+			}
 			return
 		}
 	}
@@ -158,7 +161,9 @@ func (h *SharesHandlerV1) CreateShare(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(share)
+	if err := json.NewEncoder(w).Encode(share); err != nil {
+		fmt.Printf("Failed to write response: %v\n", err)
+	}
 }
 
 // UpdateShare updates an existing share
@@ -199,7 +204,9 @@ func (h *SharesHandlerV1) UpdateShare(w http.ResponseWriter, r *http.Request) {
 			log.Info().Str("name", name).Msg("Updated share")
 
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(h.shares[i])
+			if err := json.NewEncoder(w).Encode(h.shares[i]); err != nil {
+				fmt.Printf("Failed to write response: %v\n", err)
+			}
 			return
 		}
 	}

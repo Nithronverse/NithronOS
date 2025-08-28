@@ -474,6 +474,7 @@ func (h *NetHandler) WizardNext(w http.ResponseWriter, r *http.Request) {
 			// TODO: Store WireGuard config
 			// This will be implemented when WireGuard configuration is added
 			// state.WireGuardConfig = extractWireGuardConfig(stepData)
+			_ = state // placeholder to satisfy linter until implementation
 		}
 
 	case 3: // HTTPS configuration
@@ -481,6 +482,7 @@ func (h *NetHandler) WizardNext(w http.ResponseWriter, r *http.Request) {
 			// TODO: Store HTTPS config
 			// This will be implemented when HTTPS configuration is added
 			// state.HTTPSConfig = extractHTTPSConfig(stepData)
+			_ = state // placeholder to satisfy linter until implementation
 		}
 
 	case 4: // Firewall plan
@@ -524,6 +526,7 @@ func (h *NetHandler) CompleteWizard(w http.ResponseWriter, r *http.Request) {
 		// This will be implemented when WireGuard manager is added
 		// err := h.wgMgr.Enable(state.WireGuardConfig)
 		// if err != nil { ... }
+		_ = state // placeholder to satisfy linter until implementation
 	}
 
 	// 2. Apply HTTPS if configured
