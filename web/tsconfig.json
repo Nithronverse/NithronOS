@@ -20,7 +20,7 @@
       "@/api-types": ["src/api/schema.ts"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "vitest.setup.ts"],
   "references": []
 }
 
