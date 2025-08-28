@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import type { CreateShareRequest, UpdateShareRequest } from '@/api/client'
-import { pushToast } from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 
 export function useShares() {
 	return useQuery({
@@ -30,11 +30,11 @@ export function useCreateShare() {
 		mutationFn: (data: CreateShareRequest) => api.shares.create(data),
 		onSuccess: (newShare) => {
 			queryClient.invalidateQueries({ queryKey: ['shares'] })
-			pushToast(`Share "${newShare.name}" created successfully`, 'success')
+			toast.success(`Share "${newShare.name}" created successfully`)
 		},
 		onError: (error: any) => {
 			const message = error.data?.error?.message || error.message || 'Failed to create share'
-			pushToast(message, 'error')
+			toast.error(message)
 		},
 	})
 }
@@ -48,11 +48,11 @@ export function useUpdateShare() {
 		onSuccess: (updatedShare) => {
 			queryClient.invalidateQueries({ queryKey: ['shares'] })
 			queryClient.invalidateQueries({ queryKey: ['shares', updatedShare.name] })
-			pushToast(`Share "${updatedShare.name}" updated successfully`, 'success')
+			toast.success(`Share "${updatedShare.name}" updated successfully`)
 		},
 		onError: (error: any) => {
 			const message = error.data?.error?.message || error.message || 'Failed to update share'
-			pushToast(message, 'error')
+			toast.error(message)
 		},
 	})
 }
@@ -64,11 +64,11 @@ export function useDeleteShare() {
 		mutationFn: (name: string) => api.shares.delete(name),
 		onSuccess: (_, name) => {
 			queryClient.invalidateQueries({ queryKey: ['shares'] })
-			pushToast(`Share "${name}" deleted successfully`, 'success')
+			toast.success(`Share "${name}" deleted successfully`)
 		},
 		onError: (error: any) => {
 			const message = error.data?.error?.message || error.message || 'Failed to delete share'
-			pushToast(message, 'error')
+			toast.error(message)
 		},
 	})
 }
@@ -79,7 +79,7 @@ export function useTestShare() {
 			api.shares.test(name, config),
 		onError: (error: any) => {
 			const message = error.data?.error?.message || error.message || 'Validation failed'
-			pushToast(message, 'error')
+			toast.error(message)
 		},
 	})
 }

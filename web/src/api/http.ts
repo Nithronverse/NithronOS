@@ -1,4 +1,4 @@
-import { pushToast } from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 
 export class ErrProxyMisconfigured extends Error {
   status: number
@@ -90,7 +90,7 @@ async function request<T>(path: string, init: RequestInit, retried = false): Pro
 	})
 	// Handle setup 410 gracefully: let callers treat as non-firstBoot
 	if (isSetup && res.status === 410) {
-		pushToast('Setup already completed. You can sign in.', 'error')
+		toast.error('Setup already completed. You can sign in.')
 		throw new Error('HTTP 410')
 	}
 	if (res.status === 401 && !retried) {
@@ -129,22 +129,22 @@ async function request<T>(path: string, init: RequestInit, retried = false): Pro
 		} catch {}
 		// Global toasts for common statuses and typed codes
 		if (code === 'setup.write_failed') {
-			pushToast('Service cannot write /etc/nos/users.json. See Admin → Logs.', 'error')
+			toast.error('Service cannot write /etc/nos/users.json. See Admin → Logs.')
 		} else if (code === 'setup.otp.expired') {
-			pushToast('Your setup code expired. Request a new one.', 'error')
+			toast.error('Your setup code expired. Request a new one.')
 		} else if (code === 'setup.otp.invalid') {
-			pushToast('Invalid setup code. Check and try again.', 'error')
+			toast.error('Invalid setup code. Check and try again.')
 		} else if (code === 'setup.session.invalid') {
-			pushToast('Setup session invalid. Restart setup from the beginning.', 'error')
+			toast.error('Setup session invalid. Restart setup from the beginning.')
 		} else if (code === 'auth.csrf.missing' || code === 'auth.csrf.invalid') {
-			pushToast('Your session expired. Please sign in again.', 'error')
+			toast.error('Your session expired. Please sign in again.')
 		} else if (res.status === 429) {
 			const ra = retryAfterSec || parseInt(res.headers.get('Retry-After') || '0', 10) || 0
-			pushToast(ra > 0 ? `Rate limited. Try again in ${ra}s` : 'Rate limited. Please try again shortly.', 'error')
+			toast.error(ra > 0 ? `Rate limited. Try again in ${ra}s` : 'Rate limited. Please try again shortly.')
 		} else if (res.status === 423) {
-			pushToast('Account temporarily locked. Please try again later.', 'error')
+			toast.error('Account temporarily locked. Please try again later.')
 		} else if (res.status >= 500) {
-			pushToast(message || `Request failed (${res.status})`, 'error')
+			toast.error(message || `Request failed (${res.status})`)
 		}
 		const msg = message ? `HTTP ${res.status}: ${message}` : `HTTP ${res.status}`
 		const error: any = new Error(msg)

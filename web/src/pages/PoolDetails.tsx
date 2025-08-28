@@ -129,7 +129,7 @@ function MountOptionsCard({ pool, id, onSaved }: { pool: any; id: string; onSave
       setValue(r.mountOptions)
       setOpen(true)
     } catch (e:any) {
-      try { const { pushToast } = await import('@/components/ui/toast'); pushToast(e?.message || 'Failed to load', 'error') } catch {}
+      try { const { toast } = await import('@/components/ui/toast'); toast.error(e?.message || 'Failed to load') } catch {}
     }
   }
 
@@ -144,11 +144,11 @@ function MountOptionsCard({ pool, id, onSaved }: { pool: any; id: string; onSave
       setOpen(false)
       onSaved()
       try {
-        const { pushToast } = await import('@/components/ui/toast')
-        pushToast(r.rebootRequired ? 'Saved. Will take effect after reboot or remount.' : 'Saved and applied.')
+        const { toast } = await import('@/components/ui/toast')
+        toast.success(r.rebootRequired ? 'Saved. Will take effect after reboot or remount.' : 'Saved and applied.')
       } catch {}
     } catch (e:any) {
-      try { const { pushToast } = await import('@/components/ui/toast'); pushToast(e?.message || 'Save failed', 'error') } catch {}
+      try { const { toast } = await import('@/components/ui/toast'); toast.error(e?.message || 'Save failed') } catch {}
     } finally { setSaving(false) }
   }
 
@@ -219,8 +219,8 @@ function DevicesWizards({ id }: { id: string }) {
         const txIdMatch = msg.match(/txId\":\"([^\"]+)/)
         const txId = txIdMatch?.[1]
         try {
-          const { pushToast } = await import('@/components/ui/toast')
-          pushToast(txId ? `Pool is busy. View progress: /pools/tx/${txId}` : 'Pool is busy running another operation.', 'error')
+          const { toast } = await import('@/components/ui/toast')
+          toast.error(txId ? `Pool is busy. View progress: /pools/tx/${txId}` : 'Pool is busy running another operation.')
         } catch {}
       }
     }

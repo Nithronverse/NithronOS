@@ -97,7 +97,7 @@ export function CreatePoolWizard({ onCreated }: { onCreated?: () => void }) {
       }
     } catch (e: any) {
       setError(e?.message || String(e))
-      try { const { pushToast } = await import('../ui/toast'); pushToast(`Create failed: ${e?.message || e}`, 'error') } catch {}
+      try { const { toast } = await import('../ui/toast'); toast.error(`Create failed: ${e?.message || e}`) } catch {}
     } finally {
       setLoading(false)
     }
@@ -128,10 +128,10 @@ export function CreatePoolWizard({ onCreated }: { onCreated?: () => void }) {
       queueMicrotask(() => { logEndRef.current?.scrollIntoView({ behavior: 'smooth' }) })
       if (st?.finishedAt) {
         if (st.ok) {
-          try { const { pushToast } = await import('../ui/toast'); pushToast('Pool created') } catch {}
+          try { const { toast } = await import('../ui/toast'); toast.success('Pool created') } catch {}
           setTimeout(() => { setTxId(null); setTx(null); onCreated?.() }, 500)
         } else {
-          try { const { pushToast } = await import('../ui/toast'); pushToast(`Create failed: ${st.error || 'unknown error'}`, 'error') } catch {}
+          try { const { toast } = await import('../ui/toast'); toast.error(`Create failed: ${st.error || 'unknown error'}`) } catch {}
         }
         stopSSE(); stopPolling()
       }

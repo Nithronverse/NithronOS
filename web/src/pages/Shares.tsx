@@ -316,14 +316,14 @@ const shareColumns: ColumnDef<Share>[] = [
       <div className="flex items-center gap-1">
         <Button 
           variant="ghost" 
-          size="xs"
+          size="icon"
           onClick={() => window.dispatchEvent(new CustomEvent('editShare', { detail: row.original }))}
         >
           <Edit className="h-3 w-3" />
         </Button>
         <Button 
           variant="ghost" 
-          size="xs"
+          size="icon"
           onClick={() => window.dispatchEvent(new CustomEvent('deleteShare', { detail: row.original }))}
         >
           <Trash2 className="h-3 w-3" />

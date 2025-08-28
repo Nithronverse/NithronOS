@@ -312,7 +312,7 @@ export function Dashboard() {
                 icon={Database}
                 title="No pools"
                 description="Create a storage pool to get started"
-                size="sm"
+
               />
             )}
           </Card>
@@ -375,7 +375,7 @@ export function Dashboard() {
                 icon={HardDrive}
                 title="No data"
                 description="Run SMART scan to check disk health"
-                size="sm"
+
               />
             )}
           </Card>
@@ -413,7 +413,7 @@ export function Dashboard() {
                 icon={Activity}
                 title="No activity"
                 description="Recent jobs will appear here"
-                size="sm"
+
               />
             )}
           </Card>
@@ -430,7 +430,7 @@ export function Dashboard() {
         <motion.div variants={itemVariants}>
           <Card
             title="Network Shares"
-            subtitle={`${shares?.length || 0} configured`}
+            description={`${shares?.length || 0} configured`}
             isLoading={sharesLoading}
             actions={
               <Button variant="outline" size="sm" onClick={() => window.location.href = '/shares'}>
@@ -453,7 +453,7 @@ export function Dashboard() {
                     </div>
                     <StatusPill 
                       status={share.enabled ? 'active' : 'inactive'} 
-                      size="sm" 
+       
                     />
                   </div>
                 ))}
@@ -463,7 +463,7 @@ export function Dashboard() {
                 icon={Share2}
                 title="No shares"
                 description="Create a network share to get started"
-                size="sm"
+
                 action={
                   <Button size="sm" onClick={() => window.location.href = '/shares'}>
                     Create Share
@@ -478,7 +478,7 @@ export function Dashboard() {
         <motion.div variants={itemVariants}>
           <Card
             title="Installed Apps"
-            subtitle={`${apps?.length || 0} installed`}
+            description={`${apps?.length || 0} installed`}
             isLoading={appsLoading}
             actions={
               <Button variant="outline" size="sm" onClick={() => window.location.href = '/apps'}>
@@ -499,7 +499,7 @@ export function Dashboard() {
                     </div>
                     <StatusPill 
                       status={app.status === 'running' ? 'running' : app.status === 'stopped' ? 'stopped' : 'error'} 
-                      size="sm" 
+       
                     />
                   </div>
                 ))}
@@ -509,7 +509,7 @@ export function Dashboard() {
                 icon={Package}
                 title="No apps"
                 description="Install apps from the catalog"
-                size="sm"
+
                 action={
                   <Button size="sm" onClick={() => window.location.href = '/apps'}>
                     Browse Catalog

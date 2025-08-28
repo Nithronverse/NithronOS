@@ -9,11 +9,16 @@ vi.mock('@/api/schedules', () => ({
 }))
 
 vi.mock('@/components/ui/toast', () => ({
-  pushToast: vi.fn(),
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+  },
 }))
 
 import { getSchedules, updateSchedules } from '@/api/schedules'
-import { pushToast } from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 
 describe('SettingsSchedules (route)', () => {
   beforeEach(() => {
@@ -40,7 +45,7 @@ describe('SettingsSchedules (route)', () => {
 
     await waitFor(() => {
       expect(updateSchedules).toHaveBeenCalledWith({ smartScan: 'Tue 01:23', btrfsScrub: 'Sun *-*-01..07 05:00' })
-      expect(pushToast).toHaveBeenCalled()
+      expect(toast.success).toHaveBeenCalled()
     })
   })
 

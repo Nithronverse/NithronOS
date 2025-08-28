@@ -59,7 +59,7 @@ export default function SettingsSchedules() {
       const res = await updateSchedules(draft)
       setSched(res)
       setFieldErrors({})
-      try { const { pushToast } = await import('@/components/ui/toast'); pushToast('Schedules saved') } catch {}
+      try { const { toast } = await import('@/components/ui/toast'); toast.success('Schedules saved') } catch {}
     } catch (e: any) {
       if (e && typeof e === 'object' && (e.status === 400 || e.status === 422)) {
         setError(e?.message || 'Validation error')
@@ -77,7 +77,7 @@ export default function SettingsSchedules() {
         if (first === 'btrfsScrub') scrubRef.current?.focus()
         if ((globalThis as any).__DEV__) console.debug('[schedules] save 4xx', { status: e.status, body: e.data })
       } else {
-        try { const { pushToast } = await import('@/components/ui/toast'); pushToast('Failed to save schedules', 'error') } catch {}
+        try { const { toast } = await import('@/components/ui/toast'); toast.error('Failed to save schedules') } catch {}
         if ((globalThis as any).__DEV__) console.debug('[schedules] save 5xx/other', e)
       }
     } finally {

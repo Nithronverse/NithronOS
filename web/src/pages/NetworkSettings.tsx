@@ -29,6 +29,7 @@ import type { WireGuardPeer, WireGuardPeerConfig } from '@/api/net.types';
 
 export function NetworkSettings() {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('overview');
   const [showAddPeerDialog, setShowAddPeerDialog] = useState(false);
   const [showPeerConfigDialog, setShowPeerConfigDialog] = useState(false);
   const [selectedPeerConfig, setSelectedPeerConfig] = useState<WireGuardPeerConfig | null>(null);
@@ -440,7 +441,7 @@ export function NetworkSettings() {
                       ? 'default'
                       : httpsConfig.data?.status === 'renewing'
                       ? 'secondary'
-                      : 'destructive'
+                      : 'outline'
                   }
                 >
                   {httpsConfig.data?.status || 'Unknown'}
@@ -499,7 +500,7 @@ export function NetworkSettings() {
         </p>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="firewall">Firewall</TabsTrigger>

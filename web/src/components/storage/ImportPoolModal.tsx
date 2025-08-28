@@ -25,11 +25,11 @@ export function ImportPoolModal({ open, onClose, onImported }: { open: boolean; 
     setLoading(true); setError(null)
     try {
       await api.pools.import(sel)
-      try { const { pushToast } = await import('../ui/toast'); pushToast('Pool imported') } catch {}
+      try { const { toast } = await import('../ui/toast'); toast.success('Pool imported') } catch {}
       onImported?.(); onClose()
     } catch (e: any) {
       setError(e?.message || String(e))
-      try { const { pushToast } = await import('../ui/toast'); pushToast(`Import failed: ${e?.message || e}`, 'error') } catch {}
+      try { const { toast } = await import('../ui/toast'); toast.error(`Import failed: ${e?.message || e}`) } catch {}
     } finally { setLoading(false) }
   }
 

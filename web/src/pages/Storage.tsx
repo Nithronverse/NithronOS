@@ -99,7 +99,7 @@ const deviceColumns: ColumnDef<Device>[] = [
     cell: ({ row }) => (
       <Button 
         variant="ghost" 
-        size="xs"
+        size="icon"
         disabled={row.original.inUse}
       >
         <ChevronRight className="h-4 w-4" />
@@ -182,7 +182,7 @@ const poolColumns: ColumnDef<Pool>[] = [
     cell: ({ row }) => (
       <Button 
         variant="ghost" 
-        size="xs"
+        size="icon"
         onClick={() => window.location.href = `/storage/${row.original.id}`}
       >
         <ChevronRight className="h-4 w-4" />
