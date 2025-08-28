@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
@@ -29,7 +29,7 @@ import {
 import { appsApi } from '../api/apps';
 import type { InstalledApp, AppSnapshot, AppEvent } from '../api/apps.types';
 import { cn } from '../lib/utils';
-import { pushToast } from '@/components/ui/toast';
+import { toast } from '@/components/ui/toast';
 import { formatDistanceToNow } from 'date-fns';
 
 export function AppDetails() {
