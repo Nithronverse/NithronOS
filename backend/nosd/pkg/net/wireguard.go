@@ -80,7 +80,7 @@ func (wm *WireGuardManager) Enable(cidr string, port int, endpoint string, dns [
 	defer wm.mu.Unlock()
 	
 	if wm.config != nil && wm.config.Enabled {
-		return fmt.Errorf("WireGuard is already enabled")
+		return fmt.Errorf("wireguard is already enabled")
 	}
 	
 	// Parse and validate CIDR
@@ -143,7 +143,7 @@ func (wm *WireGuardManager) Disable() error {
 	defer wm.mu.Unlock()
 	
 	if wm.config == nil || !wm.config.Enabled {
-		return fmt.Errorf("WireGuard is not enabled")
+		return fmt.Errorf("wireguard is not enabled")
 	}
 	
 	// Stop and disable systemd service
@@ -168,7 +168,7 @@ func (wm *WireGuardManager) AddPeer(name string, allowedIPs []string, pubkey str
 	defer wm.mu.Unlock()
 	
 	if wm.config == nil || !wm.config.Enabled {
-		return nil, fmt.Errorf("WireGuard is not enabled")
+		return nil, fmt.Errorf("wireguard is not enabled")
 	}
 	
 	// Check for duplicate name
@@ -250,7 +250,7 @@ func (wm *WireGuardManager) RemovePeer(peerID string) error {
 	defer wm.mu.Unlock()
 	
 	if wm.config == nil || !wm.config.Enabled {
-		return fmt.Errorf("WireGuard is not enabled")
+		return fmt.Errorf("wireguard is not enabled")
 	}
 	
 	// Find and remove peer

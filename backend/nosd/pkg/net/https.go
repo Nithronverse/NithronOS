@@ -81,10 +81,10 @@ func (hm *HTTPSManager) Configure(mode HTTPSMode, domain, email, dnsProvider, dn
 
 		if mode == HTTPSModeDNS01 {
 			if dnsProvider == "" {
-				return fmt.Errorf("DNS provider is required for DNS-01")
+				return fmt.Errorf("dns provider is required for DNS-01")
 			}
 			if dnsAPIKey == "" {
-				return fmt.Errorf("DNS API key is required for DNS-01")
+				return fmt.Errorf("dns API key is required for DNS-01")
 			}
 		}
 
@@ -113,7 +113,7 @@ func (hm *HTTPSManager) Configure(mode HTTPSMode, domain, email, dnsProvider, dn
 
 	// Validate Caddy configuration
 	if err := hm.validateCaddyConfig(caddyConfig); err != nil {
-		return fmt.Errorf("Caddy config validation failed: %w", err)
+		return fmt.Errorf("caddy config validation failed: %w", err)
 	}
 
 	// Save DNS credentials if provided

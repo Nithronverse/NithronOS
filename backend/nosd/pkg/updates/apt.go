@@ -224,7 +224,7 @@ func (am *APTManager) DistUpgrade() error {
 func (am *APTManager) VerifySignatures() error {
 	// Check if the keyring exists
 	if _, err := os.Stat(aptKeyringPath); os.IsNotExist(err) {
-		return fmt.Errorf("GPG keyring not found at %s", aptKeyringPath)
+		return fmt.Errorf("gpg keyring not found at %s", aptKeyringPath)
 	}
 
 	// Verify apt-secure is working
@@ -239,10 +239,10 @@ func (am *APTManager) VerifySignatures() error {
 	if err != nil {
 		// Check if signature verification failed
 		if strings.Contains(string(output), "NO_PUBKEY") {
-			return fmt.Errorf("GPG signature verification failed: missing public key")
+			return fmt.Errorf("gpg signature verification failed: missing public key")
 		}
 		if strings.Contains(string(output), "BADSIG") {
-			return fmt.Errorf("GPG signature verification failed: bad signature")
+			return fmt.Errorf("gpg signature verification failed: bad signature")
 		}
 		// Other error
 		return fmt.Errorf("failed to verify signatures: %s: %w", output, err)
