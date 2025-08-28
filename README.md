@@ -210,7 +210,7 @@ Filters/jails under `deploy/fail2ban/`; see comments inside for enabling.
 - [x] **M2 — Shares & Permissions**: SMB/NFS with simple ACLs, guest toggle, recycle bin, Time Machine (fruit). (complete)
 - [x] **M3 — App Catalog v1 (Docker/Compose)**: one-click apps, lifecycle, health checks, pre-snapshot + rollback. (complete)
 - [x] **M4 — Networking & Remote**: Remote Access Wizard (LAN-only, WireGuard, reverse tunnel), HTTPS (LE), plan/apply/rollback firewall with 2FA for non-LAN. (complete)
-- [ ] **M5 — Updates & Releases**: signed packages, channels (stable/beta), atomic upgrades (snapshot safety net).
+- [x] **M5 — Updates & Releases**: signed packages, channels (stable/beta), atomic upgrades (snapshot safety net). (complete)
 - [ ] **M6 — Installer & First-boot++**: guided disk install (Btrfs subvols), hostname/timezone/network, telemetry opt-in.
 - [ ] **M7 — Backup & Replication**: scheduled snapshots + retention; send/receive (SSH), rclone, restore wizard.
 - [ ] **M8 — Monitoring & Alerts**: dashboard (CPU/RAM/IO), SMART/temps, scrubs, service health, notifications (email/webhook/ntfy).
@@ -231,10 +231,11 @@ Filters/jails under `deploy/fail2ban/`; see comments inside for enabling.
 - App runtime architecture → [docs/apps/runtime.md](docs/apps/runtime.md)  
 - Certificates & HTTPS configuration → [docs/admin/certificates.md](docs/admin/certificates.md)  
 - Network shares (SMB/NFS/Time Machine) → [docs/admin/shares.md](docs/admin/shares.md)  
-- Networking & Remote Access → [docs/networking.md](docs/networking.md)  
-- Config & hot reload → [docs/dev/config-and-reload.md](docs/dev/config-and-reload.md)  
-- Recovery mode → [docs/dev/recovery-mode.md](docs/dev/recovery-mode.md)  
-- Updates & rollback → [docs/updates.md](docs/updates.md)  
+- Networking & Remote Access → [docs/networking.md](docs/networking.md)
+- Config & hot reload → [docs/dev/config-and-reload.md](docs/dev/config-and-reload.md)
+- Recovery mode → [docs/dev/recovery-mode.md](docs/dev/recovery-mode.md)
+- Updates & rollback → [docs/updates.md](docs/updates.md)
+- System Updates & Releases → [docs/updates.md](docs/updates.md)  
 - Storage pools (device add/remove/replace, destroy, mount options) → [docs/storage/pools.md](docs/storage/pools.md)  
 - Storage health (SMART alerts & thresholds, schedules, fstrim) → [docs/storage/health.md](docs/storage/health.md)  
 - Pre-Alpha Recovery Checklist → [RECOVERY-CHECKLIST.md](RECOVERY-CHECKLIST.md)

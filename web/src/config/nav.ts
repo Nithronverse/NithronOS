@@ -80,7 +80,7 @@ export const navItems: NavItem[] = [
       },
       {
         id: 'updates',
-        label: 'Updates',
+        label: 'Updates & Releases',
         path: '/settings/updates',
       },
     ],

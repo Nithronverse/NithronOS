@@ -16,7 +16,7 @@ import { RemoteAccessWizard } from './pages/RemoteAccessWizard'
 import { TwoFactorSettings } from './pages/TwoFactorSettings'
 import { PoolsCreate } from './pages/PoolsCreate'
 import { PoolDetails } from './pages/PoolDetails'
-import { SettingsUpdates } from './pages/SettingsUpdates'
+import Updates from './pages/Updates'
 import Setup from './pages/Setup'
 import { GlobalNoticeProvider, useGlobalNotice } from './lib/globalNotice'
 import Banner from './components/Banner'
@@ -106,7 +106,7 @@ const router = createBrowserRouter([
       { path: 'apps/:id', element: <AppDetails /> },
       { path: 'settings', element: <Settings /> },
       { path: 'settings/schedules', element: <SettingsSchedules /> },
-      { path: 'settings/updates', element: <SettingsUpdates /> },
+      { path: 'settings/updates', element: <Updates /> },
       { path: 'settings/network', element: <NetworkSettings /> },
       { path: 'settings/network/wizard', element: <RemoteAccessWizard /> },
       { path: 'settings/2fa', element: <TwoFactorSettings /> },

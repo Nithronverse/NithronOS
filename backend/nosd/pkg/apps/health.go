@@ -236,7 +236,9 @@ func (hm *HealthMonitor) updateHealth(appID string, health HealthStatus) {
 	hm.mu.Unlock()
 
 	// Update in state store
-	hm.stateStore.UpdateAppHealth(appID, health)
+	if err := hm.stateStore.UpdateAppHealth(appID, health); err != nil {
+		fmt.Printf("Failed to update app health for %s: %v\n", appID, err)
+	}
 }
 
 // GetHealth returns cached health status for an app

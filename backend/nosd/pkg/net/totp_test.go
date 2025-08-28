@@ -3,22 +3,22 @@ package net
 import (
 	"testing"
 	"time"
-	
+
 	"github.com/pquerna/otp/totp"
 )
 
 func TestTOTPManager_EnrollAndVerify(t *testing.T) {
 	tm := NewTOTPManager()
-	
+
 	// Test enrollment
 	userID := "test-user-1"
 	username := "testuser"
-	
+
 	enrollment, err := tm.EnrollUser(userID, username)
 	if err != nil {
 		t.Fatalf("Failed to enroll user: %v", err)
 	}
-	
+
 	// Check enrollment data
 	if enrollment.Secret == "" {
 		t.Error("Expected secret to be non-empty")
@@ -32,18 +32,18 @@ func TestTOTPManager_EnrollAndVerify(t *testing.T) {
 	if enrollment.URI == "" {
 		t.Error("Expected URI to be non-empty")
 	}
-	
+
 	// User should not be enrolled until first verification
 	if tm.IsUserEnrolled(userID) {
 		t.Error("User should not be enrolled before verification")
 	}
-	
+
 	// Test verification with valid code
 	code, err := totp.GenerateCode(enrollment.Secret, time.Now())
 	if err != nil {
 		t.Fatalf("Failed to generate TOTP code: %v", err)
 	}
-	
+
 	valid, err := tm.VerifyCode(userID, code)
 	if err != nil {
 		t.Fatalf("Failed to verify code: %v", err)
@@ -51,12 +51,12 @@ func TestTOTPManager_EnrollAndVerify(t *testing.T) {
 	if !valid {
 		t.Error("Expected valid code to be accepted")
 	}
-	
+
 	// User should now be enrolled
 	if !tm.IsUserEnrolled(userID) {
 		t.Error("User should be enrolled after verification")
 	}
-	
+
 	// Test verification with invalid code
 	valid, err = tm.VerifyCode(userID, "000000")
 	if err != nil {
@@ -65,7 +65,7 @@ func TestTOTPManager_EnrollAndVerify(t *testing.T) {
 	if valid {
 		t.Error("Expected invalid code to be rejected")
 	}
-	
+
 	// Test backup code verification
 	backupCode := enrollment.BackupCodes[0]
 	valid, err = tm.VerifyCode(userID, backupCode)
@@ -75,7 +75,7 @@ func TestTOTPManager_EnrollAndVerify(t *testing.T) {
 	if !valid {
 		t.Error("Expected backup code to be accepted")
 	}
-	
+
 	// Backup code should not work twice
 	valid, err = tm.VerifyCode(userID, backupCode)
 	if err != nil {
@@ -88,30 +88,30 @@ func TestTOTPManager_EnrollAndVerify(t *testing.T) {
 
 func TestTOTPManager_SessionManagement(t *testing.T) {
 	tm := NewTOTPManager()
-	
+
 	sessionID := "test-session-1"
-	
+
 	// Session should not be verified initially
 	if tm.IsSessionVerified(sessionID) {
 		t.Error("Session should not be verified initially")
 	}
-	
+
 	// Mark session as verified
 	tm.MarkSessionVerified(sessionID, 30*time.Minute)
-	
+
 	// Session should be verified
 	if !tm.IsSessionVerified(sessionID) {
 		t.Error("Session should be verified after marking")
 	}
-	
+
 	// Clear session
 	tm.ClearSession(sessionID)
-	
+
 	// Session should not be verified after clearing
 	if tm.IsSessionVerified(sessionID) {
 		t.Error("Session should not be verified after clearing")
 	}
-	
+
 	// Test expired session
 	tm.MarkSessionVerified(sessionID, -1*time.Minute) // Already expired
 	if tm.IsSessionVerified(sessionID) {
@@ -121,30 +121,30 @@ func TestTOTPManager_SessionManagement(t *testing.T) {
 
 func TestTOTPManager_DisableUser(t *testing.T) {
 	tm := NewTOTPManager()
-	
+
 	userID := "test-user-2"
 	username := "testuser2"
-	
+
 	// Enroll and verify user
 	enrollment, err := tm.EnrollUser(userID, username)
 	if err != nil {
 		t.Fatalf("Failed to enroll user: %v", err)
 	}
-	
+
 	code, _ := totp.GenerateCode(enrollment.Secret, time.Now())
-	tm.VerifyCode(userID, code)
-	
+	_ = tm.VerifyCode(userID, code)
+
 	// User should be enrolled
 	if !tm.IsUserEnrolled(userID) {
 		t.Error("User should be enrolled")
 	}
-	
+
 	// Disable user
 	err = tm.DisableUser(userID)
 	if err != nil {
 		t.Fatalf("Failed to disable user: %v", err)
 	}
-	
+
 	// User should not be enrolled after disabling
 	if tm.IsUserEnrolled(userID) {
 		t.Error("User should not be enrolled after disabling")
@@ -153,15 +153,15 @@ func TestTOTPManager_DisableUser(t *testing.T) {
 
 func TestRequiresTwoFactor(t *testing.T) {
 	tm := NewTOTPManager()
-	
+
 	userID := "test-user-3"
 	username := "testuser3"
-	
+
 	// Enroll user
 	enrollment, _ := tm.EnrollUser(userID, username)
 	code, _ := totp.GenerateCode(enrollment.Secret, time.Now())
-	tm.VerifyCode(userID, code)
-	
+	_ = tm.VerifyCode(userID, code)
+
 	tests := []struct {
 		name     string
 		remoteIP string
@@ -175,7 +175,7 @@ func TestRequiresTwoFactor(t *testing.T) {
 		{"Public IP 2", "203.0.113.1", true},
 		{"Invalid IP", "invalid", true}, // Should require 2FA if IP is invalid
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := RequiresTwoFactor(tt.remoteIP, userID, tm)
@@ -184,7 +184,7 @@ func TestRequiresTwoFactor(t *testing.T) {
 			}
 		})
 	}
-	
+
 	// Test with non-enrolled user
 	nonEnrolledUser := "test-user-4"
 	for _, tt := range tests {

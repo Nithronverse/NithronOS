@@ -1237,7 +1237,11 @@ func NewRouter(cfg config.Config) http.Handler {
 		// App management routes
 		if appsManager != nil {
 			// Start app manager
-			go appsManager.Start(context.Background())
+			go func() {
+				if err := appsManager.Start(context.Background()); err != nil {
+					fmt.Printf("Failed to start apps manager: %v\n", err)
+				}
+			}()
 
 			// Catalog and installed apps
 			pr.Get("/api/v1/apps/catalog", handleGetCatalog(appsManager))
@@ -1299,6 +1303,16 @@ func NewRouter(cfg config.Config) http.Handler {
 		} else {
 			pr.Mount("/api/v1/net", netHandler.Routes())
 			pr.Mount("/api/v1/auth", netHandler.AuthRoutes())
+		}
+
+		// Updates endpoints (M5)
+		updatesLogger := Logger(cfg)
+		updatesHandler, err := NewUpdatesHandler(*updatesLogger)
+		if err != nil {
+			updatesLogger.Error().Err(err).Msg("Failed to create updates handler")
+			// Continue without update features
+		} else {
+			pr.Mount("/api/v1/updates", updatesHandler.Routes())
 		}
 
 		// Legacy app routes (keep for backward compatibility)

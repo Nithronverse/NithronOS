@@ -173,7 +173,9 @@ func (lm *LifecycleManager) InstallApp(ctx context.Context, req InstallRequest, 
 
 	if err := lm.stateStore.AddApp(app); err != nil {
 		// Try to clean up
-		lm.stopApp(ctx, req.ID)
+		if stopErr := lm.stopApp(ctx, req.ID); stopErr != nil {
+			fmt.Printf("Failed to stop app during cleanup: %v\n", stopErr)
+		}
 		os.RemoveAll(appDir)
 		return fmt.Errorf("failed to save app state: %w", err)
 	}
@@ -233,7 +235,9 @@ func (lm *LifecycleManager) UpgradeApp(ctx context.Context, appID string, req Up
 
 	// Validate new parameters
 	if err := lm.renderer.ValidateParams(entry, params); err != nil {
-		lm.stateStore.UpdateAppStatus(appID, StatusError)
+		if err := lm.stateStore.UpdateAppStatus(appID, StatusError); err != nil {
+			fmt.Printf("Failed to update app status: %v\n", err)
+		}
 		return fmt.Errorf("parameter validation failed: %w", err)
 	}
 
@@ -241,7 +245,9 @@ func (lm *LifecycleManager) UpgradeApp(ctx context.Context, appID string, req Up
 	configDir := filepath.Join(lm.appsRoot, appID, "config")
 	composeContent, err := lm.renderer.RenderComposeFile(entry, params)
 	if err != nil {
-		lm.stateStore.UpdateAppStatus(appID, StatusError)
+		if err := lm.stateStore.UpdateAppStatus(appID, StatusError); err != nil {
+			fmt.Printf("Failed to update app status: %v\n", err)
+		}
 		return fmt.Errorf("failed to render compose file: %w", err)
 	}
 
@@ -249,30 +255,44 @@ func (lm *LifecycleManager) UpgradeApp(ctx context.Context, appID string, req Up
 	composePath := filepath.Join(configDir, "docker-compose.yml")
 	backupPath := filepath.Join(configDir, "docker-compose.yml.backup")
 	if err := lm.copyFile(composePath, backupPath); err != nil {
-		lm.stateStore.UpdateAppStatus(appID, StatusError)
+		if err := lm.stateStore.UpdateAppStatus(appID, StatusError); err != nil {
+			fmt.Printf("Failed to update app status: %v\n", err)
+		}
 		return fmt.Errorf("failed to backup compose file: %w", err)
 	}
 
 	// Write new compose file
 	if err := os.WriteFile(composePath, composeContent, 0600); err != nil {
-		lm.stateStore.UpdateAppStatus(appID, StatusError)
+		if err := lm.stateStore.UpdateAppStatus(appID, StatusError); err != nil {
+			fmt.Printf("Failed to update app status: %v\n", err)
+		}
 		return fmt.Errorf("failed to write compose file: %w", err)
 	}
 
 	// Pull new images
 	if err := lm.pullImages(ctx, appID); err != nil {
 		// Restore backup
-		lm.copyFile(backupPath, composePath)
-		lm.stateStore.UpdateAppStatus(appID, StatusError)
+		if err := lm.copyFile(backupPath, composePath); err != nil {
+			fmt.Printf("Failed to restore compose file: %v\n", err)
+		}
+		if err := lm.stateStore.UpdateAppStatus(appID, StatusError); err != nil {
+			fmt.Printf("Failed to update app status: %v\n", err)
+		}
 		return fmt.Errorf("failed to pull images: %w", err)
 	}
 
 	// Restart app with new configuration
 	if err := lm.restartApp(ctx, appID); err != nil {
 		// Rollback on failure
-		lm.copyFile(backupPath, composePath)
-		lm.rollbackSnapshot(ctx, appID, snapshotID)
-		lm.stateStore.UpdateAppStatus(appID, StatusError)
+		if err := lm.copyFile(backupPath, composePath); err != nil {
+			fmt.Printf("Failed to restore compose file: %v\n", err)
+		}
+		if err := lm.rollbackSnapshot(ctx, appID, snapshotID); err != nil {
+			fmt.Printf("Failed to rollback snapshot: %v\n", err)
+		}
+		if err := lm.stateStore.UpdateAppStatus(appID, StatusError); err != nil {
+			fmt.Printf("Failed to update app status: %v\n", err)
+		}
 		return fmt.Errorf("failed to restart app: %w", err)
 	}
 
@@ -281,10 +301,18 @@ func (lm *LifecycleManager) UpgradeApp(ctx context.Context, appID string, req Up
 	if !healthy {
 		// Rollback if unhealthy
 		fmt.Fprintf(os.Stderr, "App unhealthy after upgrade, rolling back...\n")
-		lm.copyFile(backupPath, composePath)
-		lm.rollbackSnapshot(ctx, appID, snapshotID)
-		lm.restartApp(ctx, appID)
-		lm.stateStore.UpdateAppStatus(appID, StatusError)
+		if err := lm.copyFile(backupPath, composePath); err != nil {
+			fmt.Printf("Failed to restore compose file: %v\n", err)
+		}
+		if err := lm.rollbackSnapshot(ctx, appID, snapshotID); err != nil {
+			fmt.Printf("Failed to rollback snapshot: %v\n", err)
+		}
+		if err := lm.restartApp(ctx, appID); err != nil {
+			fmt.Printf("Failed to restart app after update: %v\n", err)
+		}
+		if err := lm.stateStore.UpdateAppStatus(appID, StatusError); err != nil {
+			fmt.Printf("Failed to update app status: %v\n", err)
+		}
 		return fmt.Errorf("app unhealthy after upgrade, rolled back")
 	}
 
@@ -316,7 +344,9 @@ func (lm *LifecycleManager) StartApp(ctx context.Context, appID string, userID s
 	lm.logEvent("app.start", appID, userID, nil)
 
 	if err := lm.startApp(ctx, appID); err != nil {
-		lm.stateStore.UpdateAppStatus(appID, StatusError)
+		if err := lm.stateStore.UpdateAppStatus(appID, StatusError); err != nil {
+			fmt.Printf("Failed to update app status: %v\n", err)
+		}
 		return err
 	}
 
@@ -332,7 +362,9 @@ func (lm *LifecycleManager) StopApp(ctx context.Context, appID string, userID st
 	lm.logEvent("app.stop", appID, userID, nil)
 
 	if err := lm.stopApp(ctx, appID); err != nil {
-		lm.stateStore.UpdateAppStatus(appID, StatusError)
+		if err := lm.stateStore.UpdateAppStatus(appID, StatusError); err != nil {
+			fmt.Printf("Failed to update app status: %v\n", err)
+		}
 		return err
 	}
 
@@ -348,19 +380,25 @@ func (lm *LifecycleManager) RestartApp(ctx context.Context, appID string, userID
 // DeleteApp deletes an application
 func (lm *LifecycleManager) DeleteApp(ctx context.Context, appID string, keepData bool, userID string) error {
 	// Stop the app first
-	lm.stopApp(ctx, appID)
+	if err := lm.stopApp(ctx, appID); err != nil {
+		fmt.Printf("Failed to stop app during uninstall: %v\n", err)
+	}
 
 	lm.logEvent("app.delete", appID, userID, map[string]interface{}{
 		"keep_data": keepData,
 	})
 
 	// Remove from systemd
-	lm.disableSystemdService(appID)
+	if err := lm.disableSystemdService(appID); err != nil {
+		fmt.Printf("Failed to disable systemd service: %v\n", err)
+	}
 
 	// Remove Caddy configuration
 	caddyPath := filepath.Join(lm.caddyPath, fmt.Sprintf("app-%s.caddy", appID))
 	os.Remove(caddyPath)
-	lm.reloadCaddy()
+	if err := lm.reloadCaddy(); err != nil {
+		fmt.Printf("Failed to reload Caddy after app removal: %v\n", err)
+	}
 
 	// Remove app directory if not keeping data
 	if !keepData {
@@ -371,7 +409,9 @@ func (lm *LifecycleManager) DeleteApp(ctx context.Context, appID string, keepDat
 
 		// Remove snapshots
 		snapshotDir := filepath.Join(lm.appsRoot, ".snapshots", appID)
-		lm.removeAppDirectory(snapshotDir)
+		if err := lm.removeAppDirectory(snapshotDir); err != nil {
+			fmt.Printf("Failed to remove snapshot directory: %v\n", err)
+		}
 	}
 
 	// Remove from state
@@ -389,13 +429,17 @@ func (lm *LifecycleManager) RollbackApp(ctx context.Context, appID string, snaps
 	}
 
 	if err := lm.rollbackSnapshot(ctx, appID, snapshotTS); err != nil {
-		lm.stateStore.UpdateAppStatus(appID, StatusError)
+		if err := lm.stateStore.UpdateAppStatus(appID, StatusError); err != nil {
+			fmt.Printf("Failed to update app status: %v\n", err)
+		}
 		return err
 	}
 
 	// Restart app after rollback
 	if err := lm.restartApp(ctx, appID); err != nil {
-		lm.stateStore.UpdateAppStatus(appID, StatusError)
+		if err := lm.stateStore.UpdateAppStatus(appID, StatusError); err != nil {
+			fmt.Printf("Failed to update app status: %v\n", err)
+		}
 		return err
 	}
 
@@ -593,5 +637,7 @@ func (lm *LifecycleManager) logEvent(eventType, appID, userID string, details in
 		Details:   detailsJSON,
 	}
 
-	lm.eventLogger.LogEvent(event)
+	if err := lm.eventLogger.LogEvent(event); err != nil {
+		fmt.Printf("Failed to log event: %v\n", err)
+	}
 }

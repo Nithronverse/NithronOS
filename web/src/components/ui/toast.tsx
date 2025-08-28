@@ -1,4 +1,3 @@
-import React from 'react';
 import { Toaster, toast as hotToast } from 'react-hot-toast';
 import { CheckCircle, XCircle, Info, AlertCircle } from 'lucide-react';
 
@@ -30,10 +29,13 @@ export const ToastProvider = () => {
   );
 };
 
+// Component for rendering toast messages (used by AppShell)
+export const Toasts = () => null;
+
 // Custom toast functions with icons
 export const toast = {
   success: (message: string) => {
-    hotToast.custom((t) => (
+    hotToast.custom(() => (
       <div className="flex items-center gap-3 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 shadow-lg">
         <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
         <span className="text-sm text-white">{message}</span>
@@ -42,7 +44,7 @@ export const toast = {
   },
   
   error: (message: string) => {
-    hotToast.custom((t) => (
+    hotToast.custom(() => (
       <div className="flex items-center gap-3 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 shadow-lg">
         <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
         <span className="text-sm text-white">{message}</span>
@@ -51,7 +53,7 @@ export const toast = {
   },
   
   info: (message: string) => {
-    hotToast.custom((t) => (
+    hotToast.custom(() => (
       <div className="flex items-center gap-3 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 shadow-lg">
         <Info className="w-5 h-5 text-blue-500 flex-shrink-0" />
         <span className="text-sm text-white">{message}</span>
@@ -60,7 +62,7 @@ export const toast = {
   },
   
   warning: (message: string) => {
-    hotToast.custom((t) => (
+    hotToast.custom(() => (
       <div className="flex items-center gap-3 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 shadow-lg">
         <AlertCircle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
         <span className="text-sm text-white">{message}</span>
@@ -68,3 +70,6 @@ export const toast = {
     ));
   },
 };
+
+// Alias for compatibility with existing code
+export const pushToast = toast;

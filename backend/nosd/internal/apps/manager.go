@@ -21,7 +21,6 @@ type Manager struct {
 	renderer      *apps.TemplateRenderer
 	eventLogger   *EventLogger
 	config        *Config
-	mu            sync.RWMutex
 }
 
 // Config holds app manager configuration

@@ -21,13 +21,13 @@ const (
 
 // FirewallManager manages nftables firewall rules
 type FirewallManager struct {
-	mu              sync.RWMutex
-	currentState    *FirewallState
-	pendingPlan     *FirewallPlan
-	rollbackTimer   *time.Timer
-	rollbackCancel  chan struct{}
-	configPath      string
-	backupPath      string
+	mu             sync.RWMutex
+	currentState   *FirewallState
+	pendingPlan    *FirewallPlan
+	rollbackTimer  *time.Timer
+	rollbackCancel chan struct{}
+	configPath     string
+	backupPath     string
 }
 
 // NewFirewallManager creates a new firewall manager
@@ -42,7 +42,7 @@ func NewFirewallManager() *FirewallManager {
 func (fm *FirewallManager) GetState() (*FirewallState, error) {
 	fm.mu.RLock()
 	defer fm.mu.RUnlock()
-	
+
 	if fm.currentState == nil {
 		// Load current state from nftables
 		state, err := fm.loadCurrentState()
@@ -51,7 +51,7 @@ func (fm *FirewallManager) GetState() (*FirewallState, error) {
 		}
 		fm.currentState = state
 	}
-	
+
 	return fm.currentState, nil
 }
 
@@ -59,21 +59,21 @@ func (fm *FirewallManager) GetState() (*FirewallState, error) {
 func (fm *FirewallManager) CreatePlan(mode AccessMode, enableWG, enableHTTPS bool, customRules []FirewallRule) (*FirewallPlan, error) {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
-	
+
 	currentState, err := fm.loadCurrentState()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load current state: %w", err)
 	}
-	
+
 	desiredState := fm.generateDesiredState(mode, enableWG, enableHTTPS, customRules)
 	changes := fm.calculateDiff(currentState, desiredState)
-	
+
 	// Generate dry run output
 	dryRunOutput, err := fm.generateNFTablesScript(desiredState, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate dry run: %w", err)
 	}
-	
+
 	plan := &FirewallPlan{
 		ID:           generateID(),
 		CurrentState: currentState,
@@ -83,7 +83,7 @@ func (fm *FirewallManager) CreatePlan(mode AccessMode, enableWG, enableHTTPS boo
 		CreatedAt:    time.Now(),
 		ExpiresAt:    time.Now().Add(5 * time.Minute),
 	}
-	
+
 	fm.pendingPlan = plan
 	return plan, nil
 }
@@ -92,51 +92,54 @@ func (fm *FirewallManager) CreatePlan(mode AccessMode, enableWG, enableHTTPS boo
 func (fm *FirewallManager) ApplyPlan(planID string, rollbackTimeoutSec int) error {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
-	
+
 	if fm.pendingPlan == nil || fm.pendingPlan.ID != planID {
 		return fmt.Errorf("plan not found or expired")
 	}
-	
+
 	if time.Now().After(fm.pendingPlan.ExpiresAt) {
 		return fmt.Errorf("plan has expired")
 	}
-	
+
 	// Backup current configuration
 	if err := fm.backupCurrentConfig(); err != nil {
 		return fmt.Errorf("failed to backup config: %w", err)
 	}
-	
+
 	// Generate and apply new configuration
 	script, err := fm.generateNFTablesScript(fm.pendingPlan.DesiredState, false)
 	if err != nil {
 		return fmt.Errorf("failed to generate script: %w", err)
 	}
-	
+
 	if err := fm.applyNFTablesScript(script); err != nil {
 		// Rollback on failure
-		fm.rollbackToBackup()
+		if rbErr := fm.rollbackToBackup(); rbErr != nil {
+			// Log rollback error but return original error
+			fmt.Printf("Failed to rollback firewall: %v\n", rbErr)
+		}
 		return fmt.Errorf("failed to apply firewall rules: %w", err)
 	}
-	
+
 	// Update state
 	fm.currentState = fm.pendingPlan.DesiredState
 	fm.currentState.Status = "pending_confirm"
 	fm.currentState.LastApplied = time.Now()
-	
+
 	// Set rollback timer
 	timeout := time.Duration(rollbackTimeoutSec) * time.Second
 	if timeout == 0 {
 		timeout = rollbackTimeout
 	}
-	
+
 	rollbackAt := time.Now().Add(timeout)
 	fm.currentState.RollbackAt = &rollbackAt
-	
+
 	fm.rollbackCancel = make(chan struct{})
 	fm.rollbackTimer = time.AfterFunc(timeout, func() {
 		fm.autoRollback()
 	})
-	
+
 	return nil
 }
 
@@ -144,11 +147,11 @@ func (fm *FirewallManager) ApplyPlan(planID string, rollbackTimeoutSec int) erro
 func (fm *FirewallManager) ConfirmPlan() error {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
-	
+
 	if fm.currentState == nil || fm.currentState.Status != "pending_confirm" {
 		return fmt.Errorf("no pending configuration to confirm")
 	}
-	
+
 	// Cancel rollback timer
 	if fm.rollbackTimer != nil {
 		fm.rollbackTimer.Stop()
@@ -156,17 +159,17 @@ func (fm *FirewallManager) ConfirmPlan() error {
 		fm.rollbackTimer = nil
 		fm.rollbackCancel = nil
 	}
-	
+
 	// Update state
 	fm.currentState.Status = "active"
 	fm.currentState.RollbackAt = nil
-	
+
 	// Clear pending plan
 	fm.pendingPlan = nil
-	
+
 	// Remove backup as configuration is confirmed
 	os.Remove(fm.backupPath)
-	
+
 	return nil
 }
 
@@ -174,7 +177,7 @@ func (fm *FirewallManager) ConfirmPlan() error {
 func (fm *FirewallManager) Rollback() error {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
-	
+
 	return fm.rollbackToBackup()
 }
 
@@ -193,7 +196,7 @@ func (fm *FirewallManager) loadCurrentState() (*FirewallState, error) {
 			Status:      "active",
 		}, nil
 	}
-	
+
 	// Parse JSON output and convert to FirewallState
 	// For now, return a simplified state
 	return &FirewallState{
@@ -207,7 +210,7 @@ func (fm *FirewallManager) loadCurrentState() (*FirewallState, error) {
 
 func (fm *FirewallManager) generateDesiredState(mode AccessMode, enableWG, enableHTTPS bool, customRules []FirewallRule) *FirewallState {
 	rules := fm.getDefaultRules()
-	
+
 	// Add mode-specific rules
 	switch mode {
 	case AccessModeLANOnly:
@@ -221,10 +224,10 @@ func (fm *FirewallManager) generateDesiredState(mode AccessMode, enableWG, enabl
 			rules = append(rules, fm.getPublicHTTPSRules()...)
 		}
 	}
-	
+
 	// Add custom rules
 	rules = append(rules, customRules...)
-	
+
 	return &FirewallState{
 		Mode:     mode,
 		Rules:    rules,
@@ -374,18 +377,18 @@ func (fm *FirewallManager) getPublicHTTPSRules() []FirewallRule {
 
 func (fm *FirewallManager) calculateDiff(current, desired *FirewallState) []FirewallDiff {
 	var diffs []FirewallDiff
-	
+
 	// Create maps for easy lookup
 	currentRules := make(map[string]*FirewallRule)
 	for i := range current.Rules {
 		currentRules[current.Rules[i].ID] = &current.Rules[i]
 	}
-	
+
 	desiredRules := make(map[string]*FirewallRule)
 	for i := range desired.Rules {
 		desiredRules[desired.Rules[i].ID] = &desired.Rules[i]
 	}
-	
+
 	// Find removed rules
 	for id, rule := range currentRules {
 		if _, exists := desiredRules[id]; !exists {
@@ -396,7 +399,7 @@ func (fm *FirewallManager) calculateDiff(current, desired *FirewallState) []Fire
 			})
 		}
 	}
-	
+
 	// Find added and modified rules
 	for id, rule := range desiredRules {
 		if oldRule, exists := currentRules[id]; exists {
@@ -418,32 +421,32 @@ func (fm *FirewallManager) calculateDiff(current, desired *FirewallState) []Fire
 			})
 		}
 	}
-	
+
 	return diffs
 }
 
 func (fm *FirewallManager) generateNFTablesScript(state *FirewallState, dryRun bool) (string, error) {
 	var buf bytes.Buffer
-	
+
 	// Start with flush
 	if !dryRun {
 		buf.WriteString("#!/usr/sbin/nft -f\n")
 		buf.WriteString("flush ruleset\n\n")
 	}
-	
+
 	// Create base table and chains
 	buf.WriteString("table inet filter {\n")
 	buf.WriteString("    chain input {\n")
 	buf.WriteString("        type filter hook input priority 0; policy drop;\n")
-	
+
 	// Add rules sorted by priority
 	for _, rule := range state.Rules {
 		if !rule.Enabled || rule.Chain != "input" {
 			continue
 		}
-		
+
 		buf.WriteString("        ")
-		
+
 		// Build rule string
 		if rule.Protocol != "" {
 			buf.WriteString(fmt.Sprintf("ip protocol %s ", rule.Protocol))
@@ -454,15 +457,15 @@ func (fm *FirewallManager) generateNFTablesScript(state *FirewallState, dryRun b
 		if rule.DestPort != "" {
 			buf.WriteString(fmt.Sprintf("tcp dport { %s } ", rule.DestPort))
 		}
-		
+
 		// Special handling for established connections
 		if rule.ID == "allow-established" {
 			buf.WriteString("ct state established,related ")
 		}
-		
+
 		buf.WriteString(fmt.Sprintf("%s comment \"%s\"\n", rule.Action, rule.Description))
 	}
-	
+
 	buf.WriteString("    }\n")
 	buf.WriteString("    chain forward {\n")
 	buf.WriteString("        type filter hook forward priority 0; policy drop;\n")
@@ -471,7 +474,7 @@ func (fm *FirewallManager) generateNFTablesScript(state *FirewallState, dryRun b
 	buf.WriteString("        type filter hook output priority 0; policy accept;\n")
 	buf.WriteString("    }\n")
 	buf.WriteString("}\n")
-	
+
 	return buf.String(), nil
 }
 
@@ -482,18 +485,18 @@ func (fm *FirewallManager) applyNFTablesScript(script string) error {
 		return fmt.Errorf("failed to write script: %w", err)
 	}
 	defer os.Remove(tmpFile)
-	
+
 	// Apply the script
 	cmd := exec.Command("nft", "-f", tmpFile)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("nft failed: %s: %w", output, err)
 	}
-	
+
 	// Save to config path for persistence
 	if err := os.WriteFile(fm.configPath, []byte(script), 0600); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -504,12 +507,12 @@ func (fm *FirewallManager) backupCurrentConfig() error {
 	if err != nil {
 		return fmt.Errorf("failed to get current ruleset: %w", err)
 	}
-	
+
 	// Save to backup file
 	if err := os.WriteFile(fm.backupPath, output, 0600); err != nil {
 		return fmt.Errorf("failed to write backup: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -518,19 +521,19 @@ func (fm *FirewallManager) rollbackToBackup() error {
 	if _, err := os.Stat(fm.backupPath); os.IsNotExist(err) {
 		return fmt.Errorf("no backup found")
 	}
-	
+
 	// Apply backup
 	cmd := exec.Command("nft", "-f", fm.backupPath)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("rollback failed: %s: %w", output, err)
 	}
-	
+
 	// Update state
 	if fm.currentState != nil {
 		fm.currentState.Status = "active"
 		fm.currentState.RollbackAt = nil
 	}
-	
+
 	// Cancel rollback timer if exists
 	if fm.rollbackTimer != nil {
 		fm.rollbackTimer.Stop()
@@ -540,17 +543,19 @@ func (fm *FirewallManager) rollbackToBackup() error {
 		fm.rollbackTimer = nil
 		fm.rollbackCancel = nil
 	}
-	
+
 	return nil
 }
 
 func (fm *FirewallManager) autoRollback() {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
-	
+
 	if fm.currentState != nil && fm.currentState.Status == "pending_confirm" {
 		fm.currentState.Status = "rolling_back"
-		fm.rollbackToBackup()
+		if err := fm.rollbackToBackup(); err != nil {
+			fmt.Printf("Failed to rollback during auto-rollback: %v\n", err)
+		}
 	}
 }
 
@@ -558,7 +563,7 @@ func (fm *FirewallManager) autoRollback() {
 
 func (fm *FirewallManager) detectCurrentMode(nftOutput []byte) AccessMode {
 	output := string(nftOutput)
-	
+
 	// Simple heuristic based on rules present
 	if strings.Contains(output, "51820") {
 		return AccessModeWireGuard
@@ -566,7 +571,7 @@ func (fm *FirewallManager) detectCurrentMode(nftOutput []byte) AccessMode {
 	if strings.Contains(output, "dport 443") && !strings.Contains(output, "192.168") {
 		return AccessModePublicHTTPS
 	}
-	
+
 	return AccessModeLANOnly
 }
 

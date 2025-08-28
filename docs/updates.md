@@ -1,99 +1,240 @@
-# Updates & Rollback — Admin Guide
+# NithronOS Updates & Releases
 
-This guide explains how updates work in NithronOS, how snapshots are taken before updates, and how to roll back safely if needed. It also includes CLI equivalents for automation and troubleshooting tips.
+## Overview
 
-## Configuration: snapshots.yaml
+NithronOS provides atomic system updates with automatic rollback capabilities, ensuring your system remains stable and recoverable even if an update fails.
 
-File: `/etc/nos/snapshots.yaml` (dev default: `./devdata/snapshots.yaml`)
+## Key Features
 
-Schema (v1):
-```yaml
-version: 1
-targets:
-  - id: etc
-    path: /etc/nos
-    type: tar           # btrfs | auto | tar
-    stop_services: []   # optional; services to stop during snapshot
-  - id: apps
-    path: /opt/nos/apps
-    type: auto          # auto → btrfs if possible, else tar
-```
+- **Signed APT repositories**: All packages are GPG-signed for security
+- **Multiple channels**: Choose between stable and beta update tracks
+- **Atomic updates**: Btrfs snapshots ensure updates can be rolled back
+- **Automatic rollback**: Failed updates automatically revert to the previous state
+- **Progress tracking**: Real-time update progress with detailed logs
+- **Snapshot management**: Keep and manage multiple system snapshots
 
-Rules:
-- `path` must be absolute and exist; invalid or missing paths are skipped gracefully.
-- `type: auto` will detect Btrfs (preferred) and fall back to tar.
-- `stop_services` is optional; services are restarted after snapshot (success or failure).
+## Update Channels
 
-## What gets snapshotted
+### Stable Channel (Default)
+- Production-ready releases
+- Thoroughly tested updates
+- Recommended for most users
+- Lower update frequency
 
-- Btrfs target: a read-only snapshot is created at `path/.snapshots/<timestamp>-pre-update`.
-- Tar target: a tarball is created at `/var/lib/nos/snapshots/<slug(path)>/<timestamp>-pre-update.tar.gz` using xattrs/ACLs when available.
+### Beta Channel
+- Early access to new features
+- More frequent updates
+- May contain bugs
+- For testing and development
 
-## Applying updates
-
-From the Web UI: Settings → Updates → Apply Updates.
-
-CLI equivalent via API:
+To change channels:
 ```bash
-# Check
-curl -sS -X GET http://127.0.0.1:9000/api/updates/check | jq
+# Via API
+curl -X POST http://localhost:9000/api/v1/updates/channel \
+  -H "Content-Type: application/json" \
+  -d '{"channel": "beta"}'
 
-# Apply with snapshots (confirm required)
-curl -sS -X POST http://127.0.0.1:9000/api/updates/apply \
-  -H 'Content-Type: application/json' \
-  -d '{"snapshot":true, "confirm":"yes"}' | jq
+# Via UI
+Navigate to Settings → Updates & Releases → Update Channel
 ```
 
-Agent (what happens under the hood on Debian):
-- If packages list provided: `apt-get install -y <packages>`
-- Else: `apt-get upgrade -y`
-- A daily systemd timer prunes old snapshots (keep newest 5 per target).
+## Update Process
 
-## Rollback
+### 1. Preflight Checks
+Before applying updates, the system performs:
+- Disk space verification (minimum 2GB required)
+- Network connectivity test
+- Repository accessibility check
+- GPG signature verification
 
-From the Web UI: Settings → Updates → Previous updates → Rollback.
+### 2. Snapshot Creation
+- Creates Btrfs snapshots of critical subvolumes:
+  - `@` (root filesystem)
+  - `@etc` (configuration)
+  - `@var` (variable data)
+- Snapshots are stored in `/.snapshots/nos-update/`
+- Each snapshot is timestamped and read-only
 
-CLI equivalent via API:
+### 3. Package Download & Installation
+- Downloads packages from the configured channel
+- Applies updates using `apt-get dist-upgrade`
+- Maintains package dependencies automatically
+
+### 4. Postflight Verification
+After installation, the system verifies:
+- Critical services are running (nosd, nos-agent, caddy)
+- Web UI is accessible
+- No system degradation detected
+
+### 5. Automatic Rollback
+If postflight checks fail:
+- System automatically rolls back to the pre-update snapshot
+- Services are restarted
+- Update is marked as failed
+
+## Using the Updates UI
+
+### Checking for Updates
+1. Navigate to **Settings → Updates & Releases**
+2. Click **Check for Updates**
+3. Review available updates and their changelog
+
+### Applying Updates
+1. Click **Apply Update** when updates are available
+2. Monitor real-time progress:
+   - Preflight checks
+   - Snapshot creation
+   - Package download
+   - Installation
+   - Postflight verification
+3. System will notify on completion or failure
+
+### Managing Snapshots
+- View all system snapshots in the UI
+- Each snapshot shows:
+  - Creation timestamp
+  - Size on disk
+  - Rollback availability
+- Delete old snapshots to free space
+- Manually rollback to any snapshot
+
+## CLI Usage
+
+### Check for Updates
 ```bash
-# Find recent transactions
-curl -sS -X GET http://127.0.0.1:9000/api/snapshots/recent | jq
-
-# Rollback a transaction by tx_id (confirm required)
-curl -sS -X POST http://127.0.0.1:9000/api/updates/rollback \
-  -H 'Content-Type: application/json' \
-  -d '{"tx_id":"<your-tx-id>", "confirm":"yes"}' | jq
+curl http://localhost:9000/api/v1/updates/check
 ```
 
-Behavior:
-- Btrfs: current subvolume is replaced with a writable clone of the pre-update snapshot.
-- Tar: a safety backup is taken, then the tarball is extracted over the target path.
-
-## Retention & pruning
-
-Defaults:
-- Keep newest 5 snapshots per target (Btrfs subvolumes and tarballs)
-- Daily prune timer: `nos-snapshot-prune.timer`
-
-Manual prune:
+### Apply Updates
 ```bash
-# Via backend (proxied to agent)
-curl -sS -X POST http://127.0.0.1:9000/api/snapshots/prune -H 'Content-Type: application/json' -d '{"keep_per_target":5}' | jq
-
-# Direct to agent (Unix socket)
-curl --unix-socket /run/nos-agent.sock -sS -X POST http://localhost/v1/snapshot/prune \
-  -H 'Content-Type: application/json' -d '{"keep_per_target":5}' | jq
+curl -X POST http://localhost:9000/api/v1/updates/apply
 ```
+
+### Monitor Progress
+```bash
+# Get current progress
+curl http://localhost:9000/api/v1/updates/progress
+
+# Stream progress (Server-Sent Events)
+curl -N http://localhost:9000/api/v1/updates/progress/stream
+```
+
+### List Snapshots
+```bash
+curl http://localhost:9000/api/v1/updates/snapshots
+```
+
+### Rollback
+```bash
+curl -X POST http://localhost:9000/api/v1/updates/rollback \
+  -H "Content-Type: application/json" \
+  -d '{"snapshot_id": "update-1234567890"}'
+```
+
+## Snapshot Retention
+
+By default, the system keeps the 3 most recent update snapshots. Older snapshots are automatically pruned to save disk space.
+
+To modify retention:
+- Edit `/etc/nithronos/update/config.json`
+- Set `snapshot_retention` to desired number
+- Restart the update service
+
+## Repository Configuration
+
+### Adding the NithronOS Repository
+
+```bash
+# Import GPG key
+wget -qO - https://apt.nithronos.com/nithronos-release.gpg | \
+  sudo gpg --dearmor -o /usr/share/keyrings/nithronos-archive-keyring.gpg
+
+# Add repository
+echo "deb [signed-by=/usr/share/keyrings/nithronos-archive-keyring.gpg] \
+  https://apt.nithronos.com stable main" | \
+  sudo tee /etc/apt/sources.list.d/nithronos.list
+
+# Update package lists
+sudo apt update
+```
+
+### Repository Pinning
+
+APT preferences are automatically configured to prevent cross-channel package drift:
+- Packages from the selected channel have priority 1001
+- Other NithronOS packages have priority 900
+- System packages maintain default priority
+
+## Safety Features
+
+### Power Loss Protection
+- Update state is persisted to `/var/lib/nos-update/state.json`
+- On boot, incomplete updates are detected and rolled back
+- Ensures system consistency after unexpected shutdowns
+
+### Lock File
+- Single-writer lock prevents concurrent updates
+- Located at `/var/run/nos-update.lock`
+- Automatically released on completion or failure
+
+### Failure Limits
+- System tracks consecutive update failures
+- After 3 failures, automatic updates are disabled
+- Manual intervention required to reset
 
 ## Troubleshooting
 
-- Target not on Btrfs: `type: auto` will fall back to tar. Verify with:
-  ```bash
-  findmnt -n -o FSTYPE --target /path/to/target
-  ```
-- Snapshot create failed: check journald logs for nos-agent and filesystem permissions.
-- Updates apply failed: see `/var/log/nithronos-updates.log` and apt logs (`/var/log/apt/`).
-- Rollback failed: ensure the snapshot exists (`.snapshots` dir for Btrfs or the tarball path), and that there is enough free space.
+### Update Fails to Start
+- Check disk space: `df -h /`
+- Verify network: `ping apt.nithronos.com`
+- Check lock file: `ls -la /var/run/nos-update.lock`
 
-## Notes
-- Pre-update snapshots are best-effort when `snapshot` is enabled.
-- For destructive operations or cross-version upgrades, always maintain external backups.
+### Automatic Rollback Triggered
+- Review logs: `/var/log/nos-update.log`
+- Check service status:
+  ```bash
+  systemctl status nosd nos-agent caddy
+  ```
+- Verify connectivity to Web UI
+
+### Cannot Create Snapshots
+- Ensure filesystem is Btrfs: `stat -f -c %T /`
+- Check snapshot directory permissions
+- Verify sufficient disk space
+
+### Repository Issues
+- Verify GPG key: `apt-key list`
+- Check sources: `cat /etc/apt/sources.list.d/nithronos.list`
+- Test signature verification:
+  ```bash
+  apt-get update -o Debug::Acquire::gpgv=true
+  ```
+
+## Best Practices
+
+1. **Regular Updates**: Check for updates weekly
+2. **Monitor Disk Space**: Keep at least 5GB free for updates
+3. **Test Beta Updates**: Use a non-production system for beta channel
+4. **Backup Important Data**: While snapshots provide rollback, they're not backups
+5. **Review Changelogs**: Understand what's changing before updating
+
+## Security Considerations
+
+- All packages are GPG-signed with NithronOS release key
+- HTTPS is used for all repository communications
+- Signature verification is mandatory (cannot be bypassed)
+- Failed signature checks prevent any package installation
+
+## API Reference
+
+See [API Documentation](./api/updates.md) for detailed endpoint specifications.
+
+## Telemetry
+
+Telemetry is **disabled by default** and completely optional. If enabled, the following anonymous data is collected:
+- System version information
+- Update success/failure status
+- Update duration
+- Rollback frequency
+
+No personal or identifying information is ever collected or transmitted.

@@ -310,7 +310,9 @@ func handleGetAppLogs(appManager *apps.Manager) http.HandlerFunc {
 
 		// Return logs as plain text
 		w.Header().Set("Content-Type", "text/plain")
-		w.Write(logs)
+		if _, err := w.Write(logs); err != nil {
+			fmt.Printf("Failed to write logs: %v\n", err)
+		}
 	}
 }
 
