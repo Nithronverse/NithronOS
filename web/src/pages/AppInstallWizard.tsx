@@ -16,7 +16,7 @@ import {
   Info
 } from 'lucide-react';
 import { appsApi } from '../api/apps';
-import type { CatalogEntry, JsonSchemaProperty } from '../api/apps.types';
+import type { CatalogEntry, JsonSchemaProperty, PortMapping, VolumeMount } from '../api/apps.types';
 import { cn } from '../lib/utils';
 import { toast } from '@/components/ui/toast';
 
@@ -42,7 +42,7 @@ export function AppInstallWizard() {
     queryFn: appsApi.getCatalog,
   });
 
-  const app = catalog?.entries.find(entry => entry.id === id);
+  const app = catalog?.entries.find((entry: CatalogEntry) => entry.id === id);
 
   // Load schema (in production this would be from server)
   const [schema, setSchema] = useState<any>(null);
@@ -400,7 +400,7 @@ export function AppInstallWizard() {
                   <div className="flex items-center gap-2">
                     <Shield className="w-4 h-4 text-gray-400" />
                     <span className="text-sm">
-                      Ports: {app.defaults.ports.map(p => p.host).join(', ')}
+                      Ports: {app.defaults.ports.map((p: PortMapping) => p.host).join(', ')}
                     </span>
                   </div>
                 )}
@@ -449,7 +449,7 @@ export function AppInstallWizard() {
               <div>
                 <h3 className="font-medium mb-3">Volume Mounts</h3>
                 <div className="space-y-2">
-                  {app.defaults.volumes.map((vol, idx) => (
+                  {app.defaults.volumes.map((vol: VolumeMount, idx: number) => (
                     <div key={idx} className="bg-gray-700 rounded-lg p-3">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-mono">{vol.container}</span>

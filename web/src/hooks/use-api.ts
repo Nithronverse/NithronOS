@@ -149,7 +149,7 @@ export function useScrubStatus() {
     retry: 1,
     refetchInterval: (data) => {
       // Poll more frequently if scrub is running
-      const hasRunning = data?.some(s => s.status === 'running')
+      const hasRunning = data?.some((s: ScrubStatus) => s.status === 'running')
       return hasRunning ? 5_000 : false
     },
   })
@@ -189,7 +189,7 @@ export function useBalanceStatus() {
     retry: 1,
     refetchInterval: (data) => {
       // Poll more frequently if balance is running
-      const hasRunning = data?.some(b => b.status === 'running')
+      const hasRunning = data?.some((b: BalanceStatus) => b.status === 'running')
       return hasRunning ? 5_000 : false
     },
   })

@@ -27,7 +27,7 @@ import {
   HardDrive
 } from 'lucide-react';
 import { appsApi } from '../api/apps';
-import type { InstalledApp, AppSnapshot, AppEvent } from '../api/apps.types';
+import type { InstalledApp, AppSnapshot, AppEvent, ContainerHealth, PortMapping } from '../api/apps.types';
 import { cn } from '../lib/utils';
 import { toast } from '@/components/ui/toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -263,7 +263,7 @@ export function AppDetails() {
               </div>
               {app.urls?.length > 0 && (
                 <div className="flex items-center gap-2 mt-3">
-                  {app.urls.map((url, idx) => (
+                  {app.urls.map((url: string, idx: number) => (
                     <a
                       key={idx}
                       href={url}
@@ -389,7 +389,7 @@ export function AppDetails() {
               <div>
                 <h3 className="font-medium mb-3">Containers</h3>
                 <div className="space-y-2">
-                  {app.health.containers.map((container, idx) => (
+                  {app.health.containers.map((container: ContainerHealth, idx: number) => (
                     <div key={idx} className="bg-gray-700 rounded-lg p-3">
                       <div className="flex items-center justify-between">
                         <span className="font-medium">{container.name}</span>
@@ -421,7 +421,7 @@ export function AppDetails() {
               <div>
                 <h3 className="font-medium mb-3">Recent Events</h3>
                 <div className="space-y-2">
-                  {eventsData.events.slice(0, 5).map(event => (
+                  {eventsData.events.slice(0, 5).map((event: AppEvent) => (
                     <div key={event.id} className="bg-gray-700 rounded-lg p-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -528,7 +528,7 @@ export function AppDetails() {
               <div>
                 <h3 className="font-medium mb-3">Port Mappings</h3>
                 <div className="space-y-2">
-                  {app.ports.map((port, idx) => (
+                  {app.ports.map((port: PortMapping, idx: number) => (
                     <div key={idx} className="bg-gray-700 rounded-lg p-3">
                       <div className="flex items-center justify-between">
                         <span className="text-sm">
@@ -564,7 +564,7 @@ export function AppDetails() {
             
             {app.snapshots && app.snapshots.length > 0 ? (
               <div className="space-y-2">
-                {app.snapshots.map(snapshot => (
+                {app.snapshots.map((snapshot: AppSnapshot) => (
                   <div key={snapshot.id} className="bg-gray-700 rounded-lg p-4">
                     <div className="flex items-center justify-between">
                       <div>

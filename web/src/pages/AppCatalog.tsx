@@ -42,14 +42,14 @@ export function AppCatalog() {
   });
 
   const installedApps = installedData?.items || [];
-  const installedAppIds = new Set(installedApps.map(app => app.id));
+  const installedAppIds = new Set(installedApps.map((app: InstalledApp) => app.id));
 
   // Get unique categories
   const categories = useMemo(() => {
     if (!catalog) return [];
     const cats = new Set<string>();
-    catalog.entries.forEach(app => {
-      app.categories?.forEach(cat => cats.add(cat));
+    catalog.entries.forEach((app: CatalogEntry) => {
+      app.categories?.forEach((cat: string) => cats.add(cat));
     });
     return Array.from(cats).sort();
   }, [catalog]);
@@ -58,7 +58,7 @@ export function AppCatalog() {
   const filteredEntries = useMemo(() => {
     if (!catalog) return [];
     
-    return catalog.entries.filter(app => {
+    return catalog.entries.filter((app: CatalogEntry) => {
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -259,7 +259,7 @@ export function AppCatalog() {
               <p className="text-gray-400">No apps found</p>
             </div>
           ) : (
-            filteredEntries.map(app => (
+            filteredEntries.map((app: CatalogEntry) => (
               <div
                 key={app.id}
                 className="bg-gray-800 rounded-lg p-4 hover:bg-gray-750 transition-colors"
@@ -277,7 +277,7 @@ export function AppCatalog() {
 
                 {/* Categories */}
                 <div className="flex gap-1 flex-wrap mb-3">
-                  {app.categories?.slice(0, 2).map(cat => (
+                  {app.categories?.slice(0, 2).map((cat: string) => (
                     <span
                       key={cat}
                       className="text-xs px-2 py-1 bg-gray-700 rounded-full"
@@ -327,7 +327,7 @@ export function AppCatalog() {
               </button>
             </div>
           ) : (
-            installedApps.map(app => (
+            installedApps.map((app: InstalledApp) => (
               <div
                 key={app.id}
                 className="bg-gray-800 rounded-lg p-4 flex items-center justify-between"
