@@ -30,7 +30,7 @@ func TestSnapshotManager(t *testing.T) {
 		}
 		
 		// Clean up
-		sm.DeleteSnapshot(id)
+		_ = sm.DeleteSnapshot(id)
 	})
 	
 	t.Run("ListSnapshots", func(t *testing.T) {
@@ -71,7 +71,7 @@ func TestSnapshotManager(t *testing.T) {
 		// Clean up remaining
 		for _, s := range snapshots {
 			if strings.HasPrefix(s.ID, "prune-test-") {
-				sm.DeleteSnapshot(s.ID)
+				_ = sm.DeleteSnapshot(s.ID)
 			}
 		}
 	})
@@ -124,7 +124,7 @@ func TestSnapshotHelpers(t *testing.T) {
 		
 		// Write test file
 		testFile := filepath.Join(tmpDir, "test.txt")
-		os.WriteFile(testFile, []byte("test content"), 0644)
+		_ = os.WriteFile(testFile, []byte("test content"), 0644)
 		
 		size, err := sm.getSnapshotSize(tmpDir)
 		if err != nil {

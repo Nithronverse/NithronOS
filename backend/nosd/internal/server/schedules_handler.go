@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -88,7 +89,9 @@ func (h *SchedulesHandler) GetSchedule(w http.ResponseWriter, r *http.Request) {
 	for _, schedule := range h.schedules {
 		if schedule.ID == id {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(schedule)
+			if err := json.NewEncoder(w).Encode(schedule); err != nil {
+				fmt.Printf("Failed to write response: %v\n", err)
+			}
 			return
 		}
 	}
@@ -131,7 +134,9 @@ func (h *SchedulesHandler) CreateSchedule(w http.ResponseWriter, r *http.Request
 	
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(schedule)
+	if err := json.NewEncoder(w).Encode(schedule); err != nil {
+		fmt.Printf("Failed to write response: %v\n", err)
+	}
 }
 
 // UpdateSchedule updates an existing schedule
@@ -163,7 +168,9 @@ func (h *SchedulesHandler) UpdateSchedule(w http.ResponseWriter, r *http.Request
 			log.Info().Str("id", id).Msg("Updated schedule")
 			
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(h.schedules[i])
+			if err := json.NewEncoder(w).Encode(h.schedules[i]); err != nil {
+				fmt.Printf("Failed to write response: %v\n", err)
+			}
 			return
 		}
 	}

@@ -66,7 +66,7 @@ func (sm *SnapshotManager) CreateSnapshot(id string, description string) (*Updat
 	for _, subvol := range subvolumes {
 		if err := sm.snapshotSubvolume(subvol, snapshotDir); err != nil {
 			// Clean up on failure
-			sm.DeleteSnapshot(id)
+			_ = sm.DeleteSnapshot(id)
 			return nil, fmt.Errorf("failed to snapshot %s: %w", subvol, err)
 		}
 	}
@@ -277,7 +277,9 @@ func (sm *SnapshotManager) rollbackSubvolume(subvol, snapshotPath string) error 
 	cmd = exec.Command("btrfs", "subvolume", "delete", mountPoint)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		// Try to restore from temp backup
-		exec.Command("mv", tempBackup, mountPoint).Run()
+		if mvErr := exec.Command("mv", tempBackup, mountPoint).Run(); mvErr != nil {
+			fmt.Printf("Failed to restore backup: %v\n", mvErr)
+		}
 		return fmt.Errorf("failed to delete current subvolume: %s: %w", output, err)
 	}
 
@@ -285,12 +287,16 @@ func (sm *SnapshotManager) rollbackSubvolume(subvol, snapshotPath string) error 
 	cmd = exec.Command("btrfs", "subvolume", "snapshot", snapshotSubvolPath, mountPoint)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		// Try to restore from temp backup
-		exec.Command("mv", tempBackup, mountPoint).Run()
+		if mvErr := exec.Command("mv", tempBackup, mountPoint).Run(); mvErr != nil {
+			fmt.Printf("Failed to restore backup: %v\n", mvErr)
+		}
 		return fmt.Errorf("failed to restore snapshot: %s: %w", output, err)
 	}
 
 	// Clean up temp backup
-	exec.Command("btrfs", "subvolume", "delete", tempBackup).Run()
+	if err := exec.Command("btrfs", "subvolume", "delete", tempBackup).Run(); err != nil {
+		fmt.Printf("Failed to delete temp backup: %v\n", err)
+	}
 
 	return nil
 }

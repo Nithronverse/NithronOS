@@ -119,7 +119,9 @@ func (u *Updater) AcquireLock() error {
 // ReleaseLock releases the update lock
 func (u *Updater) ReleaseLock() {
 	if u.lockFile != nil {
-		releaseFileLock(u.lockFile)
+		if err := releaseFileLock(u.lockFile); err != nil {
+			fmt.Printf("Failed to release file lock: %v\n", err)
+		}
 		u.lockFile.Close()
 		u.lockFile = nil
 	}
@@ -322,7 +324,9 @@ func (u *Updater) runUpdate(request *UpdateApplyRequest) {
 	u.mu.Unlock()
 
 	// Prune old snapshots
-	u.snapManager.PruneSnapshots()
+	if err := u.snapManager.PruneSnapshots(); err != nil {
+		fmt.Printf("Failed to prune snapshots: %v\n", err)
+	}
 }
 
 // runPreflight runs preflight checks
@@ -365,7 +369,7 @@ func (u *Updater) runPreflight() error {
 	// Check for failures
 	for _, check := range checks {
 		if check.Status == "fail" && check.Required {
-			return fmt.Errorf(check.Message)
+			return fmt.Errorf("%s", check.Message)
 		}
 	}
 
@@ -457,7 +461,7 @@ func (u *Updater) runPostflight() error {
 	// Check for critical failures
 	for _, check := range checks {
 		if !check.Healthy && check.Critical {
-			return fmt.Errorf(check.Message)
+			return fmt.Errorf("%s", check.Message)
 		}
 	}
 
@@ -470,7 +474,9 @@ func (u *Updater) cleanup() {
 	u.updateProgress(UpdatePhaseCleanup, 98, "Cleaning up...")
 
 	// Clean APT cache
-	u.aptManager.CleanCache()
+	if err := u.aptManager.CleanCache(); err != nil {
+		fmt.Printf("Failed to clean apt cache: %v\n", err)
+	}
 
 	u.updateProgress(UpdatePhaseCleanup, 100, "Update complete")
 }
@@ -590,7 +596,9 @@ func (u *Updater) resumeUpdate() {
 
 func (u *Updater) saveState() {
 	data, _ := json.MarshalIndent(u.state, "", "  ")
-	os.WriteFile(stateFilePath, data, 0600)
+	if err := os.WriteFile(stateFilePath, data, 0600); err != nil {
+		fmt.Printf("Failed to write state file: %v\n", err)
+	}
 }
 
 func loadState(path string) (*UpdateStateMachine, error) {

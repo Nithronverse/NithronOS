@@ -38,7 +38,7 @@ func TestAPTManager(t *testing.T) {
 		}
 		
 		// Reset to stable
-		am.SetChannel(ChannelStable)
+		_ = am.SetChannel(ChannelStable)
 	})
 	
 	t.Run("GetPackageVersion", func(t *testing.T) {
