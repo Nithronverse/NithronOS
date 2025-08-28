@@ -389,4 +389,3 @@ func (sm *SnapshotManager) VerifySnapshot(id string) error {
 
 	return nil
 }
-
