@@ -164,7 +164,9 @@ func (h *StorageHandler) GetPool(w http.ResponseWriter, r *http.Request) {
 	for _, pool := range pools {
 		if pool.UUID == uuid || pool.ID == uuid {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(pool)
+			if err := json.NewEncoder(w).Encode(pool); err != nil {
+				fmt.Printf("Failed to write response: %v\n", err)
+			}
 			return
 		}
 	}
@@ -194,7 +196,9 @@ func (h *StorageHandler) GetPoolSubvolumes(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(subvols)
+	if err := json.NewEncoder(w).Encode(subvols); err != nil {
+		fmt.Printf("Failed to write response: %v\n", err)
+	}
 
 	// Log for debugging
 	log.Info().Str("uuid", uuid).Msg("Returned subvolumes for pool")
@@ -211,7 +215,9 @@ func (h *StorageHandler) GetPoolMountOptions(w http.ResponseWriter, r *http.Requ
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(options)
+	if err := json.NewEncoder(w).Encode(options); err != nil {
+		fmt.Printf("Failed to write response: %v\n", err)
+	}
 
 	log.Info().Str("uuid", uuid).Msg("Returned mount options for pool")
 }
