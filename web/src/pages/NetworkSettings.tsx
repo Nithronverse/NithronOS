@@ -224,9 +224,9 @@ export function NetworkSettings() {
             <Button
               variant="outline"
               onClick={handleTestHTTPS}
-              disabled={testHTTPS.isLoading}
+              disabled={testHTTPS.isPending}
             >
-              {testHTTPS.isLoading ? (
+              {testHTTPS.isPending ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <CheckCircle className="h-4 w-4 mr-2" />
@@ -537,8 +537,8 @@ export function NetworkSettings() {
             <Button variant="outline" onClick={() => setShowAddPeerDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleAddPeer} disabled={!newPeerName || addPeer.isLoading}>
-              {addPeer.isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            <Button onClick={handleAddPeer} disabled={!newPeerName || addPeer.isPending}>
+              {addPeer.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Add Peer
             </Button>
           </DialogFooter>

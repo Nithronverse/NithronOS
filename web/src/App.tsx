@@ -21,7 +21,7 @@ import Setup from './pages/Setup'
 import { GlobalNoticeProvider, useGlobalNotice } from './lib/globalNotice'
 import Banner from './components/Banner'
 import HelpProxy from './pages/HelpProxy'
-import { ToastProvider } from './components/ui/Toast'
+import { Toasts } from '@/components/ui/toast'
 import { AuthProvider, AuthGuard } from './lib/auth'
 import { useEffect, useState } from 'react'
 import { api, APIError, ProxyMisconfiguredError } from './lib/api-client'
@@ -166,7 +166,7 @@ function AppWithProviders() {
 export default function App() {
   return (
     <GlobalNoticeProvider>
-      <ToastProvider />
+      <Toasts />
       <AppWithProviders />
     </GlobalNoticeProvider>
   )

@@ -42,8 +42,13 @@ export default function Updates() {
   const { data: channelData } = useQuery({
     queryKey: ['updates', 'channel'],
     queryFn: updatesApi.getChannel,
-    onSuccess: (data) => setSelectedChannel(data.channel),
   });
+
+  useEffect(() => {
+    if (channelData) {
+      setSelectedChannel(channelData.channel);
+    }
+  }, [channelData]);
 
   const { data: updateCheck, isLoading: isChecking, refetch: checkForUpdates } = useQuery({
     queryKey: ['updates', 'check'],
@@ -62,7 +67,7 @@ export default function Updates() {
     mutationFn: updatesApi.setChannel,
     onSuccess: () => {
       toast.success('Update channel changed');
-      queryClient.invalidateQueries(['updates']);
+      queryClient.invalidateQueries({ queryKey: ['updates'] });
     },
     onError: (error: any) => {
       toast.error(error.message || 'Failed to change channel');
@@ -84,7 +89,7 @@ export default function Updates() {
     mutationFn: updatesApi.rollback,
     onSuccess: () => {
       toast.success('Rollback initiated');
-      queryClient.invalidateQueries(['updates']);
+      queryClient.invalidateQueries({ queryKey: ['updates'] });
     },
     onError: (error: any) => {
       toast.error(error.message || 'Rollback failed');
@@ -119,7 +124,7 @@ export default function Updates() {
       ) {
         source.close();
         setEventSource(null);
-        queryClient.invalidateQueries(['updates']);
+        queryClient.invalidateQueries({ queryKey: ['updates'] });
         
         if (progress.state === 'success') {
           toast.success('Update completed successfully!');
@@ -303,10 +308,10 @@ export default function Updates() {
             
             <button
               onClick={handleApplyUpdate}
-              disabled={updateProgress?.state !== 'idle' || applyUpdateMutation.isLoading}
+              disabled={updateProgress?.state !== 'idle' || applyUpdateMutation.isPending}
               className="px-6 py-3 bg-white text-blue-900 rounded-lg font-medium hover:bg-gray-100 disabled:opacity-50"
             >
-              {applyUpdateMutation.isLoading ? (
+              {applyUpdateMutation.isPending ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
                 'Apply Update'

@@ -55,7 +55,7 @@ export function RemoteAccessWizard() {
 
   useEffect(() => {
     // Start wizard session
-    if (!wizardState.data && !startWizard.isLoading) {
+    if (!wizardState.data && !startWizard.isPending) {
       startWizard.mutate();
     }
   }, []);
@@ -564,18 +564,18 @@ export function RemoteAccessWizard() {
         {currentStep < 4 ? (
           <Button
             onClick={handleNext}
-            disabled={wizardNext.isLoading}
+            disabled={wizardNext.isPending}
           >
-            {wizardNext.isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {wizardNext.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Next
             <ChevronRight className="h-4 w-4 ml-2" />
           </Button>
         ) : (
           <Button
             onClick={handleComplete}
-            disabled={completeWizard.isLoading}
+            disabled={completeWizard.isPending}
           >
-            {completeWizard.isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {completeWizard.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Apply Configuration
           </Button>
         )}

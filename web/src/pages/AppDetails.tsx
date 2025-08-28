@@ -29,7 +29,7 @@ import {
 import { appsApi } from '../api/apps';
 import type { InstalledApp, AppSnapshot, AppEvent } from '../api/apps.types';
 import { cn } from '../lib/utils';
-import { toast } from '../components/ui/Toast';
+import { pushToast } from '@/components/ui/toast';
 import { formatDistanceToNow } from 'date-fns';
 
 export function AppDetails() {

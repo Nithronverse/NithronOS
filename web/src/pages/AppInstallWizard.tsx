@@ -18,7 +18,7 @@ import {
 import { appsApi } from '../api/apps';
 import type { CatalogEntry, JsonSchemaProperty } from '../api/apps.types';
 import { cn } from '../lib/utils';
-import { toast } from '../components/ui/Toast';
+import { pushToast } from '@/components/ui/toast';
 
 interface FormData {
   [key: string]: any;

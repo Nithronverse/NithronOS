@@ -279,9 +279,9 @@ export function TwoFactorSettings() {
             </Button>
             <Button 
               onClick={handleStartEnrollment} 
-              disabled={!password || enrollTOTP.isLoading}
+              disabled={!password || enrollTOTP.isPending}
             >
-              {enrollTOTP.isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {enrollTOTP.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Continue
             </Button>
           </DialogFooter>
@@ -341,9 +341,9 @@ export function TwoFactorSettings() {
             </Button>
             <Button 
               onClick={handleVerifyEnrollment}
-              disabled={verificationCode.length !== 6 || verifyTOTP.isLoading}
+              disabled={verificationCode.length !== 6 || verifyTOTP.isPending}
             >
-              {verifyTOTP.isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {verifyTOTP.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Verify & Enable
             </Button>
           </DialogFooter>
