@@ -103,7 +103,7 @@ export function RemoteAccessWizard() {
     <div className="space-y-6">
       <RadioGroup
         value={formData.access_mode}
-        onValueChange={(value) => setFormData({ ...formData, access_mode: value as AccessMode })}
+        onValueChange={(value: string) => setFormData({ ...formData, access_mode: value as AccessMode })}
       >
         <div className="space-y-4">
           <Card className={formData.access_mode === 'lan_only' ? 'border-primary' : ''}>
@@ -300,7 +300,7 @@ export function RemoteAccessWizard() {
                 <Label>Certificate Method</Label>
                 <RadioGroup
                   value={formData.https.mode}
-                  onValueChange={(value) => setFormData({
+                  onValueChange={(value: string) => setFormData({
                     ...formData,
                     https: { ...formData.https, mode: value as HTTPSMode }
                   })}

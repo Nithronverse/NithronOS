@@ -547,7 +547,7 @@ export function Shares() {
       {/* Edit Share Slide-over */}
       <SlideOver
         open={!!editingShare}
-        onOpenChange={(open) => !open && setEditingShare(null)}
+        onOpenChange={(open: boolean) => !open && setEditingShare(null)}
         title="Edit Network Share"
         description={`Modify settings for ${editingShare?.name}`}
       >

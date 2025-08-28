@@ -164,7 +164,7 @@ function UsersSettings() {
         }
       >
         <div className="space-y-2">
-          {mockUsers.map(user => (
+          {mockUsers.map((user: any) => (
             <div key={user.id} className="flex items-center justify-between p-3 rounded-lg border">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">

@@ -15,8 +15,10 @@ vi.mock('../lib/api-client', () => ({
       createAdmin: vi.fn(),
     },
     auth: {
-      enrollTotp: vi.fn(),
-      verifyTotp: vi.fn(),
+      totp: {
+        enroll: vi.fn(),
+        verify: vi.fn(),
+      },
     },
   },
   APIError: class APIError extends Error {
@@ -302,9 +304,9 @@ describe('Setup Flow', () => {
         totpRequired: true,
       })
       
-      vi.mocked(api.auth.enrollTotp).mockResolvedValueOnce({
+      vi.mocked(api.auth.totp.enroll).mockResolvedValueOnce({
         secret: 'MOCK_SECRET',
-        qrCode: 'otpauth://totp/NithronOS:admin?secret=MOCK_SECRET',
+        otpauth_url: 'otpauth://totp/NithronOS:admin?secret=MOCK_SECRET',
       })
       
       renderSetup()
@@ -344,13 +346,13 @@ describe('Setup Flow', () => {
       })
       
       // TOTP enrollment
-      vi.mocked(api.auth.enrollTotp).mockResolvedValueOnce({
+      vi.mocked(api.auth.totp.enroll).mockResolvedValueOnce({
         secret: 'MOCK_SECRET',
-        qrCode: 'otpauth://totp/NithronOS:admin?secret=MOCK_SECRET',
+        otpauth_url: 'otpauth://totp/NithronOS:admin?secret=MOCK_SECRET',
       })
       
       // TOTP verification
-      vi.mocked(api.auth.verifyTotp).mockResolvedValueOnce({ verified: true })
+      vi.mocked(api.auth.totp.verify).mockResolvedValueOnce({ verified: true })
       
       renderSetup()
       const user = userEvent.setup()
@@ -375,7 +377,7 @@ describe('Setup Flow', () => {
       await user.click(screen.getByRole('button', { name: /verify and continue/i }))
       
       await waitFor(() => {
-        expect(api.auth.verifyTotp).toHaveBeenCalledWith('123456')
+        expect(api.auth.totp.verify).toHaveBeenCalledWith('123456')
         expect(mockNavigate).toHaveBeenCalledWith('/login', { replace: true })
       })
     })
@@ -391,9 +393,9 @@ describe('Setup Flow', () => {
         totpRequired: true,
       })
       
-      vi.mocked(api.auth.enrollTotp).mockResolvedValueOnce({
+      vi.mocked(api.auth.totp.enroll).mockResolvedValueOnce({
         secret: 'MOCK_SECRET',
-        qrCode: 'otpauth://totp/NithronOS:admin?secret=MOCK_SECRET',
+        otpauth_url: 'otpauth://totp/NithronOS:admin?secret=MOCK_SECRET',
       })
       
       renderSetup()

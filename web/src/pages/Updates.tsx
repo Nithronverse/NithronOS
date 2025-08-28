@@ -139,7 +139,7 @@ export default function Updates() {
 
   // Check for ongoing update on mount
   useEffect(() => {
-    updatesApi.getProgress().then((progress) => {
+    updatesApi.getProgress().then((progress: UpdateProgress | null) => {
       if (progress && progress.state !== 'idle') {
         setUpdateProgress(progress);
         if (progress.state !== 'success' && progress.state !== 'failed') {
@@ -441,7 +441,7 @@ export default function Updates() {
             {snapshots.snapshots.length === 0 ? (
               <p className="text-gray-400 text-center py-8">No snapshots available</p>
             ) : (
-              snapshots.snapshots.map((snapshot) => (
+              snapshots.snapshots.map((snapshot: UpdateSnapshot) => (
                 <div
                   key={snapshot.id}
                   className="bg-gray-700 rounded-lg p-4 flex items-center justify-between"
