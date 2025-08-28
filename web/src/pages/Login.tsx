@@ -45,7 +45,6 @@ export function Login() {
     handleSubmit,
     formState: { errors },
     setFocus,
-    getValues,
   } = useForm<LoginInput>({
     resolver: zodResolver(LoginSchema),
     defaultValues: {

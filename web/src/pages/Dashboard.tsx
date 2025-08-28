@@ -11,18 +11,15 @@ import {
   Cpu,
   MemoryStick,
   AlertCircle,
-  XCircle,
-  Server,
   Database,
   FolderOpen,
 } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card-enhanced'
 import { EmptyState } from '@/components/ui/empty-state'
-import { StatusPill, HealthBadge, Metric } from '@/components/ui/status'
+import { StatusPill, HealthBadge } from '@/components/ui/status'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Skeleton } from '@/components/ui/skeleton'
 import { 
   useSystemInfo, 
   usePoolsSummary, 
@@ -40,12 +37,7 @@ import {
   Pie, 
   Cell, 
   ResponsiveContainer, 
-  Tooltip,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid
+  Tooltip
 } from 'recharts'
 
 // Helper functions

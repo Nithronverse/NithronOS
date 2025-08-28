@@ -11,7 +11,7 @@ vi.mock('../lib/api-client', () => ({
   api: {
     setup: {
       getState: vi.fn(),
-      verifyOtp: vi.fn(),
+      verifyOTP: vi.fn(),
       createAdmin: vi.fn(),
     },
     auth: {
@@ -131,7 +131,7 @@ describe('Setup Flow', () => {
     })
 
     it('should handle successful OTP verification', async () => {
-      vi.mocked(api.setup.verifyOtp).mockResolvedValueOnce({ success: true })
+      vi.mocked(api.setup.verifyOTP).mockResolvedValueOnce({ success: true })
       
       renderSetup()
       const user = userEvent.setup()
@@ -144,13 +144,13 @@ describe('Setup Flow', () => {
       await user.click(screen.getByRole('button', { name: /verify/i }))
       
       await waitFor(() => {
-        expect(api.setup.verifyOtp).toHaveBeenCalledWith('test-otp-123')
+        expect(api.setup.verifyOTP).toHaveBeenCalledWith('test-otp-123')
         expect(screen.getByText(/create admin account/i)).toBeInTheDocument()
       })
     })
 
     it('should handle invalid OTP error', async () => {
-      vi.mocked(api.setup.verifyOtp).mockRejectedValueOnce({
+      vi.mocked(api.setup.verifyOTP).mockRejectedValueOnce({
         status: 401,
         message: 'Invalid OTP',
       })
@@ -171,7 +171,7 @@ describe('Setup Flow', () => {
     })
 
     it('should show permission hint on 403 error', async () => {
-      vi.mocked(api.setup.verifyOtp).mockRejectedValueOnce({
+      vi.mocked(api.setup.verifyOTP).mockRejectedValueOnce({
         status: 403,
         message: 'Forbidden',
       })
