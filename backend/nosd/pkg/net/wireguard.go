@@ -18,10 +18,10 @@ import (
 )
 
 const (
-	wgConfigPath     = "/etc/wireguard/wg0.conf"
-	wgInterface      = "wg0"
-	defaultWGPort    = 51820
-	defaultWGSubnet  = "10.8.0.0/24"
+	wgConfigPath    = "/etc/wireguard/wg0.conf"
+	wgInterface     = "wg0"
+	defaultWGPort   = 51820
+	defaultWGSubnet = "10.8.0.0/24"
 )
 
 // WireGuardManager manages WireGuard VPN configuration
@@ -38,17 +38,17 @@ func NewWireGuardManager() (*WireGuardManager, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create WireGuard client: %w", err)
 	}
-	
+
 	wm := &WireGuardManager{
 		configPath: wgConfigPath,
 		client:     client,
 	}
-	
+
 	// Load existing config if available
 	if err := wm.loadConfig(); err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
-	
+
 	return wm, nil
 }
 
@@ -56,13 +56,13 @@ func NewWireGuardManager() (*WireGuardManager, error) {
 func (wm *WireGuardManager) GetState() (*WireGuardConfig, error) {
 	wm.mu.RLock()
 	defer wm.mu.RUnlock()
-	
+
 	if wm.config == nil {
 		return &WireGuardConfig{
 			Enabled: false,
 		}, nil
 	}
-	
+
 	// Update runtime stats if enabled
 	if wm.config.Enabled {
 		device, err := wm.client.Device(wgInterface)
@@ -70,7 +70,7 @@ func (wm *WireGuardManager) GetState() (*WireGuardConfig, error) {
 			wm.updateRuntimeStats(device)
 		}
 	}
-	
+
 	return wm.config, nil
 }
 
@@ -78,23 +78,23 @@ func (wm *WireGuardManager) GetState() (*WireGuardConfig, error) {
 func (wm *WireGuardManager) Enable(cidr string, port int, endpoint string, dns []string) error {
 	wm.mu.Lock()
 	defer wm.mu.Unlock()
-	
+
 	if wm.config != nil && wm.config.Enabled {
 		return fmt.Errorf("wireguard is already enabled")
 	}
-	
+
 	// Parse and validate CIDR
 	_, _, err := net.ParseCIDR(cidr)
 	if err != nil {
 		return fmt.Errorf("invalid CIDR: %w", err)
 	}
-	
+
 	// Generate server keys
 	privateKey, publicKey, err := generateWireGuardKeys()
 	if err != nil {
 		return fmt.Errorf("failed to generate keys: %w", err)
 	}
-	
+
 	// Set defaults
 	if port == 0 {
 		port = defaultWGPort
@@ -105,7 +105,7 @@ func (wm *WireGuardManager) Enable(cidr string, port int, endpoint string, dns [
 	if len(dns) == 0 {
 		dns = []string{"1.1.1.1", "1.0.0.1"}
 	}
-	
+
 	// Create configuration
 	wm.config = &WireGuardConfig{
 		Enabled:          true,
@@ -118,22 +118,22 @@ func (wm *WireGuardManager) Enable(cidr string, port int, endpoint string, dns [
 		DNS:              dns,
 		Peers:            []WireGuardPeer{},
 	}
-	
+
 	// Generate and apply configuration
 	if err := wm.applyConfig(); err != nil {
 		return fmt.Errorf("failed to apply config: %w", err)
 	}
-	
+
 	// Enable and start systemd service
 	if err := wm.enableService(); err != nil {
 		return fmt.Errorf("failed to enable service: %w", err)
 	}
-	
+
 	// Save configuration
 	if err := wm.saveConfig(); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -141,24 +141,24 @@ func (wm *WireGuardManager) Enable(cidr string, port int, endpoint string, dns [
 func (wm *WireGuardManager) Disable() error {
 	wm.mu.Lock()
 	defer wm.mu.Unlock()
-	
+
 	if wm.config == nil || !wm.config.Enabled {
 		return fmt.Errorf("wireguard is not enabled")
 	}
-	
+
 	// Stop and disable systemd service
 	if err := wm.disableService(); err != nil {
 		return fmt.Errorf("failed to disable service: %w", err)
 	}
-	
+
 	// Update configuration
 	wm.config.Enabled = false
-	
+
 	// Save configuration
 	if err := wm.saveConfig(); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -166,18 +166,18 @@ func (wm *WireGuardManager) Disable() error {
 func (wm *WireGuardManager) AddPeer(name string, allowedIPs []string, pubkey string) (*WireGuardPeerConfig, error) {
 	wm.mu.Lock()
 	defer wm.mu.Unlock()
-	
+
 	if wm.config == nil || !wm.config.Enabled {
 		return nil, fmt.Errorf("wireguard is not enabled")
 	}
-	
+
 	// Check for duplicate name
 	for _, peer := range wm.config.Peers {
 		if peer.Name == name {
 			return nil, fmt.Errorf("peer with name %s already exists", name)
 		}
 	}
-	
+
 	// Generate peer keys if not provided
 	var peerPrivateKey, peerPublicKey string
 	if pubkey == "" {
@@ -189,24 +189,24 @@ func (wm *WireGuardManager) AddPeer(name string, allowedIPs []string, pubkey str
 	} else {
 		peerPublicKey = pubkey
 	}
-	
+
 	// Generate preshared key for additional security
 	presharedKey, err := generatePresharedKey()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate preshared key: %w", err)
 	}
-	
+
 	// Allocate IP address for peer
 	peerIP, err := wm.allocatePeerIP()
 	if err != nil {
 		return nil, fmt.Errorf("failed to allocate IP: %w", err)
 	}
-	
+
 	// Set default allowed IPs if not specified
 	if len(allowedIPs) == 0 {
 		allowedIPs = []string{fmt.Sprintf("%s/32", peerIP)}
 	}
-	
+
 	// Create peer
 	peer := WireGuardPeer{
 		ID:           generateID(),
@@ -217,30 +217,30 @@ func (wm *WireGuardManager) AddPeer(name string, allowedIPs []string, pubkey str
 		CreatedAt:    time.Now(),
 		Enabled:      true,
 	}
-	
+
 	// Add to configuration
 	wm.config.Peers = append(wm.config.Peers, peer)
-	
+
 	// Apply configuration
 	if err := wm.applyConfig(); err != nil {
 		return nil, fmt.Errorf("failed to apply config: %w", err)
 	}
-	
+
 	// Save configuration
 	if err := wm.saveConfig(); err != nil {
 		return nil, fmt.Errorf("failed to save config: %w", err)
 	}
-	
+
 	// Generate client configuration
 	clientConfig := wm.generateClientConfig(peer, peerPrivateKey, peerIP)
-	
+
 	// Generate QR code
 	qrCode, err := wm.generateQRCode(clientConfig.Config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate QR code: %w", err)
 	}
 	clientConfig.QRCode = qrCode
-	
+
 	return clientConfig, nil
 }
 
@@ -248,11 +248,11 @@ func (wm *WireGuardManager) AddPeer(name string, allowedIPs []string, pubkey str
 func (wm *WireGuardManager) RemovePeer(peerID string) error {
 	wm.mu.Lock()
 	defer wm.mu.Unlock()
-	
+
 	if wm.config == nil || !wm.config.Enabled {
 		return fmt.Errorf("wireguard is not enabled")
 	}
-	
+
 	// Find and remove peer
 	found := false
 	var updatedPeers []WireGuardPeer
@@ -263,24 +263,24 @@ func (wm *WireGuardManager) RemovePeer(peerID string) error {
 			found = true
 		}
 	}
-	
+
 	if !found {
 		return fmt.Errorf("peer not found")
 	}
-	
+
 	// Update configuration
 	wm.config.Peers = updatedPeers
-	
+
 	// Apply configuration
 	if err := wm.applyConfig(); err != nil {
 		return fmt.Errorf("failed to apply config: %w", err)
 	}
-	
+
 	// Save configuration
 	if err := wm.saveConfig(); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -301,18 +301,18 @@ func (wm *WireGuardManager) saveConfig() error {
 func (wm *WireGuardManager) applyConfig() error {
 	// Generate wg0.conf from configuration
 	configContent := wm.generateWireGuardConfig()
-	
+
 	// Ensure directory exists
 	configDir := filepath.Dir(wm.configPath)
 	if err := os.MkdirAll(configDir, 0700); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
-	
+
 	// Write configuration file
 	if err := os.WriteFile(wm.configPath, []byte(configContent), 0600); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
-	
+
 	// Reload WireGuard if running
 	if wm.isServiceRunning() {
 		cmd := exec.Command("systemctl", "reload", "wg-quick@wg0")
@@ -320,13 +320,13 @@ func (wm *WireGuardManager) applyConfig() error {
 			return fmt.Errorf("failed to reload WireGuard: %w", err)
 		}
 	}
-	
+
 	return nil
 }
 
 func (wm *WireGuardManager) generateWireGuardConfig() string {
 	var buf bytes.Buffer
-	
+
 	// Interface section
 	buf.WriteString("[Interface]\n")
 	buf.WriteString(fmt.Sprintf("PrivateKey = %s\n", wm.config.PrivateKey))
@@ -335,13 +335,13 @@ func (wm *WireGuardManager) generateWireGuardConfig() string {
 	buf.WriteString("PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE\n")
 	buf.WriteString("PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE\n")
 	buf.WriteString("\n")
-	
+
 	// Peer sections
 	for _, peer := range wm.config.Peers {
 		if !peer.Enabled {
 			continue
 		}
-		
+
 		buf.WriteString(fmt.Sprintf("# %s\n", peer.Name))
 		buf.WriteString("[Peer]\n")
 		buf.WriteString(fmt.Sprintf("PublicKey = %s\n", peer.PublicKey))
@@ -351,25 +351,25 @@ func (wm *WireGuardManager) generateWireGuardConfig() string {
 		buf.WriteString(fmt.Sprintf("AllowedIPs = %s\n", strings.Join(peer.AllowedIPs, ", ")))
 		buf.WriteString("\n")
 	}
-	
+
 	return buf.String()
 }
 
 func (wm *WireGuardManager) generateClientConfig(peer WireGuardPeer, privateKey, clientIP string) *WireGuardPeerConfig {
 	config := &WireGuardPeerConfig{}
-	
+
 	// Set interface configuration
 	config.Interface.PrivateKey = privateKey
 	config.Interface.Address = fmt.Sprintf("%s/32", clientIP)
 	config.Interface.DNS = wm.config.DNS
-	
+
 	// Set peer (server) configuration
 	config.Peer.PublicKey = wm.config.PublicKey
 	config.Peer.PresharedKey = peer.PresharedKey
 	config.Peer.Endpoint = fmt.Sprintf("%s:%d", wm.config.EndpointHostname, wm.config.ListenPort)
 	config.Peer.AllowedIPs = []string{"0.0.0.0/0", "::/0"} // Route all traffic through VPN
 	config.Peer.PersistentKeepalive = 25
-	
+
 	// Generate config file content
 	var buf bytes.Buffer
 	buf.WriteString("[Interface]\n")
@@ -382,9 +382,9 @@ func (wm *WireGuardManager) generateClientConfig(peer WireGuardPeer, privateKey,
 	buf.WriteString(fmt.Sprintf("Endpoint = %s:%d\n", wm.config.EndpointHostname, wm.config.ListenPort))
 	buf.WriteString("AllowedIPs = 0.0.0.0/0, ::/0\n")
 	buf.WriteString("PersistentKeepalive = 25\n")
-	
+
 	config.Config = buf.String()
-	
+
 	return config
 }
 
@@ -393,13 +393,13 @@ func (wm *WireGuardManager) generateQRCode(content string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Generate PNG image
 	png, err := qr.PNG(256)
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Encode as base64
 	encoded := base64.StdEncoding.EncodeToString(png)
 	return fmt.Sprintf("data:image/png;base64,%s", encoded), nil
@@ -411,11 +411,11 @@ func (wm *WireGuardManager) allocatePeerIP() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Get all used IPs
 	usedIPs := make(map[string]bool)
 	usedIPs[ip.String()] = true // Server IP
-	
+
 	for _, peer := range wm.config.Peers {
 		for _, allowedIP := range peer.AllowedIPs {
 			if strings.Contains(allowedIP, "/32") {
@@ -424,14 +424,14 @@ func (wm *WireGuardManager) allocatePeerIP() (string, error) {
 			}
 		}
 	}
-	
+
 	// Find next available IP
 	for ip := ip.Mask(network.Mask); network.Contains(ip); incrementIP(ip) {
 		if !usedIPs[ip.String()] && !ip.Equal(network.IP) {
 			return ip.String(), nil
 		}
 	}
-	
+
 	return "", fmt.Errorf("no available IPs in subnet")
 }
 
@@ -480,7 +480,7 @@ func generateWireGuardKeys() (privateKey, publicKey string, err error) {
 		return "", "", fmt.Errorf("failed to generate private key: %w", err)
 	}
 	privateKey = strings.TrimSpace(string(privateKeyBytes))
-	
+
 	// Generate public key from private key
 	cmd = exec.Command("wg", "pubkey")
 	cmd.Stdin = bytes.NewReader(privateKeyBytes)
@@ -489,7 +489,7 @@ func generateWireGuardKeys() (privateKey, publicKey string, err error) {
 		return "", "", fmt.Errorf("failed to generate public key: %w", err)
 	}
 	publicKey = strings.TrimSpace(string(publicKeyBytes))
-	
+
 	return privateKey, publicKey, nil
 }
 
@@ -509,7 +509,7 @@ func getPublicIP() string {
 	if err == nil {
 		return strings.TrimSpace(string(output))
 	}
-	
+
 	// Fallback to hostname
 	hostname, _ := os.Hostname()
 	return hostname
