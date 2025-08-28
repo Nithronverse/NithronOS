@@ -7,7 +7,7 @@ import QRCode from 'qrcode'
 import BrandHeader from '@/components/BrandHeader'
 import { useGlobalNotice } from '@/lib/globalNotice'
 import { api, APIError, ProxyMisconfiguredError, getErrorMessage } from '@/lib/api-client'
-import { pushToast } from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 
 // ============================================================================
 // Type Definitions
@@ -86,7 +86,7 @@ export default function Setup() {
       if (!state.firstBoot) {
         // Setup already complete
         setError('Setup already completed')
-        pushToast('Setup already completed. Please sign in.', 'info')
+        toast.info('Setup already completed. Please sign in.')
         setTimeout(() => navigate('/login'), 2000)
       } else if (!state.otpRequired) {
         // First boot but no OTP available yet
@@ -96,7 +96,7 @@ export default function Setup() {
       if (err instanceof APIError && err.status === 410) {
         // Setup complete (410 Gone)
         setError('Setup already completed')
-        pushToast('Setup already completed. Please sign in.', 'info')
+        toast.info('Setup already completed. Please sign in.')
         setTimeout(() => navigate('/login'), 2000)
       } else if (err instanceof ProxyMisconfiguredError) {
         setError('Backend unreachable. Check your proxy configuration.')
@@ -252,7 +252,7 @@ function StepOTP({
       const response = await api.setup.verifyOTP(cleanOtp)
       
       if (response.token) {
-        pushToast('OTP verified successfully', 'success')
+        toast.success('OTP verified successfully')
         onSuccess(response.token)
       }
     } catch (err) {
@@ -367,7 +367,7 @@ function StepCreateAdmin({
         enable_totp: data.enableTotp,
       })
       
-      pushToast('Admin account created successfully', 'success')
+      toast.success('Admin account created successfully')
       
       if (data.enableTotp) {
         onSuccess(true, { username: data.username, password: data.password })
@@ -591,7 +591,7 @@ function StepTOTPEnroll({
   const handleCopyRecoveryCodes = () => {
     if (recoveryCodes) {
       navigator.clipboard.writeText(recoveryCodes.join('\n'))
-      pushToast('Recovery codes copied to clipboard', 'success')
+      toast.success('Recovery codes copied to clipboard')
     }
   }
   

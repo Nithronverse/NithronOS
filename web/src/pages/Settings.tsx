@@ -23,7 +23,7 @@ import { Card } from '@/components/ui/card-enhanced'
 import { Button } from '@/components/ui/button'
 import { StatusPill } from '@/components/ui/status'
 import { cn } from '@/lib/utils'
-import { pushToast } from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 import { useUsers } from '@/hooks/use-api'
 
 // Settings sections
@@ -90,7 +90,7 @@ function GeneralSettings() {
       </Card>
 
       <div className="flex justify-end">
-        <Button onClick={() => pushToast('Settings saved', 'success')}>
+        <Button onClick={() => toast.success('Settings saved')}>
           <Save className="h-4 w-4 mr-2" />
           Save Changes
         </Button>

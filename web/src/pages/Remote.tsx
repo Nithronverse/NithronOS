@@ -27,7 +27,7 @@ import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/ui/data-table'
 import { SlideOver } from '@/components/ui/slide-over'
 import { cn } from '@/lib/utils'
-import { pushToast } from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 
 // Mock data
 const mockDestinations = [
@@ -247,7 +247,7 @@ const jobColumns: ColumnDef<any>[] = [
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => pushToast(isRunning ? 'Stopping job...' : 'Starting job...', 'success')}
+            onClick={() => toast.success(isRunning ? 'Stopping job...' : 'Starting job...')}
           >
             {isRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
           </Button>
@@ -371,7 +371,7 @@ export function Remote() {
   const [isDestinationOpen, setIsDestinationOpen] = useState(false)
 
   const handleCreateDestination = async (_data: any) => {
-    pushToast('Destination created successfully', 'success')
+    toast.success('Destination created successfully')
     setIsDestinationOpen(false)
   }
 

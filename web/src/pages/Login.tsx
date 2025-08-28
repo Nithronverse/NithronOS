@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import BrandHeader from '@/components/BrandHeader'
 import { api, APIError, ProxyMisconfiguredError, getErrorMessage } from '@/lib/api-client'
-import { pushToast } from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 import { useGlobalNotice } from '@/lib/globalNotice'
 
 // ============================================================================
@@ -100,7 +100,7 @@ export function Login() {
       await api.auth.login(loginData)
       
       // Success - navigate to return URL or dashboard
-      pushToast('Successfully signed in', 'success')
+      toast.success('Successfully signed in')
       navigate(returnTo, { replace: true })
     } catch (err) {
       if (err instanceof APIError) {
@@ -125,14 +125,14 @@ export function Login() {
             ? `Too many attempts. Try again in ${err.retryAfterSec}s`
             : 'Too many attempts. Please try again later.'
           setError(retryMsg)
-          pushToast(retryMsg, 'error')
+          toast.error(retryMsg)
           return
         }
         
         // Handle account locked
         if (err.status === 423) {
           setError('Account temporarily locked. Please try again later.')
-          pushToast('Account temporarily locked', 'error')
+          toast.error('Account temporarily locked')
           return
         }
         

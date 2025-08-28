@@ -36,7 +36,7 @@ import {
   useApiStatus 
 } from '@/hooks/use-api'
 import { cn } from '@/lib/utils'
-import { pushToast } from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 import type { Share } from '@/lib/api'
 
 // Share form component
@@ -356,10 +356,10 @@ export function Shares() {
   const handleCreateShare = async (data: Partial<Share>) => {
     try {
       await createShare.mutateAsync(data)
-      pushToast('Share created successfully', 'success')
+      toast.success('Share created successfully')
       setShowCreateForm(false)
     } catch (error: any) {
-      pushToast(error.message || 'Failed to create share', 'error')
+      toast.error(error.message || 'Failed to create share')
     }
   }
 
@@ -368,10 +368,10 @@ export function Shares() {
     
     try {
       await updateShare.mutateAsync({ name: editingShare.name, share: data })
-      pushToast('Share updated successfully', 'success')
+      toast.success('Share updated successfully')
       setEditingShare(null)
     } catch (error: any) {
-      pushToast(error.message || 'Failed to update share', 'error')
+      toast.error(error.message || 'Failed to update share')
     }
   }
 
@@ -382,9 +382,9 @@ export function Shares() {
     
     try {
       await deleteShare.mutateAsync(share.name)
-      pushToast('Share deleted successfully', 'success')
+      toast.success('Share deleted successfully')
     } catch (error: any) {
-      pushToast(error.message || 'Failed to delete share', 'error')
+      toast.error(error.message || 'Failed to delete share')
     }
   }
 

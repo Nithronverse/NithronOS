@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { api, AuthSession, APIError, ProxyMisconfiguredError } from './api-client'
-import { pushToast } from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 
 // ============================================================================
 // Auth Context
@@ -114,7 +114,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       // Navigate to dashboard
       navigate('/', { replace: true })
-      pushToast('Successfully signed in', 'success')
+      toast.success('Successfully signed in')
     } catch (err) {
       if (err instanceof APIError) {
         if (err.status === 401) {
@@ -150,7 +150,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await api.auth.logout()
       setSession(null)
       navigate('/login', { replace: true })
-      pushToast('Successfully signed out', 'success')
+      toast.success('Successfully signed out')
     } catch (err) {
       console.error('Logout failed:', err)
       // Even if logout fails, clear local session and redirect
@@ -236,7 +236,7 @@ export function AuthGuard({
     if (requireAdmin && session?.user) {
       const isAdmin = session.user.roles?.includes('admin')
       if (!isAdmin) {
-        pushToast('Admin access required', 'error')
+        toast.error('Admin access required')
         navigate('/', { replace: true })
       }
     }

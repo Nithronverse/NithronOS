@@ -24,7 +24,7 @@ import { DataTable } from '@/components/ui/data-table'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useApps, useMarketplace } from '@/hooks/use-api'
 import { cn } from '@/lib/utils'
-import { pushToast } from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 import type { App } from '@/lib/api-client'
 
 // Mock marketplace apps
@@ -154,9 +154,9 @@ export function Apps() {
   })
 
   const handleInstall = async (app: any) => {
-    pushToast(`Installing ${app.name}...`, 'success')
+    toast.success(`Installing ${app.name}...`)
     setTimeout(() => {
-      pushToast(`${app.name} installed successfully`, 'success')
+      toast.success(`${app.name} installed successfully`)
     }, 2000)
   }
 
