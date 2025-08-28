@@ -131,7 +131,7 @@ describe('Setup Flow', () => {
     })
 
     it('should handle successful OTP verification', async () => {
-      vi.mocked(api.setup.verifyOTP).mockResolvedValueOnce({ success: true })
+      vi.mocked(api.setup.verifyOTP).mockResolvedValueOnce({ ok: true, token: 'mock-token' })
       
       renderSetup()
       const user = userEvent.setup()
@@ -305,7 +305,7 @@ describe('Setup Flow', () => {
       })
       
       vi.mocked(api.auth.totp.enroll).mockResolvedValueOnce({
-        secret: 'MOCK_SECRET',
+
         otpauth_url: 'otpauth://totp/NithronOS:admin?secret=MOCK_SECRET',
       })
       
@@ -347,12 +347,12 @@ describe('Setup Flow', () => {
       
       // TOTP enrollment
       vi.mocked(api.auth.totp.enroll).mockResolvedValueOnce({
-        secret: 'MOCK_SECRET',
+
         otpauth_url: 'otpauth://totp/NithronOS:admin?secret=MOCK_SECRET',
       })
       
       // TOTP verification
-      vi.mocked(api.auth.totp.verify).mockResolvedValueOnce({ verified: true })
+      vi.mocked(api.auth.totp.verify).mockResolvedValueOnce({ ok: true })
       
       renderSetup()
       const user = userEvent.setup()
@@ -394,7 +394,7 @@ describe('Setup Flow', () => {
       })
       
       vi.mocked(api.auth.totp.enroll).mockResolvedValueOnce({
-        secret: 'MOCK_SECRET',
+
         otpauth_url: 'otpauth://totp/NithronOS:admin?secret=MOCK_SECRET',
       })
       

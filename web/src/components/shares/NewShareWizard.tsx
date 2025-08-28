@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-// @ts-ignore - API types need to be fixed
-import api from '@/lib/api';
+import { api } from '@/lib/api-client';
 import { ShareForm, ShareFormInput } from '@/features/shares/schemas';
 
 export default function NewShareWizard({ open, onClose }:{open:boolean; onClose:(created:boolean)=>void}) {

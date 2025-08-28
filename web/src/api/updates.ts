@@ -1,4 +1,4 @@
-import { apiClient } from '@/lib/api';
+import { apiClient } from '@/lib/api-client';
 import type {
   SystemVersion,
   UpdateChannel,
@@ -50,7 +50,7 @@ export const updatesApi = {
     ),
     
   deleteSnapshot: (id: string) =>
-    apiClient.del<{ status: string; snapshot_id: string }>(
+    apiClient.delete<{ status: string; snapshot_id: string }>(
       `/api/v1/updates/snapshots/${id}`
     ),
 

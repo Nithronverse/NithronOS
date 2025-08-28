@@ -7,7 +7,6 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { 
   Wifi, Shield, Globe, Lock, AlertTriangle, CheckCircle2, 
@@ -19,7 +18,7 @@ import {
   useWizardNext,
   useCompleteWizard,
 } from '@/api/net';
-import type { AccessMode, HTTPSMode, RemoteAccessWizardState } from '@/api/net.types';
+import type { AccessMode, HTTPSMode } from '@/api/net.types';
 
 const WIZARD_STEPS = [
   { id: 1, title: 'Access Mode', icon: Shield },
@@ -70,8 +69,8 @@ export function RemoteAccessWizard() {
   const handleNext = async () => {
     const stepData = {
       access_mode: formData.access_mode,
-      ...formData[formData.access_mode === 'wireguard' ? 'wireguard' : 
-                   formData.access_mode === 'public_https' ? 'https' : {}],
+      ...(formData.access_mode === 'wireguard' ? formData.wireguard : 
+          formData.access_mode === 'public_https' ? formData.https : {}),
     };
 
     try {

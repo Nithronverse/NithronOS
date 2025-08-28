@@ -5,13 +5,10 @@ import {
   Activity,
   Plus,
   RefreshCw,
-  Trash2,
   AlertTriangle,
   CheckCircle,
-  Info,
   ChevronRight,
   Thermometer,
-  Zap,
   Clock,
   AlertCircle
 } from 'lucide-react'
@@ -24,7 +21,6 @@ import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/ui/data-table'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Skeleton } from '@/components/ui/skeleton'
 import { 
   usePools, 
   useDevices, 
@@ -36,7 +32,7 @@ import {
   useApiStatus
 } from '@/hooks/use-api'
 import { cn } from '@/lib/utils'
-import type { Device, Pool, SmartData } from '@/lib/api'
+import type { Device, Pool } from '@/lib/api'
 
 // Helper functions
 function formatBytes(bytes: number): string {

@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import { apiClient } from '@/lib/api-client';
 import type {
   Catalog,
   CatalogEntry,
@@ -6,7 +6,6 @@ import type {
   InstallRequest,
   UpgradeRequest,
   RollbackRequest,
-  DeleteRequest,
   LogStreamOptions,
   AppEvent,
 } from './apps.types';

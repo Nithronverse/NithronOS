@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { 
   Package, 
@@ -21,6 +21,7 @@ import { cn } from '../lib/utils';
 
 export function AppCatalog() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'catalog' | 'installed'>('catalog');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -134,7 +135,7 @@ export function AppCatalog() {
           break;
       }
       // Refetch installed apps
-      await installedData?.refetch();
+      await queryClient.invalidateQueries({ queryKey: ['apps', 'installed'] });
     } catch (error) {
       console.error(`Failed to ${action} app:`, error);
     }

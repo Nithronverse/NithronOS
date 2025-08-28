@@ -2,7 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import SettingsSchedules from '../../routes/settings/schedules'
-import * as toast from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
+
+vi.mock('@/components/ui/toast', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}))
 
 function installFetchMock(handler: (input: RequestInfo, init?: RequestInit) => Promise<Response>) {
   const original = global.fetch
@@ -103,7 +110,7 @@ describe('SettingsSchedules', () => {
       }
       return new Response('{}', { status:200, headers:{ 'Content-Type':'application/json' } })
     })
-    const toastSpy = vi.spyOn(toast, 'pushToast')
+    const toastSpy = vi.spyOn(toast, 'success')
     render(<MemoryRouter><SettingsSchedules /></MemoryRouter>)
     await screen.findByPlaceholderText('Sun 03:00')
     const save = screen.getByRole('button', { name: /save/i }) as HTMLButtonElement

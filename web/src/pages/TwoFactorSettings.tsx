@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Shield, Smartphone, Key, Copy, Download, RefreshCw,
-  CheckCircle, XCircle, AlertTriangle, Loader2, QrCode
+  CheckCircle, XCircle, AlertTriangle, Loader2
 } from 'lucide-react';
 import {
   useTOTPStatus,

@@ -27,7 +27,7 @@ import {
   HardDrive
 } from 'lucide-react';
 import { appsApi } from '../api/apps';
-import type { InstalledApp, AppSnapshot, AppEvent, ContainerHealth, PortMapping } from '../api/apps.types';
+import type { AppSnapshot, AppEvent, ContainerHealth, PortMapping } from '../api/apps.types';
 import { cn } from '../lib/utils';
 import { toast } from '@/components/ui/toast';
 import { formatDistanceToNow } from 'date-fns';

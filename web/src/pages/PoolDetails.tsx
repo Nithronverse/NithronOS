@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { PoolSnapshots } from './PoolSnapshots'
-import api from '@/lib/api'
+import { api } from '@/lib/api-client'
 
 export function PoolDetails() {
   const { id } = useParams()
@@ -117,7 +117,7 @@ function MountOptionsCard({ pool, id, onSaved }: { pool: any; id: string; onSave
     let ignore = false
     Promise
       .resolve((api as any).pools?.getMountOptions ? api.pools.getMountOptions(id) : undefined)
-      .then((r:any) => { if (!ignore && r && typeof r.mountOptions === 'string') setCurrent(r.mountOptions) })
+      .then((r: any) => { if (!ignore && r && typeof r.mountOptions === 'string') setCurrent(r.mountOptions) })
       .catch(()=>{})
     return () => { ignore = true }
   }, [id])
@@ -126,7 +126,7 @@ function MountOptionsCard({ pool, id, onSaved }: { pool: any; id: string; onSave
     setError(null)
     try {
       const r = await api.pools.getMountOptions(id)
-      setValue(r.mountOptions)
+      setValue((r as any).mountOptions)
       setOpen(true)
     } catch (e:any) {
       try { const { toast } = await import('@/components/ui/toast'); toast.error(e?.message || 'Failed to load') } catch {}
@@ -139,7 +139,7 @@ function MountOptionsCard({ pool, id, onSaved }: { pool: any; id: string; onSave
     if (ve) { setError(ve); return }
     setSaving(true)
     try {
-      const r = await api.pools.setMountOptions(id, v)
+      const r = await api.pools.updateMountOptions(id, v) as any
       setCurrent(r.mountOptions)
       setOpen(false)
       onSaved()
@@ -209,7 +209,7 @@ function DevicesWizards({ id }: { id: string }) {
     try {
       const steps = (plan.steps || []).map((s:any) => ({ id:s.id||s.ID||'', description:s.description||s.Description||'', command:s.command||s.Command||'' }))
       const confirm = mode==='add' ? 'ADD' : mode==='remove' ? 'REMOVE' : 'REPLACE'
-      const res = await api.pools.applyDevice(id, steps, confirm as any)
+      const res = await api.pools.applyDevice(id, { steps, confirm }) as any
       setTx(res.tx_id)
     } catch (e:any) {
       const msg = e?.message || 'Apply failed'

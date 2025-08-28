@@ -1,26 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Download,
   RefreshCw,
   CheckCircle,
-  XCircle,
-  AlertTriangle,
   Clock,
   HardDrive,
-  Shield,
-  Info,
   Trash2,
   RotateCcw,
-  ChevronRight,
   Loader2,
   Package,
   GitBranch,
-  Calendar,
   Server,
 } from 'lucide-react';
-import { formatDistanceToNow, format } from 'date-fns';
+import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 
 import { updatesApi, formatVersion, getUpdateStateColor, formatBytes, formatDuration } from '@/api/updates';

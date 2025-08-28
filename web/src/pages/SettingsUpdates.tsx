@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import api from '@/lib/api'
+import { api } from '@/lib/api-client'
 import { toast } from '@/components/ui/toast'
 
 type CheckResp = { plan:any; snapshot_roots:string[] }

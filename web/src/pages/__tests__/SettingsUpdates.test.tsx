@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { SettingsUpdates } from '../../pages/SettingsUpdates'
-import * as toast from '@/components/ui/toast'
+import { toast } from '@/components/ui/toast'
 
 vi.mock('@/components/ui/toast', () => ({
-  pushToast: vi.fn(),
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
 }))
 
 // Deferred gate for the apply call to make the test deterministic
@@ -130,7 +133,7 @@ describe('SettingsUpdates', () => {
       }
       return new Response(JSON.stringify({}), { status:200, headers:{'Content-Type':'application/json'} })
     })
-    const toastSpy = vi.spyOn(toast, 'pushToast')
+    const toastSpy = vi.spyOn(toast, 'success')
     render(<SettingsUpdates />)
     await screen.findByText(/Previous updates/i)
     const rb = await screen.findByRole('button', { name: /Rollback/i })

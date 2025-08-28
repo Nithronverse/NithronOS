@@ -147,10 +147,11 @@ function NetworkSettings() {
 // Users Settings
 function UsersSettings() {
   const { data: users } = useUsers()
-  const mockUsers = users || [
+  const usersData = users || [
     { id: '1', username: 'admin', role: 'Administrator', email: 'admin@example.com', status: 'active' },
     { id: '2', username: 'john', role: 'User', email: 'john@example.com', status: 'active' },
   ]
+  const mockUsers = Array.isArray(usersData) ? usersData : usersData?.data || []
 
   return (
     <div className="space-y-6">

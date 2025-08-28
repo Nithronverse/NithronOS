@@ -51,6 +51,14 @@ export const AuthSessionSchema = z.object({
 export type SetupState = z.infer<typeof SetupStateSchema>
 export type AuthSession = z.infer<typeof AuthSessionSchema>
 
+export interface App {
+  id: string
+  name: string
+  version: string
+  status: 'running' | 'stopped' | 'error' | 'installing'
+  description?: string
+}
+
 // ============================================================================
 // Core API Client
 // ============================================================================
@@ -388,6 +396,44 @@ export const api = {
         recovery_codes?: string[]
       }>('/api/auth/totp/verify', { code }),
     },
+  },
+
+  // Pools
+  pools: {
+    roots: () => apiClient.get<string[]>('/api/pools/roots'),
+    get: (id: string) => apiClient.get(`/api/pools/${id}`),
+    list: () => apiClient.get('/api/pools'),
+    getMountOptions: (id: string) => apiClient.get(`/api/pools/${id}/options`),
+    updateMountOptions: (id: string, options: any) => 
+      apiClient.put(`/api/pools/${id}/options`, options),
+    balance: (id: string) => apiClient.post(`/api/pools/${id}/balance`),
+    scrub: (id: string) => apiClient.post(`/api/pools/${id}/scrub`),
+    trim: (id: string) => apiClient.post(`/api/pools/${id}/trim`),
+    planDevice: (id: string, body: any) => apiClient.post(`/api/pools/${id}/device/plan`, body),
+    applyDevice: (id: string, body: any) => apiClient.post(`/api/pools/${id}/device/apply`, body),
+  },
+
+  // Shares
+  shares: {
+    create: (data: any) => apiClient.post('/api/shares', data),
+    list: () => apiClient.get('/api/shares'),
+  },
+
+  // SMB
+  smb: {
+    usersList: () => apiClient.get<string[]>('/api/smb/users'),
+    userAdd: (username: string, password: string) => 
+      apiClient.post('/api/smb/users', { username, password }),
+    userCreate: (data: { username: string, password?: string }) => 
+      apiClient.post('/api/smb/users', data),
+  },
+
+  // Updates
+  updates: {
+    check: () => apiClient.get('/api/updates/check'),
+    apply: (data: any) => apiClient.post('/api/updates/apply', data),
+    getProgress: () => apiClient.get('/api/updates/progress'),
+    rollback: (data: any) => apiClient.post('/api/updates/rollback', data),
   },
 }
 

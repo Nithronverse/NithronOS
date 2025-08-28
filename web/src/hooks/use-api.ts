@@ -6,6 +6,27 @@ import { endpoints, type ScrubStatus, type BalanceStatus,
 // System Queries
 // ============================================================================
 
+export function useUsers() {
+  return useQuery({
+    queryKey: ['users'],
+    queryFn: () => ({ data: [] }),
+  })
+}
+
+export function useApps() {
+  return useQuery({
+    queryKey: ['apps'],
+    queryFn: () => ({ apps: [] }),
+  })
+}
+
+export function useMarketplace() {
+  return useQuery({
+    queryKey: ['marketplace'],
+    queryFn: () => ({ apps: [] }),
+  })
+}
+
 export function useSystemInfo() {
   return useQuery({
     queryKey: ['system', 'info'],
@@ -147,7 +168,7 @@ export function useScrubStatus() {
     retry: 1,
     refetchInterval: (data) => {
       // Poll more frequently if scrub is running
-      const hasRunning = data?.some((s: ScrubStatus) => s.status === 'running')
+      const hasRunning = Array.isArray(data) && data.some((s: ScrubStatus) => s.status === 'running')
       return hasRunning ? 5_000 : false
     },
   })
@@ -187,7 +208,7 @@ export function useBalanceStatus() {
     retry: 1,
     refetchInterval: (data) => {
       // Poll more frequently if balance is running
-      const hasRunning = data?.some((b: BalanceStatus) => b.status === 'running')
+      const hasRunning = Array.isArray(data) && data.some((b: BalanceStatus) => b.status === 'running')
       return hasRunning ? 5_000 : false
     },
   })

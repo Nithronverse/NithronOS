@@ -77,9 +77,7 @@ describe('Login Flow', () => {
 
   it('should handle successful login', async () => {
     vi.mocked(api.auth.login).mockResolvedValueOnce({
-      accessToken: 'mock-access-token',
-      refreshToken: 'mock-refresh-token',
-      user: { username: 'admin', roles: ['admin'] },
+      ok: true,
     })
     
     renderLogin()
@@ -121,9 +119,7 @@ describe('Login Flow', () => {
     
     // Second attempt with TOTP
     vi.mocked(api.auth.login).mockResolvedValueOnce({
-      accessToken: 'mock-access-token',
-      refreshToken: 'mock-refresh-token',
-      user: { username: 'admin', roles: ['admin'] },
+      ok: true,
     })
     
     await user.type(screen.getByLabelText(/two-factor code/i), '123456')
@@ -197,9 +193,7 @@ describe('Login Flow', () => {
 
   it('should handle remember me checkbox', async () => {
     vi.mocked(api.auth.login).mockResolvedValueOnce({
-      accessToken: 'mock-access-token',
-      refreshToken: 'mock-refresh-token',
-      user: { username: 'admin', roles: ['admin'] },
+      ok: true,
     })
     
     renderLogin()

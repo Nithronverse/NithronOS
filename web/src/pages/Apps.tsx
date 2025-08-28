@@ -137,16 +137,18 @@ export function Apps() {
   const { data: marketplace, isLoading: marketplaceLoading } = useMarketplace()
 
   // Use mock data if API fails
-  const installedApps = apps || [
+  const installedAppsRaw = apps || [
     { id: '1', name: 'Plex', version: '1.32.5', status: 'running' as const, autoUpdate: true },
     { id: '2', name: 'Nextcloud', version: '27.0.2', status: 'running' as const, autoUpdate: false },
     { id: '3', name: 'Home Assistant', version: '2023.9.3', status: 'stopped' as const, autoUpdate: true },
   ]
+  const installedApps = Array.isArray(installedAppsRaw) ? installedAppsRaw : installedAppsRaw?.apps || []
 
   const marketplaceApps = marketplace || mockMarketplaceApps
 
   // Filter marketplace apps
-  const filteredMarketplace = marketplaceApps.filter((app: any) => {
+  const marketplaceArray = Array.isArray(marketplaceApps) ? marketplaceApps : marketplaceApps?.apps || []
+  const filteredMarketplace = marketplaceArray.filter((app: any) => {
     const matchesCategory = selectedCategory === 'All' || app.category === selectedCategory
     const matchesSearch = app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           app.description?.toLowerCase().includes(searchQuery.toLowerCase())
