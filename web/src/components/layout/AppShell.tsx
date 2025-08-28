@@ -77,7 +77,7 @@ function SidebarItem({ item, level = 0 }: SidebarItemProps) {
 export function AppShell({ children }: { children?: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const [alerts, setAlerts] = useState<any[]>([])
+  const [alerts] = useState<any[]>([])
   const [alertsOpen, setAlertsOpen] = useState(false)
   const { logout, session } = useAuth()
 

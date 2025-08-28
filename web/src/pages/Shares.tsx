@@ -1,21 +1,16 @@
 import { useState } from 'react'
-import { motion } from 'framer-motion'
 import { 
   Share2, 
   Plus,
   Edit,
   Trash2,
-  Copy,
-  ToggleLeft,
   ToggleRight,
   Users,
   Globe,
   Lock,
   FolderOpen,
   Terminal,
-  Shield,
   Settings,
-  X,
   AlertCircle,
   RefreshCw
 } from 'lucide-react'
@@ -506,7 +501,7 @@ export function Shares() {
       {/* Shares Table */}
       <Card
         title="Network Shares"
-        subtitle={`${shares?.length || 0} configured`}
+        description={`${shares?.length || 0} configured`}
         isLoading={isLoading}
       >
         {shares && shares.length > 0 ? (
@@ -533,8 +528,8 @@ export function Shares() {
 
       {/* Create Share Slide-over */}
       <SlideOver
-        open={showCreateForm}
-        onOpenChange={setShowCreateForm}
+        isOpen={showCreateForm}
+        onClose={() => setShowCreateForm(false)}
         title="Create Network Share"
         description="Configure a new SMB, NFS, or AFP share"
       >
@@ -546,8 +541,8 @@ export function Shares() {
 
       {/* Edit Share Slide-over */}
       <SlideOver
-        open={!!editingShare}
-        onOpenChange={(open: boolean) => !open && setEditingShare(null)}
+        isOpen={!!editingShare}
+        onClose={() => setEditingShare(null)}
         title="Edit Network Share"
         description={`Modify settings for ${editingShare?.name}`}
       >

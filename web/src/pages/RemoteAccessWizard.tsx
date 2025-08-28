@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { 
   Wifi, Shield, Globe, Lock, AlertTriangle, CheckCircle2, 
-  ChevronLeft, ChevronRight, Loader2, Router, Key, Server
+  ChevronLeft, ChevronRight, Loader2, Router, Key
 } from 'lucide-react';
 import {
   useStartWizard,

@@ -9,9 +9,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Globe, Shield, Wifi, Key, Server, Lock, AlertTriangle,
+  Globe, Shield, Wifi, Key, AlertTriangle,
   CheckCircle, XCircle, Settings, Plus, Copy, Download,
-  QrCode, RefreshCw, Trash2, Loader2, ExternalLink, Clock
+  Trash2, Loader2, ExternalLink, Clock
 } from 'lucide-react';
 import { format } from 'date-fns';
 import {

@@ -40,7 +40,7 @@ export function AppDetails() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [keepData, setKeepData] = useState(false);
   const [selectedSnapshot, setSelectedSnapshot] = useState<string | null>(null);
-  const [logsFollowing, setLogsFollowing] = useState(true);
+  const [logsFollowing] = useState(true);
   const [logsPaused, setLogsPaused] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
   const [logs, setLogs] = useState<string[]>([]);

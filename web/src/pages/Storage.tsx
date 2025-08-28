@@ -1,14 +1,10 @@
-import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { useState } from 'react'
 import { 
   HardDrive, 
   Database,
   Activity,
   Plus,
   RefreshCw,
-  Settings,
-  Power,
-  Lightbulb,
   Trash2,
   AlertTriangle,
   CheckCircle,
@@ -89,8 +85,9 @@ const deviceColumns: ColumnDef<Device>[] = [
       <StatusPill 
         status={row.original.inUse ? 'active' : 'inactive'} 
         size="sm"
-        label={row.original.inUse ? `In use (${row.original.pool})` : 'Available'}
-      />
+      >
+        {row.original.inUse ? `In use (${row.original.pool})` : 'Available'}
+      </StatusPill>
     ),
   },
   {
@@ -330,7 +327,7 @@ export function Storage() {
           {/* Pools Table */}
           <Card
             title="Storage Pools"
-            subtitle={`${pools?.length || 0} configured`}
+            description={`${pools?.length || 0} configured`}
             isLoading={poolsLoading}
           >
             {pools && pools.length > 0 ? (
@@ -361,7 +358,7 @@ export function Storage() {
               {/* Scrub Status */}
               <Card
                 title="Data Scrub"
-                subtitle="Verify data integrity"
+                description="Verify data integrity"
                 actions={
                   pools[0] && (
                     <Button 
@@ -419,7 +416,7 @@ export function Storage() {
               {/* Balance Status */}
               <Card
                 title="Data Balance"
-                subtitle="Redistribute data across devices"
+                description="Redistribute data across devices"
                 actions={
                   pools[0] && (
                     <Button 
@@ -476,7 +473,7 @@ export function Storage() {
           {/* Devices Table */}
           <Card
             title="Storage Devices"
-            subtitle={`${devices?.length || 0} detected`}
+            description={`${devices?.length || 0} detected`}
             isLoading={devicesLoading}
           >
             {devices && devices.length > 0 ? (
@@ -500,7 +497,7 @@ export function Storage() {
           {selectedDevice && (
             <Card
               title="SMART Details"
-              subtitle={selectedDevice}
+              description={selectedDevice}
             >
               {smartData ? (
                 <div className="space-y-4">
