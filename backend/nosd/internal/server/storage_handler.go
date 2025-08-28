@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -142,11 +143,15 @@ func (h *StorageHandler) GetPools(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(poolSummary)
+		if err := json.NewEncoder(w).Encode(poolSummary); err != nil {
+			fmt.Printf("Failed to write response: %v\n", err)
+		}
 	} else {
 		// Return full pool list
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(pools)
+		if err := json.NewEncoder(w).Encode(pools); err != nil {
+			fmt.Printf("Failed to write response: %v\n", err)
+		}
 	}
 }
 

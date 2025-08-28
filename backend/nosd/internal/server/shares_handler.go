@@ -270,5 +270,7 @@ func (h *SharesHandlerV1) TestShare(w http.ResponseWriter, r *http.Request) {
 	log.Info().Str("name", name).Msg("Tested share configuration")
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		fmt.Printf("Failed to write response: %v\n", err)
+	}
 }
