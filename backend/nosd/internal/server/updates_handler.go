@@ -324,4 +324,3 @@ func (h *UpdatesHandler) writeError(w http.ResponseWriter, code int, message str
 		fmt.Printf("Failed to write error response: %v\n", err)
 	}
 }
-

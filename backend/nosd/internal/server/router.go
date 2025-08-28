@@ -859,11 +859,11 @@ func NewRouter(cfg config.Config) http.Handler {
 			return
 		}
 		if u.TOTPSecret != "" {
-					w.WriteHeader(http.StatusConflict)
-		if err := json.NewEncoder(w).Encode(map[string]any{"error": "totp_already_enabled"}); err != nil {
-			fmt.Printf("Failed to write response: %v\n", err)
-		}
-		return
+			w.WriteHeader(http.StatusConflict)
+			if err := json.NewEncoder(w).Encode(map[string]any{"error": "totp_already_enabled"}); err != nil {
+				fmt.Printf("Failed to write response: %v\n", err)
+			}
+			return
 		}
 		secret, uri, err := auth.GenerateTOTPSecret("NithronOS", u.Email)
 		if err != nil {
