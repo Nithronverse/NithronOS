@@ -244,7 +244,9 @@ func (h *StorageHandler) SetPoolMountOptions(w http.ResponseWriter, r *http.Requ
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		fmt.Printf("Failed to write response: %v\n", err)
+	}
 
 	log.Info().Str("uuid", uuid).Str("options", req.MountOptions).Msg("Updated mount options for pool")
 }
@@ -255,7 +257,9 @@ func (h *StorageHandler) GetDevices(w http.ResponseWriter, r *http.Request) {
 	devices := h.getDevices()
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(devices)
+	if err := json.NewEncoder(w).Encode(devices); err != nil {
+		fmt.Printf("Failed to write response: %v\n", err)
+	}
 }
 
 // Helper function to get pools (mock data for now)
@@ -373,7 +377,9 @@ func (h *BtrfsHandler) GetScrubStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(status)
+	if err := json.NewEncoder(w).Encode(status); err != nil {
+		fmt.Printf("Failed to write response: %v\n", err)
+	}
 }
 
 // StartScrub starts a scrub operation
@@ -392,10 +398,12 @@ func (h *BtrfsHandler) StartScrub(w http.ResponseWriter, r *http.Request) {
 	log.Info().Str("pool", req.PoolID).Msg("Starting scrub")
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status": "started",
 		"poolId": req.PoolID,
-	})
+	}); err != nil {
+		fmt.Printf("Failed to write response: %v\n", err)
+	}
 }
 
 // CancelScrub cancels a running scrub operation
@@ -414,10 +422,12 @@ func (h *BtrfsHandler) CancelScrub(w http.ResponseWriter, r *http.Request) {
 	log.Info().Str("pool", req.PoolID).Msg("Cancelling scrub")
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status": "cancelled",
 		"poolId": req.PoolID,
-	})
+	}); err != nil {
+		fmt.Printf("Failed to write response: %v\n", err)
+	}
 }
 
 // GetBalanceStatus returns balance status for all pools
@@ -432,7 +442,9 @@ func (h *BtrfsHandler) GetBalanceStatus(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(status)
+	if err := json.NewEncoder(w).Encode(status); err != nil {
+		fmt.Printf("Failed to write response: %v\n", err)
+	}
 }
 
 // StartBalance starts a balance operation
@@ -451,10 +463,12 @@ func (h *BtrfsHandler) StartBalance(w http.ResponseWriter, r *http.Request) {
 	log.Info().Str("pool", req.PoolID).Msg("Starting balance")
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status": "started",
 		"poolId": req.PoolID,
-	})
+	}); err != nil {
+		fmt.Printf("Failed to write response: %v\n", err)
+	}
 }
 
 // CancelBalance cancels a running balance operation
@@ -473,8 +487,10 @@ func (h *BtrfsHandler) CancelBalance(w http.ResponseWriter, r *http.Request) {
 	log.Info().Str("pool", req.PoolID).Msg("Cancelling balance")
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status": "cancelled",
 		"poolId": req.PoolID,
-	})
+	}); err != nil {
+		fmt.Printf("Failed to write response: %v\n", err)
+	}
 }
