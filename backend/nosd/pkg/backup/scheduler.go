@@ -16,15 +16,15 @@ import (
 
 // Scheduler manages backup schedules and retention
 type Scheduler struct {
-	logger       zerolog.Logger
-	stateFile    string
-	schedules    map[string]*Schedule
-	snapshots    map[string][]*Snapshot
-	cron         *cron.Cron
-	cronEntries  map[string]cron.EntryID
-	mu           sync.RWMutex
-	agentClient  AgentClient
-	jobManager   *JobManager
+	logger      zerolog.Logger
+	stateFile   string
+	schedules   map[string]*Schedule
+	snapshots   map[string][]*Snapshot
+	cron        *cron.Cron
+	cronEntries map[string]cron.EntryID
+	mu          sync.RWMutex
+	agentClient AgentClient
+	jobManager  *JobManager
 }
 
 // AgentClient interface for privileged operations
@@ -61,15 +61,15 @@ func NewScheduler(logger zerolog.Logger, stateFile string, agentClient AgentClie
 // Start begins the scheduler
 func (s *Scheduler) Start(ctx context.Context) error {
 	s.logger.Info().Msg("Starting backup scheduler")
-	
+
 	// Load state
 	if err := s.loadState(); err != nil {
 		s.logger.Warn().Err(err).Msg("Failed to load scheduler state")
 	}
-	
+
 	// Start cron scheduler
 	s.cron.Start()
-	
+
 	// Schedule all enabled schedules
 	s.mu.RLock()
 	for _, schedule := range s.schedules {
@@ -80,21 +80,21 @@ func (s *Scheduler) Start(ctx context.Context) error {
 		}
 	}
 	s.mu.RUnlock()
-	
+
 	// Start retention cleanup goroutine
 	go s.retentionLoop(ctx)
-	
+
 	return nil
 }
 
 // Stop stops the scheduler
 func (s *Scheduler) Stop() error {
 	s.logger.Info().Msg("Stopping backup scheduler")
-	
+
 	// Stop cron
 	ctx := s.cron.Stop()
 	<-ctx.Done()
-	
+
 	// Save state
 	return s.saveState()
 }
@@ -103,41 +103,41 @@ func (s *Scheduler) Stop() error {
 func (s *Scheduler) CreateSchedule(schedule *Schedule) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	// Generate ID if not provided
 	if schedule.ID == "" {
 		schedule.ID = uuid.New().String()
 	}
-	
+
 	// Set timestamps
 	now := time.Now()
 	schedule.CreatedAt = now
 	schedule.UpdatedAt = now
-	
+
 	// Validate schedule
 	if err := s.validateSchedule(schedule); err != nil {
 		return fmt.Errorf("invalid schedule: %w", err)
 	}
-	
+
 	// Calculate next run time
 	nextRun := s.calculateNextRun(schedule)
 	schedule.NextRun = &nextRun
-	
+
 	// Store schedule
 	s.schedules[schedule.ID] = schedule
-	
+
 	// Schedule if enabled
 	if schedule.Enabled {
 		if err := s.scheduleJob(schedule); err != nil {
 			return fmt.Errorf("failed to schedule job: %w", err)
 		}
 	}
-	
+
 	// Save state
 	if err := s.saveState(); err != nil {
 		return fmt.Errorf("failed to save state: %w", err)
 	}
-	
+
 	s.logger.Info().Str("id", schedule.ID).Str("name", schedule.Name).Msg("Created backup schedule")
 	return nil
 }
@@ -146,47 +146,47 @@ func (s *Scheduler) CreateSchedule(schedule *Schedule) error {
 func (s *Scheduler) UpdateSchedule(id string, update *Schedule) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	existing, ok := s.schedules[id]
 	if !ok {
 		return fmt.Errorf("schedule not found: %s", id)
 	}
-	
+
 	// Preserve immutable fields
 	update.ID = existing.ID
 	update.CreatedAt = existing.CreatedAt
 	update.UpdatedAt = time.Now()
-	
+
 	// Validate
 	if err := s.validateSchedule(update); err != nil {
 		return fmt.Errorf("invalid schedule: %w", err)
 	}
-	
+
 	// Remove old cron entry
 	if entryID, ok := s.cronEntries[id]; ok {
 		s.cron.Remove(entryID)
 		delete(s.cronEntries, id)
 	}
-	
+
 	// Calculate next run
 	nextRun := s.calculateNextRun(update)
 	update.NextRun = &nextRun
-	
+
 	// Update schedule
 	s.schedules[id] = update
-	
+
 	// Reschedule if enabled
 	if update.Enabled {
 		if err := s.scheduleJob(update); err != nil {
 			return fmt.Errorf("failed to schedule job: %w", err)
 		}
 	}
-	
+
 	// Save state
 	if err := s.saveState(); err != nil {
 		return fmt.Errorf("failed to save state: %w", err)
 	}
-	
+
 	s.logger.Info().Str("id", id).Msg("Updated backup schedule")
 	return nil
 }
@@ -195,25 +195,25 @@ func (s *Scheduler) UpdateSchedule(id string, update *Schedule) error {
 func (s *Scheduler) DeleteSchedule(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	if _, ok := s.schedules[id]; !ok {
 		return fmt.Errorf("schedule not found: %s", id)
 	}
-	
+
 	// Remove cron entry
 	if entryID, ok := s.cronEntries[id]; ok {
 		s.cron.Remove(entryID)
 		delete(s.cronEntries, id)
 	}
-	
+
 	// Delete schedule
 	delete(s.schedules, id)
-	
+
 	// Save state
 	if err := s.saveState(); err != nil {
 		return fmt.Errorf("failed to save state: %w", err)
 	}
-	
+
 	s.logger.Info().Str("id", id).Msg("Deleted backup schedule")
 	return nil
 }
@@ -222,12 +222,12 @@ func (s *Scheduler) DeleteSchedule(id string) error {
 func (s *Scheduler) GetSchedule(id string) (*Schedule, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	schedule, ok := s.schedules[id]
 	if !ok {
 		return nil, fmt.Errorf("schedule not found: %s", id)
 	}
-	
+
 	return schedule, nil
 }
 
@@ -235,17 +235,17 @@ func (s *Scheduler) GetSchedule(id string) (*Schedule, error) {
 func (s *Scheduler) ListSchedules() []*Schedule {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	schedules := make([]*Schedule, 0, len(s.schedules))
 	for _, schedule := range s.schedules {
 		schedules = append(schedules, schedule)
 	}
-	
+
 	// Sort by name
 	sort.Slice(schedules, func(i, j int) bool {
 		return schedules[i].Name < schedules[j].Name
 	})
-	
+
 	return schedules
 }
 
@@ -258,13 +258,13 @@ func (s *Scheduler) CreateSnapshot(subvolumes []string, tag string) (*BackupJob,
 		Subvolumes: subvolumes,
 		StartedAt:  time.Now(),
 	}
-	
+
 	// Add to job manager
 	s.jobManager.AddJob(job)
-	
+
 	// Run snapshot creation in background
 	go s.runSnapshotJob(job, subvolumes, tag, nil)
-	
+
 	return job, nil
 }
 
@@ -272,7 +272,7 @@ func (s *Scheduler) CreateSnapshot(subvolumes []string, tag string) (*BackupJob,
 func (s *Scheduler) DeleteSnapshot(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	// Find snapshot
 	var snapshot *Snapshot
 	for _, snapshots := range s.snapshots {
@@ -286,24 +286,24 @@ func (s *Scheduler) DeleteSnapshot(id string) error {
 			break
 		}
 	}
-	
+
 	if snapshot == nil {
 		return fmt.Errorf("snapshot not found: %s", id)
 	}
-	
+
 	// Delete via agent
 	if err := s.agentClient.DeleteSnapshot(snapshot.Path); err != nil {
 		return fmt.Errorf("failed to delete snapshot: %w", err)
 	}
-	
+
 	// Remove from state
 	s.removeSnapshot(snapshot)
-	
+
 	// Save state
 	if err := s.saveState(); err != nil {
 		return fmt.Errorf("failed to save state: %w", err)
 	}
-	
+
 	s.logger.Info().Str("id", id).Str("path", snapshot.Path).Msg("Deleted snapshot")
 	return nil
 }
@@ -312,17 +312,17 @@ func (s *Scheduler) DeleteSnapshot(id string) error {
 func (s *Scheduler) ListSnapshots() []*Snapshot {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	var snapshots []*Snapshot
 	for _, subvolSnapshots := range s.snapshots {
 		snapshots = append(snapshots, subvolSnapshots...)
 	}
-	
+
 	// Sort by creation time (newest first)
 	sort.Slice(snapshots, func(i, j int) bool {
 		return snapshots[i].CreatedAt.After(snapshots[j].CreatedAt)
 	})
-	
+
 	return snapshots
 }
 
@@ -335,42 +335,42 @@ func (s *Scheduler) GetJobManager() *JobManager {
 func (s *Scheduler) GetSnapshotStats() *SnapshotStats {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	stats := &SnapshotStats{
 		BySubvolume: make(map[string]SubvolumeStats),
 	}
-	
+
 	var oldest, newest time.Time
-	
+
 	for subvol, snapshots := range s.snapshots {
 		subStats := SubvolumeStats{}
-		
+
 		for _, snap := range snapshots {
 			stats.TotalCount++
 			subStats.Count++
-			
+
 			stats.TotalSizeBytes += snap.SizeBytes
 			subStats.SizeBytes += snap.SizeBytes
-			
+
 			if subStats.LastBackup.IsZero() || snap.CreatedAt.After(subStats.LastBackup) {
 				subStats.LastBackup = snap.CreatedAt
 			}
-			
+
 			if oldest.IsZero() || snap.CreatedAt.Before(oldest) {
 				oldest = snap.CreatedAt
 			}
-			
+
 			if newest.IsZero() || snap.CreatedAt.After(newest) {
 				newest = snap.CreatedAt
 			}
 		}
-		
+
 		stats.BySubvolume[subvol] = subStats
 	}
-	
+
 	stats.OldestSnapshot = oldest
 	stats.NewestSnapshot = newest
-	
+
 	return stats
 }
 
@@ -380,11 +380,11 @@ func (s *Scheduler) validateSchedule(schedule *Schedule) error {
 	if schedule.Name == "" {
 		return fmt.Errorf("schedule name is required")
 	}
-	
+
 	if len(schedule.Subvolumes) == 0 {
 		return fmt.Errorf("at least one subvolume is required")
 	}
-	
+
 	// Validate frequency
 	switch schedule.Frequency.Type {
 	case "cron":
@@ -400,12 +400,12 @@ func (s *Scheduler) validateSchedule(schedule *Schedule) error {
 	default:
 		return fmt.Errorf("invalid frequency type: %s", schedule.Frequency.Type)
 	}
-	
+
 	// Validate retention
 	if schedule.Retention.MinKeep < 0 {
 		return fmt.Errorf("min_keep cannot be negative")
 	}
-	
+
 	return nil
 }
 
@@ -426,7 +426,7 @@ func (s *Scheduler) scheduleJob(schedule *Schedule) error {
 	default:
 		return fmt.Errorf("unsupported frequency type: %s", schedule.Frequency.Type)
 	}
-	
+
 	// Add cron job
 	entryID, err := s.cron.AddFunc(cronExpr, func() {
 		s.runScheduledBackup(schedule.ID)
@@ -434,7 +434,7 @@ func (s *Scheduler) scheduleJob(schedule *Schedule) error {
 	if err != nil {
 		return err
 	}
-	
+
 	s.cronEntries[schedule.ID] = entryID
 	return nil
 }
@@ -454,12 +454,12 @@ func (s *Scheduler) calculateNextRun(schedule *Schedule) time.Time {
 	case "monthly":
 		cronExpr = fmt.Sprintf("%d %d %d * *", schedule.Frequency.Minute, schedule.Frequency.Hour, schedule.Frequency.Day)
 	}
-	
+
 	// Parse and calculate next run
 	if sched, err := cron.ParseStandard(cronExpr); err == nil {
 		return sched.Next(time.Now())
 	}
-	
+
 	// Fallback to 1 hour from now
 	return time.Now().Add(time.Hour)
 }
@@ -468,14 +468,14 @@ func (s *Scheduler) runScheduledBackup(scheduleID string) {
 	s.mu.RLock()
 	schedule, ok := s.schedules[scheduleID]
 	s.mu.RUnlock()
-	
+
 	if !ok {
 		s.logger.Error().Str("schedule_id", scheduleID).Msg("Schedule not found")
 		return
 	}
-	
+
 	s.logger.Info().Str("schedule", schedule.Name).Msg("Running scheduled backup")
-	
+
 	// Create job
 	job := &BackupJob{
 		ID:         uuid.New().String(),
@@ -485,13 +485,13 @@ func (s *Scheduler) runScheduledBackup(scheduleID string) {
 		Subvolumes: schedule.Subvolumes,
 		StartedAt:  time.Now(),
 	}
-	
+
 	// Add to job manager
 	s.jobManager.AddJob(job)
-	
+
 	// Run backup
 	s.runSnapshotJob(job, schedule.Subvolumes, "", schedule)
-	
+
 	// Update schedule
 	s.mu.Lock()
 	now := time.Now()
@@ -499,7 +499,7 @@ func (s *Scheduler) runScheduledBackup(scheduleID string) {
 	nextRun := s.calculateNextRun(schedule)
 	schedule.NextRun = &nextRun
 	s.mu.Unlock()
-	
+
 	// Save state
 	_ = s.saveState()
 }
@@ -508,7 +508,7 @@ func (s *Scheduler) runSnapshotJob(job *BackupJob, subvolumes []string, tag stri
 	// Update job state
 	job.State = JobStateRunning
 	s.jobManager.UpdateJob(job)
-	
+
 	// Run pre-hooks if specified
 	if schedule != nil && len(schedule.PreHooks) > 0 {
 		for _, hook := range schedule.PreHooks {
@@ -524,7 +524,7 @@ func (s *Scheduler) runSnapshotJob(job *BackupJob, subvolumes []string, tag stri
 			}
 		}
 	}
-	
+
 	// Create snapshots
 	var createdSnapshots []*Snapshot
 	for _, subvol := range subvolumes {
@@ -533,9 +533,9 @@ func (s *Scheduler) runSnapshotJob(job *BackupJob, subvolumes []string, tag stri
 		if tag != "" {
 			timestamp = fmt.Sprintf("%s-%s", timestamp, tag)
 		}
-		
+
 		snapshotPath := fmt.Sprintf("@snapshots/%s/%s", subvol, timestamp)
-		
+
 		// Create snapshot via agent
 		if err := s.agentClient.CreateSnapshot(subvol, snapshotPath, true); err != nil {
 			s.logger.Error().Err(err).Str("subvolume", subvol).Msg("Failed to create snapshot")
@@ -546,7 +546,7 @@ func (s *Scheduler) runSnapshotJob(job *BackupJob, subvolumes []string, tag stri
 			s.jobManager.UpdateJob(job)
 			return
 		}
-		
+
 		// Get snapshot info
 		info, err := s.agentClient.GetSnapshotInfo(snapshotPath)
 		if err != nil {
@@ -558,38 +558,38 @@ func (s *Scheduler) runSnapshotJob(job *BackupJob, subvolumes []string, tag stri
 				ReadOnly:  true,
 			}
 		}
-		
+
 		// Create snapshot record
 		snapshot := &Snapshot{
-			ID:         uuid.New().String(),
-			Subvolume:  subvol,
-			Path:       snapshotPath,
-			CreatedAt:  info.CreatedAt,
-			SizeBytes:  info.SizeBytes,
-			ReadOnly:   true,
-			Tags:       []string{},
+			ID:        uuid.New().String(),
+			Subvolume: subvol,
+			Path:      snapshotPath,
+			CreatedAt: info.CreatedAt,
+			SizeBytes: info.SizeBytes,
+			ReadOnly:  true,
+			Tags:      []string{},
 		}
-		
+
 		if tag != "" {
 			snapshot.Tags = append(snapshot.Tags, tag)
 		}
-		
+
 		if schedule != nil {
 			snapshot.ScheduleID = schedule.ID
 		}
-		
+
 		createdSnapshots = append(createdSnapshots, snapshot)
-		
+
 		// Add to state
 		s.mu.Lock()
 		s.snapshots[subvol] = append(s.snapshots[subvol], snapshot)
 		s.mu.Unlock()
-		
+
 		// Update progress
 		job.Progress = (len(createdSnapshots) * 100) / len(subvolumes)
 		s.jobManager.UpdateJob(job)
 	}
-	
+
 	// Run post-hooks if specified
 	if schedule != nil && len(schedule.PostHooks) > 0 {
 		for _, hook := range schedule.PostHooks {
@@ -600,34 +600,34 @@ func (s *Scheduler) runSnapshotJob(job *BackupJob, subvolumes []string, tag stri
 			}
 		}
 	}
-	
+
 	// Apply retention if this was a scheduled backup
 	if schedule != nil {
 		s.applyRetention(schedule)
 	}
-	
+
 	// Mark job as succeeded
 	job.State = JobStateSucceeded
 	job.Progress = 100
 	now := time.Now()
 	job.FinishedAt = &now
 	s.jobManager.UpdateJob(job)
-	
+
 	// Save state
 	_ = s.saveState()
-	
+
 	s.logger.Info().Int("count", len(createdSnapshots)).Msg("Snapshots created successfully")
 }
 
 func (s *Scheduler) applyRetention(schedule *Schedule) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	retention := schedule.Retention
-	
+
 	for _, subvol := range schedule.Subvolumes {
 		snapshots := s.snapshots[subvol]
-		
+
 		// Filter snapshots created by this schedule
 		var scheduleSnapshots []*Snapshot
 		for _, snap := range snapshots {
@@ -635,15 +635,15 @@ func (s *Scheduler) applyRetention(schedule *Schedule) {
 				scheduleSnapshots = append(scheduleSnapshots, snap)
 			}
 		}
-		
+
 		// Sort by age (newest first)
 		sort.Slice(scheduleSnapshots, func(i, j int) bool {
 			return scheduleSnapshots[i].CreatedAt.After(scheduleSnapshots[j].CreatedAt)
 		})
-		
+
 		// Apply GFS retention
 		toKeep := s.selectGFSSnapshots(scheduleSnapshots, retention)
-		
+
 		// Delete snapshots not in toKeep
 		for _, snap := range scheduleSnapshots {
 			keep := false
@@ -653,7 +653,7 @@ func (s *Scheduler) applyRetention(schedule *Schedule) {
 					break
 				}
 			}
-			
+
 			if !keep {
 				s.logger.Info().Str("id", snap.ID).Str("path", snap.Path).Msg("Deleting snapshot per retention policy")
 				if err := s.agentClient.DeleteSnapshot(snap.Path); err != nil {
@@ -670,15 +670,15 @@ func (s *Scheduler) selectGFSSnapshots(snapshots []*Snapshot, retention Retentio
 	if len(snapshots) == 0 {
 		return snapshots
 	}
-	
+
 	// Always keep minimum number
 	if len(snapshots) <= retention.MinKeep {
 		return snapshots
 	}
-	
+
 	toKeep := make(map[string]*Snapshot)
 	now := time.Now()
-	
+
 	// Keep daily snapshots
 	for i := 0; i < retention.Days && i < len(snapshots); i++ {
 		age := now.Sub(snapshots[i].CreatedAt)
@@ -686,7 +686,7 @@ func (s *Scheduler) selectGFSSnapshots(snapshots []*Snapshot, retention Retentio
 			toKeep[snapshots[i].ID] = snapshots[i]
 		}
 	}
-	
+
 	// Keep weekly snapshots
 	weeklyCount := 0
 	for _, snap := range snapshots {
@@ -701,7 +701,7 @@ func (s *Scheduler) selectGFSSnapshots(snapshots []*Snapshot, retention Retentio
 			}
 		}
 	}
-	
+
 	// Keep monthly snapshots
 	monthlyCount := 0
 	for _, snap := range snapshots {
@@ -716,7 +716,7 @@ func (s *Scheduler) selectGFSSnapshots(snapshots []*Snapshot, retention Retentio
 			}
 		}
 	}
-	
+
 	// Keep yearly snapshots
 	yearlyCount := 0
 	for _, snap := range snapshots {
@@ -731,20 +731,20 @@ func (s *Scheduler) selectGFSSnapshots(snapshots []*Snapshot, retention Retentio
 			}
 		}
 	}
-	
+
 	// Ensure we keep at least MinKeep
 	if len(toKeep) < retention.MinKeep {
 		for i := 0; i < retention.MinKeep && i < len(snapshots); i++ {
 			toKeep[snapshots[i].ID] = snapshots[i]
 		}
 	}
-	
+
 	// Convert map to slice
 	result := make([]*Snapshot, 0, len(toKeep))
 	for _, snap := range toKeep {
 		result = append(result, snap)
 	}
-	
+
 	return result
 }
 
@@ -761,27 +761,27 @@ func (s *Scheduler) removeSnapshot(snapshot *Snapshot) {
 func (s *Scheduler) retentionLoop(ctx context.Context) {
 	ticker := time.NewTicker(1 * time.Hour)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
 			s.logger.Debug().Msg("Running retention cleanup")
-			
+
 			s.mu.RLock()
 			schedules := make([]*Schedule, 0, len(s.schedules))
 			for _, schedule := range s.schedules {
 				schedules = append(schedules, schedule)
 			}
 			s.mu.RUnlock()
-			
+
 			for _, schedule := range schedules {
 				if schedule.Enabled {
 					s.applyRetention(schedule)
 				}
 			}
-			
+
 			_ = s.saveState()
 		}
 	}
@@ -795,50 +795,50 @@ func (s *Scheduler) loadState() error {
 		}
 		return err
 	}
-	
+
 	var state struct {
-		Schedules map[string]*Schedule           `json:"schedules"`
-		Snapshots map[string][]*Snapshot         `json:"snapshots"`
+		Schedules map[string]*Schedule   `json:"schedules"`
+		Snapshots map[string][]*Snapshot `json:"snapshots"`
 	}
-	
+
 	if err := json.Unmarshal(data, &state); err != nil {
 		return err
 	}
-	
+
 	s.schedules = state.Schedules
 	s.snapshots = state.Snapshots
-	
+
 	if s.schedules == nil {
 		s.schedules = make(map[string]*Schedule)
 	}
 	if s.snapshots == nil {
 		s.snapshots = make(map[string][]*Snapshot)
 	}
-	
+
 	return nil
 }
 
 func (s *Scheduler) saveState() error {
 	s.mu.RLock()
 	state := struct {
-		Schedules map[string]*Schedule           `json:"schedules"`
-		Snapshots map[string][]*Snapshot         `json:"snapshots"`
+		Schedules map[string]*Schedule   `json:"schedules"`
+		Snapshots map[string][]*Snapshot `json:"snapshots"`
 	}{
 		Schedules: s.schedules,
 		Snapshots: s.snapshots,
 	}
 	s.mu.RUnlock()
-	
+
 	data, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
 		return err
 	}
-	
+
 	// Write atomically
 	tmpFile := s.stateFile + ".tmp"
 	if err := os.WriteFile(tmpFile, data, 0600); err != nil {
 		return err
 	}
-	
+
 	return os.Rename(tmpFile, s.stateFile)
 }
