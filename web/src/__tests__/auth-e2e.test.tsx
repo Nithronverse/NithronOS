@@ -99,6 +99,7 @@ describe('Auth E2E Flow', () => {
           ok: false,
           status: 410,
           headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => ({ error: 'Gone' }),
         })
       )
       
@@ -198,6 +199,7 @@ describe('Auth E2E Flow', () => {
           ok: false,
           status: 410,
           headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => ({ error: 'Gone' }),
         })
       )
       
@@ -207,6 +209,7 @@ describe('Auth E2E Flow', () => {
           ok: false,
           status: 401,
           headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => ({ error: 'Unauthorized' }),
         })
       )
       
@@ -216,6 +219,7 @@ describe('Auth E2E Flow', () => {
           ok: false,
           status: 401,
           headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => ({ error: 'Unauthorized' }),
         })
       )
       
@@ -243,6 +247,7 @@ describe('Auth E2E Flow', () => {
           ok: false,
           status: 410,
           headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => ({ error: 'Gone' }),
         })
       )
       
@@ -273,6 +278,7 @@ describe('Auth E2E Flow', () => {
         Promise.resolve({
           ok: true,
           headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => ({ success: true }),
         })
       )
       
@@ -320,6 +326,7 @@ describe('Auth E2E Flow', () => {
           ok: false,
           status: 410,
           headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => ({ error: 'Gone' }),
         })
       )
       
