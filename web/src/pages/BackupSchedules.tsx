@@ -134,7 +134,7 @@ export default function BackupSchedules() {
           </div>
         ) : (
           <div className="divide-y">
-            {schedules.map((schedule) => (
+            {schedules.map((schedule: any) => (
               <div key={schedule.id} className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">

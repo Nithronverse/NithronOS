@@ -434,9 +434,10 @@ export class NOSClient {
     return this.request<T>('POST', path, body, options)
   }
 
-  private put<T>(path: string, body?: any, options?: RequestInit): Promise<T> {
-    return this.request<T>('PUT', path, body, options)
-  }
+  // Commented out as it's currently unused
+  // private put<T>(path: string, body?: any, options?: RequestInit): Promise<T> {
+  //   return this.request<T>('PUT', path, body, options)
+  // }
 
   private patch<T>(path: string, body?: any, options?: RequestInit): Promise<T> {
     return this.request<T>('PATCH', path, body, options)

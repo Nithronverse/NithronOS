@@ -438,42 +438,42 @@ export const api = {
   
   // System configuration
   system: {
-    getHostname: async () => get<{ hostname: string; pretty_hostname?: string }>('/api/v1/system/hostname'),
+    getHostname: async () => apiClient.get<{ hostname: string; pretty_hostname?: string }>('/api/v1/system/hostname'),
     setHostname: async (data: { hostname: string; pretty_hostname?: string }) => 
-      post<{ status: string }>('/api/v1/system/hostname', data),
+      apiClient.post<{ status: string }>('/api/v1/system/hostname', data),
     
-    getTimezone: async () => get<{ timezone: string; time: string; utc: boolean }>('/api/v1/system/timezone'),
+    getTimezone: async () => apiClient.get<{ timezone: string; time: string; utc: boolean }>('/api/v1/system/timezone'),
     setTimezone: async (data: { timezone: string; utc?: boolean }) => 
-      post<{ status: string }>('/api/v1/system/timezone', data),
-    getTimezones: async () => get<{ timezones: string[] }>('/api/v1/system/timezones'),
+      apiClient.post<{ status: string }>('/api/v1/system/timezone', data),
+    getTimezones: async () => apiClient.get<{ timezones: string[] }>('/api/v1/system/timezones'),
     
-    getNTP: async () => get<{ enabled: boolean; servers: string[]; status: string }>('/api/v1/system/ntp'),
+    getNTP: async () => apiClient.get<{ enabled: boolean; servers: string[]; status: string }>('/api/v1/system/ntp'),
     setNTP: async (data: { enabled: boolean; servers?: string[] }) => 
-      post<{ status: string }>('/api/v1/system/ntp', data),
+      apiClient.post<{ status: string }>('/api/v1/system/ntp', data),
   },
   
   // Network configuration
   network: {
-    getInterfaces: async () => get<{ interfaces: any[] }>('/api/v1/system/network/interfaces'),
-    getInterface: async (iface: string) => get<any>(`/api/v1/system/network/interfaces/${iface}`),
+    getInterfaces: async () => apiClient.get<{ interfaces: any[] }>('/api/v1/system/network/interfaces'),
+    getInterface: async (iface: string) => apiClient.get<any>(`/api/v1/system/network/interfaces/${iface}`),
     configureInterface: async (iface: string, config: {
       dhcp: boolean;
       ipv4_address?: string;
       ipv4_gateway?: string;
       dns?: string[];
-    }) => post<{ status: string }>(`/api/v1/system/network/interfaces/${iface}`, config),
+    }) => apiClient.post<{ status: string }>(`/api/v1/system/network/interfaces/${iface}`, config),
   },
   
   // Telemetry consent
   telemetry: {
-    getConsent: async () => get<{
+    getConsent: async () => apiClient.get<{
       enabled: boolean;
       consented_at?: string;
       data_types?: string[];
       last_report_at?: string;
     }>('/api/v1/system/telemetry/consent'),
     setConsent: async (data: { enabled: boolean; data_types?: string[] }) => 
-      post<{ status: string }>('/api/v1/system/telemetry/consent', data),
+      apiClient.post<{ status: string }>('/api/v1/system/telemetry/consent', data),
   },
 }
 

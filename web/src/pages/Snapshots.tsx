@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
-import { HardDrive, Calendar, Plus, Trash2, RefreshCw, Download, Upload, AlertTriangle } from 'lucide-react';
+import { HardDrive, Calendar, Plus, Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { backupApi } from '@/api/backup';
 import type { Snapshot } from '@/api/backup.types';
 import { formatBytes } from '@/lib/utils';
@@ -176,7 +176,7 @@ export default function Snapshots() {
                         </div>
                         {snapshot.tags && snapshot.tags.length > 0 && (
                           <div className="flex items-center space-x-2 mt-2">
-                            {snapshot.tags.map((tag) => (
+                            {snapshot.tags.map((tag: any) => (
                               <span
                                 key={tag}
                                 className="px-2 py-1 bg-primary/10 text-primary rounded text-xs"

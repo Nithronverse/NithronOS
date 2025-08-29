@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import { 
@@ -6,7 +6,7 @@ import {
   CheckCircle, XCircle, TrendingUp, TrendingDown 
 } from 'lucide-react';
 import { monitorApi } from '@/api/monitor';
-import type { MonitorOverview, TimeSeries } from '@/api/monitor.types';
+
 import { formatBytes } from '@/lib/utils';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
 
@@ -130,8 +130,8 @@ export default function MonitoringDashboard() {
   const [timeRange, setTimeRange] = useState('1h');
   const [cpuHistory, setCpuHistory] = useState<number[]>([]);
   const [memHistory, setMemHistory] = useState<number[]>([]);
-  const [diskHistory, setDiskHistory] = useState<number[]>([]);
-  const [netHistory, setNetHistory] = useState<number[]>([]);
+  const [diskHistory] = useState<number[]>([]);
+  const [] = useState<number[]>([]);
   
   // Fetch overview data
   const { data: overview, isLoading } = useQuery({
@@ -169,7 +169,7 @@ export default function MonitoringDashboard() {
       });
       
       if (result.data_points) {
-        setCpuHistory(result.data_points.map(p => p.value));
+        setCpuHistory(result.data_points.map((p: any) => p.value));
       }
       
       return result;
@@ -192,7 +192,7 @@ export default function MonitoringDashboard() {
       });
       
       if (result.data_points) {
-        setMemHistory(result.data_points.map(p => p.value));
+        setMemHistory(result.data_points.map((p: any) => p.value));
       }
       
       return result;
@@ -201,9 +201,9 @@ export default function MonitoringDashboard() {
   });
   
   // Calculate alert status
-  const hasAlerts = overview?.alerts_active > 0;
-  const cpuAlert = overview?.system.cpu.usage_percent > 90;
-  const memAlert = overview?.system.memory.used_percent > 90;
+  const hasAlerts = (overview?.alerts_active ?? 0) > 0;
+  const cpuAlert = (overview?.system?.cpu?.usage_percent ?? 0) > 90;
+  const memAlert = (overview?.system?.memory?.used_percent ?? 0) > 90;
   const diskAlert = overview?.disks.some(d => d.used_percent > 85);
   
   // Calculate uptime string
@@ -385,7 +385,7 @@ export default function MonitoringDashboard() {
       <div className="bg-card rounded-lg p-4">
         <h3 className="text-sm font-medium mb-3">Network Interfaces</h3>
         <div className="grid gap-3 md:grid-cols-2">
-          {overview.network.map((iface) => (
+          {overview.network.map((iface: any) => (
             <div key={iface.interface} className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Network className="w-4 h-4 text-muted-foreground" />

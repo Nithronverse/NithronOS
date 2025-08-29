@@ -134,6 +134,13 @@ class ApiClient {
 
 export const api = new ApiClient()
 
+// Export helper functions for convenience
+export const get = <T>(path: string, params?: Record<string, any>) => api.get<T>(path, params)
+export const post = <T>(path: string, body?: any) => api.post<T>(path, body)
+export const put = <T>(path: string, body?: any) => api.put<T>(path, body)
+export const del = <T>(path: string) => api.del<T>(path)
+export const patch = <T>(path: string, body?: any) => api.put<T>(path, body) // Use put for patch
+
 // ============================================================================
 // Type Schemas for M1-M3 Features
 // ============================================================================
