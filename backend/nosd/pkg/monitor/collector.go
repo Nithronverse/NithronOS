@@ -3,7 +3,6 @@ package monitor
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os/exec"
 	"strconv"
 	"strings"

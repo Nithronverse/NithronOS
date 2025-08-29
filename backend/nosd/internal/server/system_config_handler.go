@@ -1,18 +1,26 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog"
 )
+
+// AgentRequest represents a request to the agent
+type AgentRequest struct {
+	Action string                 `json:"action"`
+	Params map[string]interface{} `json:"params"`
+}
 
 type SystemConfigHandler struct {
 	logger      zerolog.Logger
@@ -110,7 +118,8 @@ func (h *SystemConfigHandler) SetHostname(w http.ResponseWriter, r *http.Request
 		},
 	}
 	
-	if err := h.agentClient.Execute(req); err != nil {
+	var resp interface{}
+	if err := h.agentClient.PostJSON(context.Background(), "/execute", req, &resp); err != nil {
 		h.logger.Error().Err(err).Msg("Failed to set hostname")
 		respondError(w, http.StatusInternalServerError, "Failed to set hostname")
 		return
@@ -178,7 +187,8 @@ func (h *SystemConfigHandler) SetTimezone(w http.ResponseWriter, r *http.Request
 		},
 	}
 	
-	if err := h.agentClient.Execute(req); err != nil {
+	var resp interface{}
+	if err := h.agentClient.PostJSON(context.Background(), "/execute", req, &resp); err != nil {
 		h.logger.Error().Err(err).Msg("Failed to set timezone")
 		respondError(w, http.StatusInternalServerError, "Failed to set timezone")
 		return
@@ -284,7 +294,8 @@ func (h *SystemConfigHandler) SetNTP(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	
-	if err := h.agentClient.Execute(req); err != nil {
+	var resp interface{}
+	if err := h.agentClient.PostJSON(context.Background(), "/execute", req, &resp); err != nil {
 		h.logger.Error().Err(err).Msg("Failed to configure NTP")
 		respondError(w, http.StatusInternalServerError, "Failed to configure NTP")
 		return
@@ -461,7 +472,8 @@ func (h *SystemConfigHandler) ConfigureInterface(w http.ResponseWriter, r *http.
 		},
 	}
 	
-	if err := h.agentClient.Execute(req); err != nil {
+	var resp interface{}
+	if err := h.agentClient.PostJSON(context.Background(), "/execute", req, &resp); err != nil {
 		h.logger.Error().Err(err).Msg("Failed to configure interface")
 		respondError(w, http.StatusInternalServerError, "Failed to configure interface")
 		return

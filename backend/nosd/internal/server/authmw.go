@@ -20,7 +20,7 @@ func withUser(next http.Handler, codec *auth.SessionCodec) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s, ok := codec.DecodeFromRequest(r); ok {
 			r = r.WithContext(context.WithValue(r.Context(), ctxUserID, s.UserID))
-			r = r.WithContext(context.WithValue(r.Context(), ctxRoles, s.Roles))
+			r = r.WithContext(context.WithValue(r.Context(), ctxRoles, s.Role))
 		}
 		next.ServeHTTP(w, r)
 	})

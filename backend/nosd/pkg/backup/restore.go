@@ -1,7 +1,6 @@
 package backup
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -391,7 +390,7 @@ func (r *Restorer) rollbackSubvolume(plan *RestorePlan, targetPath string) error
 			return fmt.Errorf("invalid source ID")
 		}
 		
-		dest, err := r.replicator.GetDestination(parts[0])
+		_, err := r.replicator.GetDestination(parts[0]) // dest will be used for SSH restore
 		if err != nil {
 			return err
 		}

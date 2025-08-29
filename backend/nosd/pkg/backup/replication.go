@@ -2,10 +2,8 @@ package backup
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -443,7 +441,7 @@ func (r *Replicator) replicateSSH(job *BackupJob, dest *Destination, snapshotPat
 	}
 	
 	// Add user@host and receive command
-	remotePath := filepath.Join(dest.Path, filepath.Base(snapshotPath))
+	// remotePath := filepath.Join(dest.Path, filepath.Base(snapshotPath)) // TODO: use for validation
 	sshArgs = append(sshArgs,
 		fmt.Sprintf("%s@%s", dest.User, dest.Host),
 		fmt.Sprintf("btrfs receive %s", dest.Path),
