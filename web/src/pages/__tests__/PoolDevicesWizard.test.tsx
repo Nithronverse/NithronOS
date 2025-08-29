@@ -1,44 +1,45 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import * as api from '@/lib/api'
+import { api } from '@/lib/api-client'
 import { PoolDetails } from '../PoolDetails'
 
-vi.mock('@/lib/api', async () => {
-  const mod = await vi.importActual<any>('@/lib/api')
-  return {
-    ...mod,
-    default: {
-      ...mod.default,
-      pools: {
-        ...mod.default.pools,
-        planDevice: vi.fn(),
-        applyDevice: vi.fn(),
-        getMountOptions: vi.fn().mockResolvedValue({ mountOptions: 'compress=zstd:3,noatime' }),
-      },
+vi.mock('@/lib/api-client', () => ({
+  api: {
+    pools: {
+      list: vi.fn(),
+      get: vi.fn(),
+      planDevice: vi.fn(),
+      applyDevice: vi.fn(),
+      getMountOptions: vi.fn().mockResolvedValue({ mountOptions: 'compress=zstd:3,noatime' }),
     },
-  }
-})
+  },
+}))
 
 describe('Devices wizard warnings and confirm gating', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
-    vi.spyOn(window, 'fetch').mockResolvedValue(
-      new Response(
-        JSON.stringify([{ id:'p1', mount:'/mnt/p1', uuid:'U', raid:'raid1', size:1, used:0, free:1, devices:[] }]),
-        { status:200, headers:{ 'Content-Type':'application/json' } }
-      )
-    )
+    // Mock the pool data
+    vi.mocked(api.pools.get).mockResolvedValue({
+      id:'p1', 
+      mount:'/mnt/p1', 
+      uuid:'U', 
+      raid:'raid1', 
+      size:1, 
+      used:0, 
+      free:1, 
+      devices:[]
+    })
   })
 
   it('shows plan warnings and blocks Apply until confirm matches', async () => {
-    vi.mocked((api as any).default.pools.planDevice).mockResolvedValue({
+    vi.mocked(api.pools.planDevice).mockResolvedValue({
       planId: 'x',
       steps: [{ id:'s1', description:'add devices', command:"btrfs device add /dev/sdb /mnt/p1" }],
       warnings: ['Pool is >80% full; balance may take longer.'],
       requiresBalance: true,
     })
-    vi.mocked((api as any).default.pools.applyDevice).mockResolvedValue({ ok:true, tx_id:'t1' })
+    vi.mocked(api.pools.applyDevice).mockResolvedValue({ ok:true, tx_id:'t1' })
 
     render(
       <MemoryRouter initialEntries={["/pools/p1"]}>
@@ -64,7 +65,7 @@ describe('Devices wizard warnings and confirm gating', () => {
     await waitFor(() => expect(applyBtn.disabled).toBe(false))
 
     fireEvent.click(applyBtn)
-    await waitFor(() => expect((api as any).default.pools.applyDevice).toHaveBeenCalled())
+    await waitFor(() => expect(api.pools.applyDevice).toHaveBeenCalled())
   })
 })
 

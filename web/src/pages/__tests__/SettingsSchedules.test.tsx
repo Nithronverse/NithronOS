@@ -110,13 +110,13 @@ describe('SettingsSchedules', () => {
       }
       return new Response('{}', { status:200, headers:{ 'Content-Type':'application/json' } })
     })
-    const toastSpy = vi.spyOn(toast, 'success')
+    const toastErrorSpy = vi.spyOn(toast, 'error')
     render(<MemoryRouter><SettingsSchedules /></MemoryRouter>)
     await screen.findByPlaceholderText('Sun 03:00')
     const save = screen.getByRole('button', { name: /save/i }) as HTMLButtonElement
     fireEvent.click(save)
     expect(save.disabled).toBe(true)
-    await waitFor(() => expect(toastSpy).toHaveBeenCalled())
+    await waitFor(() => expect(toastErrorSpy).toHaveBeenCalledWith('Failed to save schedules'))
     await waitFor(() => expect(save.disabled).toBe(false))
   })
 

@@ -8,6 +8,7 @@ import { PoolDetails } from '../PoolDetails'
 vi.mock('@/lib/api-client', () => ({
   api: {
     pools: {
+      get: vi.fn(),
       getMountOptions: vi.fn(),
       updateMountOptions: vi.fn(),
       list: vi.fn(),
@@ -28,7 +29,17 @@ vi.mock('@/components/ui/toast', () => ({
 describe('PoolMountOptions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.spyOn(window, 'fetch').mockResolvedValue(new Response(JSON.stringify([{ id:'p1', mount:'/mnt/p1', uuid:'U', raid:'raid1', size:1, used:0, free:1, devices:[{ rota:false }] }]), { status:200, headers:{'Content-Type':'application/json'} }))
+    // Mock the pool data
+    vi.mocked(api.pools.get).mockResolvedValue({
+      id:'p1',
+      mount:'/mnt/p1',
+      uuid:'U',
+      raid:'raid1',
+      size:1,
+      used:0,
+      free:1,
+      devices:[{ rota:false }]
+    })
   })
 
   it('saves updated options (applied)', async () => {
