@@ -10,10 +10,9 @@ case "$1" in
         chmod 0770 /etc/nos /var/lib/nos 2>/dev/null || true
         [ -f /etc/nos/secret.key ] && chmod 600 /etc/nos/secret.key || true
         
-        # Enable OTP announcement units
+        # Enable OTP announcement service
         systemctl daemon-reload || true
         systemctl enable otp-announce.service || true
-        systemctl enable --now otp-announce.path || true
         ;;
 esac
 
