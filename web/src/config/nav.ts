@@ -8,6 +8,7 @@ import {
   Archive,
   Camera,
   Calendar,
+  Activity,
   LucideIcon,
 } from 'lucide-react'
 
@@ -69,6 +70,12 @@ export const navItems: NavItem[] = [
     label: 'Remote',
     icon: Globe,
     path: '/remote',
+  },
+  {
+    id: 'monitor',
+    label: 'Monitoring',
+    icon: Activity,
+    path: '/monitor',
   },
   {
     id: 'settings',
