@@ -543,7 +543,7 @@ func (h *SystemConfigHandler) SetTelemetryConsent(w http.ResponseWriter, r *http
 		action = "start"
 	}
 	
-	exec.Command("systemctl", action, "nos-telemetry").Run()
+	_ = exec.Command("systemctl", action, "nos-telemetry").Run()
 	
 	respondJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

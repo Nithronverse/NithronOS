@@ -188,9 +188,9 @@ func (c *Collector) collectMemory(now time.Time) {
 		return
 	}
 	
-	c.storage.Store(MetricTypeMemory, now, v.UsedPercent, nil)
-	c.storage.Store(MetricTypeMemory, now, float64(v.Used), map[string]string{"type": "used"})
-	c.storage.Store(MetricTypeMemory, now, float64(v.Available), map[string]string{"type": "available"})
+	_ = c.storage.Store(MetricTypeMemory, now, v.UsedPercent, nil)
+	_ = c.storage.Store(MetricTypeMemory, now, float64(v.Used), map[string]string{"type": "used"})
+	_ = c.storage.Store(MetricTypeMemory, now, float64(v.Available), map[string]string{"type": "available"})
 	
 	c.updateLastValue("memory_percent", v.UsedPercent)
 	c.updateLastValue("memory_used", v.Used)

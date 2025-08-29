@@ -35,17 +35,41 @@ jobs:
           go install honnef.co/go/tools/cmd/staticcheck@latest
           go install golang.org/x/vuln/cmd/govulncheck@latest
       - name: Go linters (backend)
+        id: lint-backend
         working-directory: backend/nosd
         run: |
-          golangci-lint run ./...
+          set +e  # Don't exit on error
+          echo "Running golangci-lint..."
+          golangci-lint run ./... --max-issues-per-linter=0 --max-same-issues=0
+          GOLANGCI_EXIT=$?
+          echo "Running staticcheck..."
           staticcheck ./...
+          STATIC_EXIT=$?
+          echo "Running govulncheck..."
           govulncheck ./...
+          GOVULN_EXIT=$?
+          if [ $GOLANGCI_EXIT -ne 0 ] || [ $STATIC_EXIT -ne 0 ] || [ $GOVULN_EXIT -ne 0 ]; then
+            echo "::error::Lint issues found in backend"
+            exit 1
+          fi
       - name: Go linters (agent)
+        id: lint-agent
         working-directory: agent/nos-agent
         run: |
-          golangci-lint run ./...
+          set +e  # Don't exit on error
+          echo "Running golangci-lint..."
+          golangci-lint run ./... --max-issues-per-linter=0 --max-same-issues=0
+          GOLANGCI_EXIT=$?
+          echo "Running staticcheck..."
           staticcheck ./...
+          STATIC_EXIT=$?
+          echo "Running govulncheck..."
           govulncheck ./...
+          GOVULN_EXIT=$?
+          if [ $GOLANGCI_EXIT -ne 0 ] || [ $STATIC_EXIT -ne 0 ] || [ $GOVULN_EXIT -ne 0 ]; then
+            echo "::error::Lint issues found in agent"
+            exit 1
+          fi
       - name: Web typecheck + audit
         working-directory: web
         run: |

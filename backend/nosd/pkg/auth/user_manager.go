@@ -401,7 +401,7 @@ func (um *UserManager) RequestPasswordReset(req PasswordResetRequest, ip string)
 	
 	// Generate token
 	tokenBytes := make([]byte, 32)
-	rand.Read(tokenBytes)
+	_, _ = rand.Read(tokenBytes)
 	tokenStr := base64.URLEncoding.EncodeToString(tokenBytes)
 	
 	// Create reset token
@@ -717,7 +717,7 @@ func (um *UserManager) RegenerateRecoveryCodes(userID string, password string) (
 
 func (um *UserManager) hashPassword(password string) string {
 	salt := make([]byte, 16)
-	rand.Read(salt)
+	_, _ = rand.Read(salt)
 	
 	hash := argon2.IDKey([]byte(password), salt, 1, 64*1024, 4, 32)
 	
@@ -801,7 +801,7 @@ func (um *UserManager) generateRecoveryCodes() []RecoveryCode {
 	codes := make([]RecoveryCode, 10)
 	for i := range codes {
 		b := make([]byte, 4)
-		rand.Read(b)
+		_, _ = rand.Read(b)
 		code := fmt.Sprintf("%X-%X", b[:2], b[2:])
 		codes[i] = RecoveryCode{
 			Code:      code,
@@ -948,13 +948,13 @@ func (um *UserManager) loadData() {
 	// Load reset tokens
 	tokensPath := filepath.Join(um.dataPath, "reset_tokens.json")
 	if data, err := os.ReadFile(tokensPath); err == nil {
-		json.Unmarshal(data, &um.resetTokens)
+		_ = json.Unmarshal(data, &um.resetTokens)
 	}
 	
 	// Load lockouts
 	lockoutsPath := filepath.Join(um.dataPath, "lockouts.json")
 	if data, err := os.ReadFile(lockoutsPath); err == nil {
-		json.Unmarshal(data, &um.lockouts)
+		_ = json.Unmarshal(data, &um.lockouts)
 	}
 }
 
@@ -983,7 +983,7 @@ func (um *UserManager) saveData() {
 	// Save lockouts
 	if data, err := json.MarshalIndent(um.lockouts, "", "  "); err == nil {
 		lockoutsPath := filepath.Join(um.dataPath, "lockouts.json")
-		os.WriteFile(lockoutsPath, data, 0600)
+		_ = os.WriteFile(lockoutsPath, data, 0600)
 	}
 }
 
@@ -994,13 +994,13 @@ func (um *UserManager) storePassword(userID, hash string) {
 	passwords := make(map[string]string)
 	
 	if data, err := os.ReadFile(passwordsPath); err == nil {
-		json.Unmarshal(data, &passwords)
+		_ = json.Unmarshal(data, &passwords)
 	}
 	
 	passwords[userID] = hash
 	
 	if data, err := json.Marshal(passwords); err == nil {
-		os.WriteFile(passwordsPath, data, 0600)
+		_ = os.WriteFile(passwordsPath, data, 0600)
 	}
 }
 
@@ -1020,13 +1020,13 @@ func (um *UserManager) deletePassword(userID string) {
 	passwords := make(map[string]string)
 	
 	if data, err := os.ReadFile(passwordsPath); err == nil {
-		json.Unmarshal(data, &passwords)
+		_ = json.Unmarshal(data, &passwords)
 	}
 	
 	delete(passwords, userID)
 	
 	if data, err := json.Marshal(passwords); err == nil {
-		os.WriteFile(passwordsPath, data, 0600)
+		_ = os.WriteFile(passwordsPath, data, 0600)
 	}
 }
 
