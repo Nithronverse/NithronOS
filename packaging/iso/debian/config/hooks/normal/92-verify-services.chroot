@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-systemctl enable nithronos-certgen.service caddy.service nosd.service nos-agent.service nithronos-firstboot.service || true
-# sanity: print unit files exist and wanted symlinks are created
+# Services should already be enabled by earlier hooks, just verify
+# sanity: print unit files exist and wanted symlinks are created  
 systemctl is-enabled nithronos-certgen caddy nosd nos-agent nithronos-firstboot || true
 
 if command -v curl >/dev/null 2>&1; then

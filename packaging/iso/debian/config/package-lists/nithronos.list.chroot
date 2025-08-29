@@ -10,6 +10,9 @@ avahi-daemon
 acl
 attr
 docker.io
+docker-buildx-plugin
+docker-compose-plugin
+jq
 wireguard
 caddy
 fail2ban
