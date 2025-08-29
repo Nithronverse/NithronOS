@@ -493,6 +493,7 @@ jobs:
         if: steps.check-tests.outputs.tests_exist == 'true'
         run: |
           cd tests/e2e/ui
+          mkdir -p test-results playwright-report
           npm run test || echo "Playwright tests not yet implemented"
         continue-on-error: true
           
@@ -531,6 +532,7 @@ jobs:
       - name: Run storage tests
         if: steps.check-tests.outputs.tests_exist == 'true'
         run: |
+          mkdir -p tests/e2e/results
           chmod +x tests/e2e/storage-test.sh
           sudo ./tests/e2e/storage-test.sh || echo "Storage tests not yet implemented"
         continue-on-error: true
@@ -693,7 +695,7 @@ jobs:
         if: steps.check-docs.outputs.docs_exist == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: docs-site-${{ github.sha }}
+          name: NithronOS - Docs - ${{ github.ref_name || github.sha }}
           path: docs-site/site/
         continue-on-error: true
 
