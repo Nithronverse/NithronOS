@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { Login } from '../pages/Login'
 import { AuthProvider } from '../lib/auth'
-import { api } from '../lib/api-client'
+import { api, APIError } from '../lib/api-client'
 
 // Mock the API client
 vi.mock('../lib/api-client', () => ({
@@ -119,7 +119,7 @@ describe('Login Flow', () => {
 
   it('should handle login with TOTP', async () => {
     // First attempt returns requires_totp
-    const error = new (api as any).APIError(401, 'code required')
+    const error = new APIError(401, 'code required')
     vi.mocked(api.auth.login).mockRejectedValueOnce(error)
     
     renderLogin()
@@ -154,7 +154,7 @@ describe('Login Flow', () => {
   })
 
   it('should handle invalid credentials error', async () => {
-    const error = new (api as any).APIError(401, 'Invalid username or password')
+    const error = new APIError(401, 'Invalid username or password')
     vi.mocked(api.auth.login).mockRejectedValueOnce(error)
     
     renderLogin()
@@ -170,7 +170,7 @@ describe('Login Flow', () => {
   })
 
   it('should handle rate limiting error', async () => {
-    const error = new (api as any).APIError(429, 'Too many attempts')
+    const error = new APIError(429, 'Too many attempts')
     vi.mocked(api.auth.login).mockRejectedValueOnce(error)
     
     renderLogin()
@@ -186,7 +186,7 @@ describe('Login Flow', () => {
   })
 
   it('should preserve username on failed attempts', async () => {
-    const error = new (api as any).APIError(401, 'Invalid username or password')
+    const error = new APIError(401, 'Invalid username or password')
     vi.mocked(api.auth.login).mockRejectedValueOnce(error)
     
     renderLogin()
