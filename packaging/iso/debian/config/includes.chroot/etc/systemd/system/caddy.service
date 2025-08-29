@@ -1,7 +1,8 @@
 [Unit]
 Description=Caddy Web Server for NithronOS
-After=network-online.target nosd.service nos-tls-gen.service
-Wants=network-online.target nosd.service
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/usr/bin/caddy
 
 [Service]
 User=caddy

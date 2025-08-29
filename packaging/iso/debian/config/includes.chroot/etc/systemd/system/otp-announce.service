@@ -1,8 +1,8 @@
 [Unit]
 Description=NithronOS: announce first-boot OTP to console
-Wants=nosd.service
-After=multi-user.target nosd.service systemd-user-sessions.service
-# Run after basic system is ready
+After=multi-user.target getty@tty1.service
+ConditionPathExists=/usr/lib/nithronos/otp-notify
+# Run after system and console are ready
 
 [Service]
 Type=oneshot

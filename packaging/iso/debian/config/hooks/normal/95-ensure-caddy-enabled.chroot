@@ -1,10 +1,9 @@
 #!/bin/bash
 set -e
 
-echo "[95-ensure-caddy] Ensuring Caddy is properly enabled..."
+echo "[95-ensure-caddy] Setting up Caddy directories and permissions..."
 
 # Create necessary directories
-mkdir -p /etc/systemd/system/multi-user.target.wants
 mkdir -p /var/log/caddy
 mkdir -p /usr/share/nithronos/web
 
@@ -16,23 +15,11 @@ fi
 # Set permissions
 chown caddy:caddy /var/log/caddy || true
 
-# Give Caddy capability to bind to privileged ports (80, 443)
-setcap CAP_NET_BIND_SERVICE=+eip /usr/bin/caddy || true
-
-# Services should already be enabled by hook 10
-# Just enable the ensure-services service if not already done
-if ! systemctl is-enabled nithronos-ensure-services.service >/dev/null 2>&1; then
-    systemctl enable nithronos-ensure-services.service || true
+# Give Caddy capability to bind to privileged ports (80, 443) if it exists
+if [ -f /usr/bin/caddy ]; then
+    setcap CAP_NET_BIND_SERVICE=+eip /usr/bin/caddy || true
 fi
 
-# Make scripts executable if they exist
-[ -f /usr/local/bin/nithronos-ensure-services.sh ] && chmod +x /usr/local/bin/nithronos-ensure-services.sh || true
-[ -f /usr/local/bin/nithronos-setup-local-domain.sh ] && chmod +x /usr/local/bin/nithronos-setup-local-domain.sh || true
+# DO NOT enable services here - they will be enabled at runtime
 
-# Verify services are enabled
-echo "[95-ensure-caddy] Checking service status..."
-systemctl is-enabled caddy || echo "Warning: Caddy may not be enabled"
-systemctl is-enabled nosd || echo "Warning: nosd may not be enabled"
-systemctl is-enabled nos-agent || echo "Warning: nos-agent may not be enabled"
-
-echo "[95-ensure-caddy] Done"
+echo "[95-ensure-caddy] Directory setup complete"

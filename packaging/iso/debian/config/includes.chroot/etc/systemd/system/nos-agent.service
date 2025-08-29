@@ -1,15 +1,17 @@
 [Unit]
 Description=NithronOS Privileged Agent (nos-agent)
 After=network.target
+ConditionPathExists=/usr/sbin/nos-agent
 
 [Service]
+Type=simple
 User=root
 Group=root
 ExecStart=/usr/sbin/nos-agent
 Restart=on-failure
-RestartSec=2s
-StandardOutput=journal+console
-StandardError=journal+console
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
 # Simplified for ISO environment - full sandboxing in production
 
 [Install]

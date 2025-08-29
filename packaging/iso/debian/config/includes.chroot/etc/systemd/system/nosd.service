@@ -1,7 +1,7 @@
 [Unit]
 Description=NithronOS API Server (nosd)
-After=network.target nos-agent.service
-Wants=nos-agent.service
+After=network.target
+ConditionPathExists=/usr/bin/nosd
 
 [Service]
 User=nos
