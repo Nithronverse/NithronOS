@@ -656,15 +656,14 @@ jobs:
       - name: Install MkDocs
         if: steps.check-docs.outputs.docs_exist == 'true'
         run: |
-          pip install mkdocs-material mkdocs-mermaid2-plugin mkdocs-git-revision-date-localized-plugin
+          pip install mkdocs-material
         continue-on-error: true
           
       - name: Build docs
         if: steps.check-docs.outputs.docs_exist == 'true'
         run: |
           cd docs-site
-          mkdocs build || echo "Documentation build not yet configured"
-        continue-on-error: true
+          mkdocs build --verbose || echo "Documentation build failed - check configuration"
           
       - name: Upload docs
         if: steps.check-docs.outputs.docs_exist == 'true'
