@@ -7,6 +7,7 @@ import BrandHeader from '@/components/BrandHeader'
 import { api, APIError, ProxyMisconfiguredError, getErrorMessage } from '@/lib/api-client'
 import { toast } from '@/components/ui/toast'
 import { useGlobalNotice } from '@/lib/globalNotice'
+import { useAuth } from '@/lib/auth'
 
 // ============================================================================
 // Form Schema
@@ -28,6 +29,7 @@ export function Login() {
   const navigate = useNavigate()
   const location = useLocation()
   const { notice } = useGlobalNotice()
+  const { checkSession } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [requiresCode, setRequiresCode] = useState(false)
@@ -98,8 +100,13 @@ export function Login() {
       
       await api.auth.login(loginData)
       
-      // Success - navigate to return URL or dashboard
+      // Success - update session and navigate
       toast.success('Successfully signed in')
+      
+      // Check session to update auth context
+      await checkSession()
+      
+      // Navigate to return URL or dashboard
       navigate(returnTo, { replace: true })
     } catch (err) {
       if (err instanceof APIError) {

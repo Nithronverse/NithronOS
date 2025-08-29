@@ -8,6 +8,7 @@ import { AppCatalog } from './pages/AppCatalog'
 import { AppInstallWizard } from './pages/AppInstallWizard'
 import { AppDetails } from './pages/AppDetails'
 import { Settings } from './pages/Settings'
+import { Users } from './pages/Users'
 import SettingsSchedules from './routes/settings/schedules'
 import { Remote } from './pages/Remote'
 import { Login } from './pages/Login'
@@ -21,6 +22,7 @@ import Setup from './pages/Setup'
 import { GlobalNoticeProvider, useGlobalNotice } from './lib/globalNotice'
 import Banner from './components/Banner'
 import HelpProxy from './pages/HelpProxy'
+import { NotFound } from './pages/NotFound'
 import { Toasts } from '@/components/ui/toast'
 import { AuthProvider, AuthGuard } from './lib/auth'
 import { useEffect, useState } from 'react'
@@ -133,6 +135,7 @@ const router = createBrowserRouter([
           { path: 'apps/install/:id', element: <AppInstallWizard /> },
           { path: 'apps/:id', element: <AppDetails /> },
           { path: 'settings', element: <Settings /> },
+          { path: 'settings/users', element: <Users /> },
           { path: 'settings/schedules', element: <SettingsSchedules /> },
           { path: 'settings/updates', element: <Updates /> },
           { path: 'settings/network', element: <NetworkSettings /> },
@@ -160,6 +163,10 @@ const router = createBrowserRouter([
       {
         path: '/help/proxy',
         element: <HelpProxy />,
+      },
+      {
+        path: '*',
+        element: <NotFound />,
       },
     ],
   },

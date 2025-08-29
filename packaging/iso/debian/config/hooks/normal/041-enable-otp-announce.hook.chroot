@@ -10,6 +10,7 @@ chmod +x /etc/update-motd.d/50-nithronos-otp 2>/dev/null || true
 # Enable the units
 systemctl enable otp-announce.service || true
 systemctl enable otp-announce.path || true
+systemctl enable otp-announce.timer || true
 
 # Verify the services are enabled
 if systemctl is-enabled otp-announce.service >/dev/null 2>&1; then
@@ -18,6 +19,10 @@ fi
 
 if systemctl is-enabled otp-announce.path >/dev/null 2>&1; then
     echo "[otp-announce] otp-announce.path successfully enabled"
+fi
+
+if systemctl is-enabled otp-announce.timer >/dev/null 2>&1; then
+    echo "[otp-announce] otp-announce.timer successfully enabled"
 fi
 
 echo "[otp-announce] Done"

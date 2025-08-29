@@ -27,7 +27,22 @@ case "$1" in
         chmod 0755 /usr/lib/nithronos/gen-local-cert.sh || true
         # Enable TLS generator and core services
         systemctl enable nithronos-certgen.service || true
+        # Ensure Caddy is definitely enabled and will start on boot
         systemctl enable caddy.service || true
+        systemctl daemon-reload || true
+        # Create startup override to ensure Caddy always starts
+        mkdir -p /etc/systemd/system/caddy.service.d
+        cat > /etc/systemd/system/caddy.service.d/override.conf <<EOF
+[Unit]
+# Ensure Caddy starts after network and nosd
+After=network-online.target nosd.service
+Wants=network-online.target
+
+[Install]
+# Make sure it's wanted by multi-user.target
+WantedBy=multi-user.target
+EOF
+        systemctl daemon-reload || true
         systemctl enable nosd.service || true
         systemctl enable nos-agent.service || true
         systemctl enable nithronos-firstboot-banner.service || true
