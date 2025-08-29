@@ -19,6 +19,8 @@ import { PoolsCreate } from './pages/PoolsCreate'
 import { PoolDetails } from './pages/PoolDetails'
 import Updates from './pages/Updates'
 import Setup from './pages/Setup'
+import Snapshots from './pages/Snapshots'
+import BackupSchedules from './pages/BackupSchedules'
 import { GlobalNoticeProvider, useGlobalNotice } from './lib/globalNotice'
 import Banner from './components/Banner'
 import HelpProxy from './pages/HelpProxy'
@@ -139,6 +141,8 @@ const router = createBrowserRouter([
           { path: 'settings/schedules', element: <SettingsSchedules /> },
           { path: 'settings/updates', element: <Updates /> },
           { path: 'settings/network', element: <NetworkSettings /> },
+          { path: 'backup/snapshots', element: <Snapshots /> },
+          { path: 'backup/schedules', element: <BackupSchedules /> },
           { path: 'settings/network/wizard', element: <RemoteAccessWizard /> },
           { path: 'settings/2fa', element: <TwoFactorSettings /> },
           { path: 'remote', element: <Remote /> },

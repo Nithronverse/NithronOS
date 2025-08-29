@@ -327,6 +327,11 @@ func (s *Scheduler) ListSnapshots() []*Snapshot {
 	return snapshots
 }
 
+// GetJobManager returns the job manager
+func (s *Scheduler) GetJobManager() *JobManager {
+	return s.jobManager
+}
+
 // GetSnapshotStats returns snapshot statistics
 func (s *Scheduler) GetSnapshotStats() *SnapshotStats {
 	s.mu.RLock()

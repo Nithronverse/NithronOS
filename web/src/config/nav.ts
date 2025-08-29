@@ -5,6 +5,9 @@ import {
   Package,
   Globe,
   Settings,
+  Archive,
+  Camera,
+  Calendar,
   LucideIcon,
 } from 'lucide-react'
 
@@ -34,6 +37,26 @@ export const navItems: NavItem[] = [
     label: 'Shares',
     icon: Share2,
     path: '/shares',
+  },
+  {
+    id: 'backup',
+    label: 'Backup',
+    icon: Archive,
+    path: '/backup/snapshots',
+    children: [
+      {
+        id: 'snapshots',
+        label: 'Snapshots',
+        icon: Camera,
+        path: '/backup/snapshots',
+      },
+      {
+        id: 'schedules',
+        label: 'Schedules',
+        icon: Calendar,
+        path: '/backup/schedules',
+      },
+    ],
   },
   {
     id: 'apps',
