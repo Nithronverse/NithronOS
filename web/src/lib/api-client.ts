@@ -435,6 +435,46 @@ export const api = {
     getProgress: () => apiClient.get('/api/updates/progress'),
     rollback: (data: any) => apiClient.post('/api/updates/rollback', data),
   },
+  
+  // System configuration
+  system: {
+    getHostname: async () => get<{ hostname: string; pretty_hostname?: string }>('/api/v1/system/hostname'),
+    setHostname: async (data: { hostname: string; pretty_hostname?: string }) => 
+      post<{ status: string }>('/api/v1/system/hostname', data),
+    
+    getTimezone: async () => get<{ timezone: string; time: string; utc: boolean }>('/api/v1/system/timezone'),
+    setTimezone: async (data: { timezone: string; utc?: boolean }) => 
+      post<{ status: string }>('/api/v1/system/timezone', data),
+    getTimezones: async () => get<{ timezones: string[] }>('/api/v1/system/timezones'),
+    
+    getNTP: async () => get<{ enabled: boolean; servers: string[]; status: string }>('/api/v1/system/ntp'),
+    setNTP: async (data: { enabled: boolean; servers?: string[] }) => 
+      post<{ status: string }>('/api/v1/system/ntp', data),
+  },
+  
+  // Network configuration
+  network: {
+    getInterfaces: async () => get<{ interfaces: any[] }>('/api/v1/system/network/interfaces'),
+    getInterface: async (iface: string) => get<any>(`/api/v1/system/network/interfaces/${iface}`),
+    configureInterface: async (iface: string, config: {
+      dhcp: boolean;
+      ipv4_address?: string;
+      ipv4_gateway?: string;
+      dns?: string[];
+    }) => post<{ status: string }>(`/api/v1/system/network/interfaces/${iface}`, config),
+  },
+  
+  // Telemetry consent
+  telemetry: {
+    getConsent: async () => get<{
+      enabled: boolean;
+      consented_at?: string;
+      data_types?: string[];
+      last_report_at?: string;
+    }>('/api/v1/system/telemetry/consent'),
+    setConsent: async (data: { enabled: boolean; data_types?: string[] }) => 
+      post<{ status: string }>('/api/v1/system/telemetry/consent', data),
+  },
 }
 
 export default apiClient

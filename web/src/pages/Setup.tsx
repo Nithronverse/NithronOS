@@ -13,7 +13,7 @@ import { toast } from '@/components/ui/toast'
 // Type Definitions
 // ============================================================================
 
-type SetupStep = 'otp' | 'admin' | 'totp' | 'done'
+type SetupStep = 'otp' | 'admin' | 'system' | 'network' | 'telemetry' | 'totp' | 'done'
 
 // ============================================================================
 // Password Validation
@@ -60,6 +60,7 @@ export default function Setup() {
   const [error, setError] = useState<string | null>(null)
   const [setupToken, setSetupToken] = useState<string | null>(null)
   const [adminCreds, setAdminCreds] = useState<{ username: string; password: string } | null>(null)
+  const [enableTotp, setEnableTotp] = useState(false)
   
   // Check if backend is reachable
   const isBackendUnreachable = notice?.title.includes('Backend unreachable')
@@ -163,9 +164,32 @@ export default function Setup() {
             {step === 'admin' && setupToken && (
               <StepCreateAdmin
                 token={setupToken}
-                onSuccess={(enableTotp, creds) => {
-                  if (enableTotp && creds) {
+                onSuccess={(totpEnabled, creds) => {
+                  if (creds) {
                     setAdminCreds(creds)
+                    setEnableTotp(totpEnabled)
+                  }
+                  setStep('system')
+                }}
+              />
+            )}
+            
+            {step === 'system' && (
+              <StepSystemConfig
+                onSuccess={() => setStep('network')}
+              />
+            )}
+            
+            {step === 'network' && (
+              <StepNetworkConfig
+                onSuccess={() => setStep('telemetry')}
+              />
+            )}
+            
+            {step === 'telemetry' && (
+              <StepTelemetry
+                onSuccess={() => {
+                  if (enableTotp && adminCreds) {
                     setStep('totp')
                   } else {
                     setStep('done')
@@ -197,10 +221,13 @@ export default function Setup() {
 
 function SetupSteps({ currentStep }: { currentStep: SetupStep }) {
   const steps = [
-    { id: 'otp', label: 'Verify OTP' },
-    { id: 'admin', label: 'Create Admin' },
-    { id: 'totp', label: 'Enable 2FA' },
-    { id: 'done', label: 'Complete' },
+    { id: 'otp', label: 'OTP' },
+    { id: 'admin', label: 'Admin' },
+    { id: 'system', label: 'System' },
+    { id: 'network', label: 'Network' },
+    { id: 'telemetry', label: 'Telemetry' },
+    { id: 'totp', label: '2FA' },
+    { id: 'done', label: 'Done' },
   ]
   
   const currentIndex = steps.findIndex(s => s.id === currentStep)
@@ -734,5 +761,510 @@ function StepDone({ onContinue }: { onContinue: () => void }) {
         Go to Sign In
       </button>
     </div>
+  )
+}
+
+// ============================================================================
+// Step: System Configuration (Hostname, Timezone)
+// ============================================================================
+
+function StepSystemConfig({ onSuccess }: { onSuccess: () => void }) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [hostname, setHostname] = useState('')
+  const [timezone, setTimezone] = useState('UTC')
+  const [ntp, setNtp] = useState(true)
+  const [timezones, setTimezones] = useState<string[]>([])
+  
+  useEffect(() => {
+    loadCurrentConfig()
+    loadTimezones()
+  }, [])
+  
+  const loadCurrentConfig = async () => {
+    try {
+      const [hostnameRes, timezoneRes, ntpRes] = await Promise.all([
+        api.system.getHostname(),
+        api.system.getTimezone(),
+        api.system.getNTP(),
+      ])
+      
+      setHostname(hostnameRes.hostname || 'nithronos')
+      setTimezone(timezoneRes.timezone || 'UTC')
+      setNtp(ntpRes.enabled)
+    } catch (err) {
+      console.error('Failed to load system config:', err)
+    }
+  }
+  
+  const loadTimezones = async () => {
+    try {
+      const res = await api.system.getTimezones()
+      setTimezones(res.timezones || [])
+    } catch (err) {
+      console.error('Failed to load timezones:', err)
+      // Fallback to common timezones
+      setTimezones([
+        'UTC',
+        'America/New_York',
+        'America/Chicago',
+        'America/Denver',
+        'America/Los_Angeles',
+        'Europe/London',
+        'Europe/Paris',
+        'Europe/Berlin',
+        'Asia/Tokyo',
+        'Asia/Shanghai',
+        'Australia/Sydney',
+      ])
+    }
+  }
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!hostname || hostname.length < 1) {
+      setError('Please enter a hostname')
+      return
+    }
+    
+    // Validate hostname (RFC 1123)
+    const hostnameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/
+    if (!hostnameRegex.test(hostname)) {
+      setError('Invalid hostname format')
+      return
+    }
+    
+    try {
+      setLoading(true)
+      setError(null)
+      
+      await Promise.all([
+        api.system.setHostname({ hostname }),
+        api.system.setTimezone({ timezone }),
+        api.system.setNTP({ enabled: ntp }),
+      ])
+      
+      toast.success('System configuration updated')
+      onSuccess()
+    } catch (err) {
+      setError(getErrorMessage(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <h2 className="text-lg font-semibold">System Configuration</h2>
+      
+      <div>
+        <label htmlFor="hostname" className="block text-sm font-medium mb-2">
+          Hostname
+        </label>
+        <input
+          id="hostname"
+          type="text"
+          className="w-full rounded bg-card p-2"
+          placeholder="nithronos"
+          value={hostname}
+          onChange={(e) => setHostname(e.target.value)}
+          disabled={loading}
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          The name for this system on the network
+        </p>
+      </div>
+      
+      <div>
+        <label htmlFor="timezone" className="block text-sm font-medium mb-2">
+          Timezone
+        </label>
+        <select
+          id="timezone"
+          className="w-full rounded bg-card p-2"
+          value={timezone}
+          onChange={(e) => setTimezone(e.target.value)}
+          disabled={loading}
+        >
+          {timezones.map((tz) => (
+            <option key={tz} value={tz}>{tz}</option>
+          ))}
+        </select>
+      </div>
+      
+      <div className="flex items-center">
+        <input
+          id="ntp"
+          type="checkbox"
+          className="mr-2"
+          checked={ntp}
+          onChange={(e) => setNtp(e.target.checked)}
+          disabled={loading}
+        />
+        <label htmlFor="ntp" className="text-sm">
+          Enable automatic time synchronization (NTP)
+        </label>
+      </div>
+      
+      {error && <div className="text-sm text-red-400">{error}</div>}
+      
+      <button
+        type="submit"
+        className="btn bg-primary text-primary-foreground w-full"
+        disabled={loading}
+      >
+        {loading ? 'Saving...' : 'Continue'}
+      </button>
+    </form>
+  )
+}
+
+// ============================================================================
+// Step: Network Configuration
+// ============================================================================
+
+function StepNetworkConfig({ onSuccess }: { onSuccess: () => void }) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [interfaces, setInterfaces] = useState<any[]>([])
+  const [selectedInterface, setSelectedInterface] = useState<string>('')
+  const [dhcp, setDhcp] = useState(true)
+  const [ipAddress, setIpAddress] = useState('')
+  const [gateway, setGateway] = useState('')
+  const [dns, setDns] = useState<string[]>(['8.8.8.8', '8.8.4.4'])
+  
+  useEffect(() => {
+    loadInterfaces()
+  }, [])
+  
+  const loadInterfaces = async () => {
+    try {
+      const res = await api.network.getInterfaces()
+      const ifaces = res.interfaces || []
+      setInterfaces(ifaces)
+      
+      // Auto-select first ethernet interface
+      const ethInterface = ifaces.find((i: any) => 
+        i.type === 'ethernet' && i.state === 'up'
+      ) || ifaces[0]
+      
+      if (ethInterface) {
+        setSelectedInterface(ethInterface.name)
+        setDhcp(ethInterface.dhcp)
+        
+        if (ethInterface.ipv4_address && ethInterface.ipv4_address.length > 0) {
+          setIpAddress(ethInterface.ipv4_address[0])
+        }
+        
+        if (ethInterface.gateway) {
+          setGateway(ethInterface.gateway)
+        }
+        
+        if (ethInterface.dns && ethInterface.dns.length > 0) {
+          setDns(ethInterface.dns)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load interfaces:', err)
+    }
+  }
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!selectedInterface) {
+      setError('Please select a network interface')
+      return
+    }
+    
+    if (!dhcp) {
+      if (!ipAddress || !gateway) {
+        setError('Static configuration requires IP address and gateway')
+        return
+      }
+      
+      // Validate IP format
+      const ipRegex = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/
+      if (!ipRegex.test(ipAddress)) {
+        setError('Invalid IP address format (use CIDR notation, e.g., 192.168.1.100/24)')
+        return
+      }
+    }
+    
+    try {
+      setLoading(true)
+      setError(null)
+      
+      await api.network.configureInterface(selectedInterface, {
+        dhcp,
+        ipv4_address: dhcp ? undefined : ipAddress,
+        ipv4_gateway: dhcp ? undefined : gateway,
+        dns: dhcp ? undefined : dns.filter(d => d),
+      })
+      
+      toast.success('Network configuration updated')
+      onSuccess()
+    } catch (err) {
+      setError(getErrorMessage(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  const handleSkip = () => {
+    toast.info('Using current network configuration')
+    onSuccess()
+  }
+  
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <h2 className="text-lg font-semibold">Network Configuration</h2>
+      
+      <div>
+        <label htmlFor="interface" className="block text-sm font-medium mb-2">
+          Network Interface
+        </label>
+        <select
+          id="interface"
+          className="w-full rounded bg-card p-2"
+          value={selectedInterface}
+          onChange={(e) => setSelectedInterface(e.target.value)}
+          disabled={loading}
+        >
+          <option value="">Select interface...</option>
+          {interfaces.map((iface) => (
+            <option key={iface.name} value={iface.name}>
+              {iface.name} ({iface.type}) - {iface.state}
+            </option>
+          ))}
+        </select>
+      </div>
+      
+      <div className="flex items-center">
+        <input
+          id="dhcp"
+          type="checkbox"
+          className="mr-2"
+          checked={dhcp}
+          onChange={(e) => setDhcp(e.target.checked)}
+          disabled={loading}
+        />
+        <label htmlFor="dhcp" className="text-sm">
+          Use DHCP (automatic configuration)
+        </label>
+      </div>
+      
+      {!dhcp && (
+        <>
+          <div>
+            <label htmlFor="ipAddress" className="block text-sm font-medium mb-2">
+              IP Address (CIDR)
+            </label>
+            <input
+              id="ipAddress"
+              type="text"
+              className="w-full rounded bg-card p-2"
+              placeholder="192.168.1.100/24"
+              value={ipAddress}
+              onChange={(e) => setIpAddress(e.target.value)}
+              disabled={loading}
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="gateway" className="block text-sm font-medium mb-2">
+              Gateway
+            </label>
+            <input
+              id="gateway"
+              type="text"
+              className="w-full rounded bg-card p-2"
+              placeholder="192.168.1.1"
+              value={gateway}
+              onChange={(e) => setGateway(e.target.value)}
+              disabled={loading}
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="dns1" className="block text-sm font-medium mb-2">
+              DNS Servers
+            </label>
+            <input
+              id="dns1"
+              type="text"
+              className="w-full rounded bg-card p-2 mb-2"
+              placeholder="Primary DNS"
+              value={dns[0] || ''}
+              onChange={(e) => setDns([e.target.value, dns[1] || ''])}
+              disabled={loading}
+            />
+            <input
+              id="dns2"
+              type="text"
+              className="w-full rounded bg-card p-2"
+              placeholder="Secondary DNS (optional)"
+              value={dns[1] || ''}
+              onChange={(e) => setDns([dns[0] || '', e.target.value])}
+              disabled={loading}
+            />
+          </div>
+        </>
+      )}
+      
+      {error && <div className="text-sm text-red-400">{error}</div>}
+      
+      <div className="flex gap-2">
+        <button
+          type="button"
+          className="btn bg-secondary flex-1"
+          onClick={handleSkip}
+          disabled={loading}
+        >
+          Skip
+        </button>
+        <button
+          type="submit"
+          className="btn bg-primary text-primary-foreground flex-1"
+          disabled={loading}
+        >
+          {loading ? 'Saving...' : 'Continue'}
+        </button>
+      </div>
+    </form>
+  )
+}
+
+// ============================================================================
+// Step: Telemetry Consent
+// ============================================================================
+
+function StepTelemetry({ onSuccess }: { onSuccess: () => void }) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [consent, setConsent] = useState(false)
+  const [dataTypes, setDataTypes] = useState({
+    system_info: true,
+    usage_stats: true,
+    error_reports: true,
+  })
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const selectedTypes = Object.entries(dataTypes)
+        .filter(([_, enabled]) => enabled)
+        .map(([type]) => type)
+      
+      await api.telemetry.setConsent({
+        enabled: consent,
+        data_types: consent ? selectedTypes : [],
+      })
+      
+      toast.success(
+        consent 
+          ? 'Thank you for helping improve NithronOS!' 
+          : 'Telemetry disabled'
+      )
+      onSuccess()
+    } catch (err) {
+      setError(getErrorMessage(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <h2 className="text-lg font-semibold">Help Improve NithronOS</h2>
+      
+      <p className="text-sm text-muted-foreground">
+        Would you like to share anonymous usage data to help us improve NithronOS? 
+        This is completely optional and can be changed later in settings.
+      </p>
+      
+      <div className="border border-muted rounded p-4 space-y-2">
+        <div className="flex items-center">
+          <input
+            id="consent"
+            type="checkbox"
+            className="mr-2"
+            checked={consent}
+            onChange={(e) => setConsent(e.target.checked)}
+            disabled={loading}
+          />
+          <label htmlFor="consent" className="text-sm font-medium">
+            Enable anonymous telemetry
+          </label>
+        </div>
+        
+        {consent && (
+          <div className="ml-6 space-y-2 text-sm">
+            <div className="flex items-center">
+              <input
+                id="system_info"
+                type="checkbox"
+                className="mr-2"
+                checked={dataTypes.system_info}
+                onChange={(e) => setDataTypes({...dataTypes, system_info: e.target.checked})}
+                disabled={loading}
+              />
+              <label htmlFor="system_info">
+                System information (OS version, hardware specs)
+              </label>
+            </div>
+            
+            <div className="flex items-center">
+              <input
+                id="usage_stats"
+                type="checkbox"
+                className="mr-2"
+                checked={dataTypes.usage_stats}
+                onChange={(e) => setDataTypes({...dataTypes, usage_stats: e.target.checked})}
+                disabled={loading}
+              />
+              <label htmlFor="usage_stats">
+                Usage statistics (feature usage, performance metrics)
+              </label>
+            </div>
+            
+            <div className="flex items-center">
+              <input
+                id="error_reports"
+                type="checkbox"
+                className="mr-2"
+                checked={dataTypes.error_reports}
+                onChange={(e) => setDataTypes({...dataTypes, error_reports: e.target.checked})}
+                disabled={loading}
+              />
+              <label htmlFor="error_reports">
+                Error reports (crash logs, error messages)
+              </label>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      <div className="bg-card rounded p-3 text-xs text-muted-foreground">
+        <strong>Privacy Promise:</strong> We never collect personal data, file names, 
+        file contents, or any identifiable information. All data is aggregated and 
+        anonymous. You can view exactly what data is sent in the logs.
+      </div>
+      
+      {error && <div className="text-sm text-red-400">{error}</div>}
+      
+      <button
+        type="submit"
+        className="btn bg-primary text-primary-foreground w-full"
+        disabled={loading}
+      >
+        {loading ? 'Saving...' : 'Continue'}
+      </button>
+    </form>
   )
 }
