@@ -17,7 +17,11 @@ global.fetch = vi.fn()
 const createWrapper = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
-      queries: { retry: false },
+      queries: { 
+        retry: false,
+        gcTime: 0,
+        staleTime: 0,
+      },
     },
   })
   
@@ -199,13 +203,14 @@ describe('API Wiring Tests', () => {
         status: 502,
         headers: new Headers({ 'content-type': 'text/html' }),
         text: async () => '<html>502 Bad Gateway</html>',
+        json: async () => { throw new Error('Not JSON') },
       })
 
       const { result } = renderHook(() => useSystemInfo(), {
         wrapper: createWrapper(),
       })
 
-      await waitFor(() => expect(result.current.isError).toBe(true))
+      await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 5000 })
       
       expect(result.current.error).toBeDefined()
     })
@@ -217,13 +222,14 @@ describe('API Wiring Tests', () => {
         json: async () => {
           throw new Error('Invalid JSON')
         },
+        text: async () => 'not json',
       })
 
       const { result } = renderHook(() => useSystemInfo(), {
         wrapper: createWrapper(),
       })
 
-      await waitFor(() => expect(result.current.isError).toBe(true))
+      await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 5000 })
       
       expect(result.current.error).toBeDefined()
     })

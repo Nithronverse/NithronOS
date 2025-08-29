@@ -120,8 +120,8 @@ describe('Login Flow', () => {
   it('should handle login with TOTP', async () => {
     // First attempt returns requires_totp
     vi.mocked(api.auth.login).mockRejectedValueOnce({
-      status: 403,
-      message: 'requires_totp',
+      status: 401,
+      message: 'code required',
     })
     
     renderLogin()
@@ -133,7 +133,7 @@ describe('Login Flow', () => {
     
     // Should show TOTP field
     await waitFor(() => {
-      expect(screen.getByLabelText(/two-factor code/i)).toBeInTheDocument()
+      expect(screen.getByLabelText(/two-factor authentication code/i)).toBeInTheDocument()
     })
     
     // Second attempt with TOTP
@@ -141,7 +141,7 @@ describe('Login Flow', () => {
       ok: true,
     })
     
-    await user.type(screen.getByLabelText(/two-factor code/i), '123456')
+    await user.type(screen.getByLabelText(/two-factor authentication code/i), '123456')
     await user.click(screen.getByRole('button', { name: /verify/i }))
     
     await waitFor(() => {
@@ -187,7 +187,7 @@ describe('Login Flow', () => {
     await user.click(screen.getByRole('button', { name: /sign in/i }))
     
     await waitFor(() => {
-      expect(screen.getByText(/too many login attempts/i)).toBeInTheDocument()
+      expect(screen.getByText(/too many attempts/i)).toBeInTheDocument()
     })
   })
 

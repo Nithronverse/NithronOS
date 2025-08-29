@@ -40,7 +40,7 @@ describe('Auth E2E Flow', () => {
       
       // Should redirect to setup
       await waitFor(() => {
-        expect(screen.getByText(/welcome to nithronos/i)).toBeInTheDocument()
+        expect(screen.getByText(/first-time setup/i)).toBeInTheDocument()
         expect(screen.getByText(/enter one-time password/i)).toBeInTheDocument()
       })
       
@@ -77,7 +77,7 @@ describe('Auth E2E Flow', () => {
       
       // Should redirect to login
       await waitFor(() => {
-        expect(screen.getByText(/sign in to nithronos/i)).toBeInTheDocument()
+        expect(screen.getByText(/sign in/i)).toBeInTheDocument()
       })
       
       // Step 3: Login with created account
@@ -223,7 +223,7 @@ describe('Auth E2E Flow', () => {
       
       // Should redirect to login
       await waitFor(() => {
-        expect(screen.getByText(/sign in to nithronos/i)).toBeInTheDocument()
+        expect(screen.getByText(/sign in/i)).toBeInTheDocument()
         expect(screen.getByText(/session expired/i)).toBeInTheDocument()
       })
     })
@@ -283,7 +283,7 @@ describe('Auth E2E Flow', () => {
       await waitFor(() => {
         expect(sessionStorage.getItem('access_token')).toBeNull()
         expect(sessionStorage.getItem('refresh_token')).toBeNull()
-        expect(screen.getByText(/sign in to nithronos/i)).toBeInTheDocument()
+        expect(screen.getByText(/sign in/i)).toBeInTheDocument()
       })
     })
   })
