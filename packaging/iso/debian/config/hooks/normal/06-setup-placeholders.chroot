@@ -6,6 +6,7 @@ echo "[06-setup-placeholders] Setting up placeholder binaries..."
 # Make placeholder binaries executable
 chmod +x /usr/bin/nosd 2>/dev/null || true
 chmod +x /usr/sbin/nos-agent 2>/dev/null || true
+chmod +x /usr/sbin/nos-installer 2>/dev/null || true
 
 # Ensure netcat is installed for nosd placeholder
 apt-get update && apt-get install -y netcat-openbsd || true
