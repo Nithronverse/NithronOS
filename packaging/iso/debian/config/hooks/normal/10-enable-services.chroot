@@ -4,12 +4,19 @@ set -e
 # Primary service enablement - only enable services once here
 echo "[10-enable-services] Enabling core services..."
 
-# Enable core services
-systemctl enable caddy.service || true
-systemctl enable nosd.service || true
+# Apply systemd presets first
+systemctl preset-all || true
+
+# Explicitly enable core services (in case preset doesn't work)
 systemctl enable nos-agent.service || true
+systemctl enable nosd.service || true
+systemctl enable caddy.service || true
 systemctl enable nithronos-firstboot.service || true
 systemctl enable nos-tls-gen.service || true
+systemctl enable otp-announce.service || true
+
+# Set default target
+systemctl set-default multi-user.target || true
 
 echo "[10-enable-services] Core services enabled"
 

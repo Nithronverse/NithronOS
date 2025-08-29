@@ -1,0 +1,14 @@
+# NithronOS default service presets
+# These services will be enabled by default on first boot
+
+# Core services
+enable nos-agent.service
+enable nosd.service
+enable caddy.service
+enable nos-tls-gen.service
+enable nithronos-firstboot.service
+enable otp-announce.service
+
+# Disable services that should not start automatically
+disable nos-snapshot-prune.service
+disable nos-snapshot-prune.timer

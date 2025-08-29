@@ -1,14 +1,19 @@
 [Unit]
 Description=NithronOS: announce first-boot OTP to console
-Wants=nosd.service
-After=multi-user.target nosd.service systemd-user-sessions.service
-Before=getty@tty1.service
+Wants=nosd.service getty@tty1.service
+After=multi-user.target nosd.service systemd-user-sessions.service getty@tty1.service
+# Run after getty is ready so terminal is usable
 
 [Service]
 Type=oneshot
-# Add delay to ensure console is ready and nosd has generated OTP
-ExecStartPre=/bin/sleep 3
+# Wait longer to ensure terminal is fully ready and user can see
+ExecStartPre=/bin/sleep 5
 ExecStart=/usr/lib/nithronos/otp-notify
+# Also display OTP multiple times with pauses for visibility
+ExecStartPost=/bin/sleep 2
+ExecStartPost=/usr/lib/nithronos/otp-notify
+ExecStartPost=/bin/sleep 2
+ExecStartPost=/usr/lib/nithronos/otp-notify
 StandardOutput=journal+console
 StandardError=journal+console
 RemainAfterExit=yes

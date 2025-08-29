@@ -78,13 +78,23 @@ if [ -z "$ip_addr" ]; then
     ip_addr="<server-ip>"
 fi
 
-# Compose the message
+# Compose the message with better visibility
 message="
+
 ================================================================================
-  NithronOS first-boot OTP: $otp
-  Valid for 15 minutes • Open http://nithron.os or http://$ip_addr
-  If lost: systemctl restart nosd (will rotate OTP)
-================================================================================"
+                        NITHRONOS FIRST-BOOT SETUP
+================================================================================
+
+  YOUR ONE-TIME PASSWORD (OTP): $otp
+
+  • Access the web interface at:
+    http://nithron.os or http://$ip_addr
+
+  • This OTP is valid for 15 minutes
+  • If you miss it: systemctl restart nosd (generates new OTP)
+
+================================================================================
+"
 
 # Create runtime directory
 mkdir -p /run/nithronos
