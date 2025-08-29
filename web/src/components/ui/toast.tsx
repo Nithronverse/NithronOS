@@ -71,5 +71,7 @@ export const toast = {
   },
 };
 
-// Alias for compatibility with existing code
-export const pushToast = toast;
+// Compatibility wrapper for existing code - a real function
+export function pushToast(message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success'): void {
+  toast[type](message);
+}

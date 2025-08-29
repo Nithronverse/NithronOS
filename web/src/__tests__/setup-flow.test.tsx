@@ -45,6 +45,15 @@ vi.mock('qrcode.react', () => ({
   ),
 }))
 
+// Mock globalNotice
+vi.mock('../lib/globalNotice', () => ({
+  GlobalNoticeProvider: ({ children }: any) => children,
+  useGlobalNotice: () => ({
+    notice: null,
+    setNotice: vi.fn(),
+  }),
+}))
+
 describe('Setup Flow', () => {
   beforeEach(() => {
     vi.clearAllMocks()

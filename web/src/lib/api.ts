@@ -97,7 +97,11 @@ class ApiClient {
 
     // Parse success response
     if (contentType.includes('application/json')) {
-      return response.json()
+      try {
+        return await response.json()
+      } catch (e) {
+        throw new APIError('Invalid JSON response', response.status, 'JSON_PARSE_ERROR')
+      }
     }
     
     return undefined as unknown as T

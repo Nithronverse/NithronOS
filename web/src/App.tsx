@@ -27,6 +27,30 @@ import { useEffect, useState } from 'react'
 import { api, APIError, ProxyMisconfiguredError } from './lib/api-client'
 
 // ============================================================================
+// Root Layout with Auth Provider
+// ============================================================================
+
+function RootLayout() {
+  const { notice } = useGlobalNotice()
+  
+  return (
+    <AuthProvider>
+      <div className="min-h-screen">
+        {notice && (
+          <Banner
+            variant={notice.kind}
+            title={notice.title}
+            message={notice.message}
+            action={notice.action}
+          />
+        )}
+        <Outlet />
+      </div>
+    </AuthProvider>
+  )
+}
+
+// ============================================================================
 // Protected Layout Component
 // ============================================================================
 
@@ -94,70 +118,52 @@ function SetupGuard({ children }: { children: React.ReactNode }) {
 const router = createBrowserRouter([
   {
     path: '/',
-    element: <ProtectedLayout />,
+    element: <RootLayout />,
     children: [
-      { index: true, element: <Dashboard /> },
-      { path: 'storage', element: <Storage /> },
-      { path: 'shares', element: <SharesList /> },
-      { path: 'shares/new', element: <ShareDetails /> },
-      { path: 'shares/:name', element: <ShareDetails /> },
-      { path: 'apps', element: <AppCatalog /> },
-      { path: 'apps/install/:id', element: <AppInstallWizard /> },
-      { path: 'apps/:id', element: <AppDetails /> },
-      { path: 'settings', element: <Settings /> },
-      { path: 'settings/schedules', element: <SettingsSchedules /> },
-      { path: 'settings/updates', element: <Updates /> },
-      { path: 'settings/network', element: <NetworkSettings /> },
-      { path: 'settings/network/wizard', element: <RemoteAccessWizard /> },
-      { path: 'settings/2fa', element: <TwoFactorSettings /> },
-      { path: 'remote', element: <Remote /> },
-      { path: 'storage/create', element: <PoolsCreate /> },
-      { path: 'storage/:id', element: <PoolDetails /> },
-      // Redirect old schedules route to new location
-      { path: 'schedules', element: <Navigate to="/settings/schedules" replace /> },
+      {
+        path: '/',
+        element: <ProtectedLayout />,
+        children: [
+          { index: true, element: <Dashboard /> },
+          { path: 'storage', element: <Storage /> },
+          { path: 'shares', element: <SharesList /> },
+          { path: 'shares/new', element: <ShareDetails /> },
+          { path: 'shares/:name', element: <ShareDetails /> },
+          { path: 'apps', element: <AppCatalog /> },
+          { path: 'apps/install/:id', element: <AppInstallWizard /> },
+          { path: 'apps/:id', element: <AppDetails /> },
+          { path: 'settings', element: <Settings /> },
+          { path: 'settings/schedules', element: <SettingsSchedules /> },
+          { path: 'settings/updates', element: <Updates /> },
+          { path: 'settings/network', element: <NetworkSettings /> },
+          { path: 'settings/network/wizard', element: <RemoteAccessWizard /> },
+          { path: 'settings/2fa', element: <TwoFactorSettings /> },
+          { path: 'remote', element: <Remote /> },
+          { path: 'storage/create', element: <PoolsCreate /> },
+          { path: 'storage/:id', element: <PoolDetails /> },
+          // Redirect old schedules route to new location
+          { path: 'schedules', element: <Navigate to="/settings/schedules" replace /> },
+        ],
+      },
+      {
+        path: '/login',
+        element: (
+          <SetupGuard>
+            <Login />
+          </SetupGuard>
+        ),
+      },
+      {
+        path: '/setup',
+        element: <Setup />,
+      },
+      {
+        path: '/help/proxy',
+        element: <HelpProxy />,
+      },
     ],
   },
-  {
-    path: '/login',
-    element: (
-      <SetupGuard>
-        <Login />
-      </SetupGuard>
-    ),
-  },
-  {
-    path: '/setup',
-    element: <Setup />,
-  },
-  {
-    path: '/help/proxy',
-    element: <HelpProxy />,
-  },
 ])
-
-// ============================================================================
-// App with Router and Providers
-// ============================================================================
-
-function AppWithProviders() {
-  const { notice } = useGlobalNotice()
-  
-  return (
-    <div className="min-h-screen">
-      {notice && (
-        <Banner
-          variant={notice.kind}
-          title={notice.title}
-          message={notice.message}
-          action={notice.action}
-        />
-      )}
-      <AuthProvider>
-        <RouterProvider router={router} />
-      </AuthProvider>
-    </div>
-  )
-}
 
 // ============================================================================
 // Main App Component
@@ -167,7 +173,7 @@ export default function App() {
   return (
     <GlobalNoticeProvider>
       <Toasts />
-      <AppWithProviders />
+      <RouterProvider router={router} />
     </GlobalNoticeProvider>
   )
 }

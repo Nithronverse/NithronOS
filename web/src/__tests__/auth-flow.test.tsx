@@ -15,6 +15,7 @@ vi.mock('../lib/api-client', () => ({
       logout: vi.fn(),
       refresh: vi.fn(),
       getSession: vi.fn(),
+      session: vi.fn().mockRejectedValue({ status: 401 }),
     },
     setup: {
       getState: vi.fn(),
@@ -23,8 +24,15 @@ vi.mock('../lib/api-client', () => ({
   APIError: class APIError extends Error {
     constructor(public status: number, message: string) {
       super(message)
+      this.status = status
     }
   },
+  ProxyMisconfiguredError: class ProxyMisconfiguredError extends Error {
+    constructor(message: string) {
+      super(message)
+    }
+  },
+  getErrorMessage: (err: any) => err.message || 'An error occurred',
 }))
 
 // Mock navigation
@@ -37,10 +45,21 @@ vi.mock('react-router-dom', async () => {
   }
 })
 
+// Mock globalNotice
+vi.mock('../lib/globalNotice', () => ({
+  GlobalNoticeProvider: ({ children }: any) => children,
+  useGlobalNotice: () => ({
+    notice: null,
+    setNotice: vi.fn(),
+  }),
+}))
+
 describe('Login Flow', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockNavigate.mockClear()
+    // Default: setup is complete
+    ;(api.setup.getState as any).mockRejectedValue({ status: 410, message: 'Setup complete' })
   })
 
   const renderLogin = () => {
