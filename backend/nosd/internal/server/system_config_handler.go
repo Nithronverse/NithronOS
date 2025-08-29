@@ -528,7 +528,7 @@ func (h *SystemConfigHandler) SetTelemetryConsent(w http.ResponseWriter, r *http
 	
 	// Save consent
 	consentPath := "/etc/nos/telemetry/consent.json"
-	os.MkdirAll(filepath.Dir(consentPath), 0700)
+	_ = os.MkdirAll(filepath.Dir(consentPath), 0700)
 	
 	data, _ := json.MarshalIndent(consent, "", "  ")
 	if err := os.WriteFile(consentPath, data, 0600); err != nil {

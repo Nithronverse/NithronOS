@@ -690,5 +690,5 @@ func (e *Engine) createDefaultRules() {
 		e.rules[rule.ID] = &rule
 	}
 	
-	e.saveConfig()
+	_ = e.saveConfig()
 }

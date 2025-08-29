@@ -371,14 +371,14 @@ func (r *Restorer) rollbackSubvolume(plan *RestorePlan, targetPath string) error
 		// 2. Create new subvolume from snapshot
 		if err := exec.Command("btrfs", "subvolume", "snapshot", snapshot.Path, targetPath).Run(); err != nil {
 			// Rollback on failure
-			exec.Command("mv", backupPath, targetPath).Run()
+			_ = exec.Command("mv", backupPath, targetPath).Run()
 			return fmt.Errorf("failed to create subvolume from snapshot: %w", err)
 		}
 		
 		// 3. Delete backup after successful restore
 		go func() {
 			time.Sleep(5 * time.Minute)
-			exec.Command("btrfs", "subvolume", "delete", backupPath).Run()
+			_ = exec.Command("btrfs", "subvolume", "delete", backupPath).Run()
 		}()
 		
 		return nil
@@ -419,7 +419,7 @@ func (r *Restorer) mountSnapshot(snapshotPath string) error {
 
 func (r *Restorer) copyFiles(plan *RestorePlan, targetPath string) error {
 	// Get mount point from previous mount action
-	mountPoint := fmt.Sprintf("/tmp/restore-mount-*")
+	mountPoint := "/tmp/restore-mount-*"
 	
 	// Use rsync to copy files preserving attributes
 	cmd := exec.Command("rsync", "-avHAX", "--progress", mountPoint+"/", targetPath+"/")
@@ -428,7 +428,7 @@ func (r *Restorer) copyFiles(plan *RestorePlan, targetPath string) error {
 
 func (r *Restorer) unmountSnapshot(snapshotPath string) error {
 	// Find and unmount
-	mountPoint := fmt.Sprintf("/tmp/restore-mount-*")
+	mountPoint := "/tmp/restore-mount-*"
 	cmd := exec.Command("umount", mountPoint)
 	if err := cmd.Run(); err != nil {
 		return err

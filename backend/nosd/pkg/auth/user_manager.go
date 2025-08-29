@@ -936,13 +936,13 @@ func (um *UserManager) loadData() {
 	// Load users
 	usersPath := filepath.Join(um.dataPath, "users.json")
 	if data, err := os.ReadFile(usersPath); err == nil {
-		json.Unmarshal(data, &um.users)
+		_ = json.Unmarshal(data, &um.users)
 	}
 	
 	// Load sessions
 	sessionsPath := filepath.Join(um.dataPath, "sessions.json")
 	if data, err := os.ReadFile(sessionsPath); err == nil {
-		json.Unmarshal(data, &um.sessions)
+		_ = json.Unmarshal(data, &um.sessions)
 	}
 	
 	// Load reset tokens
@@ -960,24 +960,24 @@ func (um *UserManager) loadData() {
 
 func (um *UserManager) saveData() {
 	// Create directory if needed
-	os.MkdirAll(um.dataPath, 0700)
+	_ = os.MkdirAll(um.dataPath, 0700)
 	
 	// Save users
 	if data, err := json.MarshalIndent(um.users, "", "  "); err == nil {
 		usersPath := filepath.Join(um.dataPath, "users.json")
-		os.WriteFile(usersPath, data, 0600)
+		_ = os.WriteFile(usersPath, data, 0600)
 	}
 	
 	// Save sessions
 	if data, err := json.MarshalIndent(um.sessions, "", "  "); err == nil {
 		sessionsPath := filepath.Join(um.dataPath, "sessions.json")
-		os.WriteFile(sessionsPath, data, 0600)
+		_ = os.WriteFile(sessionsPath, data, 0600)
 	}
 	
 	// Save reset tokens
 	if data, err := json.MarshalIndent(um.resetTokens, "", "  "); err == nil {
 		tokensPath := filepath.Join(um.dataPath, "reset_tokens.json")
-		os.WriteFile(tokensPath, data, 0600)
+		_ = os.WriteFile(tokensPath, data, 0600)
 	}
 	
 	// Save lockouts

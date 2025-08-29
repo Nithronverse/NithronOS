@@ -34,7 +34,7 @@ func NewAuditLogger(logger zerolog.Logger, dataPath string) *AuditLogger {
 	}
 	
 	// Create audit directory
-	os.MkdirAll(dataPath, 0700)
+	_ = os.MkdirAll(dataPath, 0700)
 	
 	// Load recent events
 	al.loadRecentEvents()
@@ -331,9 +331,9 @@ func (al *AuditLogger) writeToFile(event *AuditEvent) {
 		return
 	}
 	
-	al.currentFile.Write(data)
-	al.currentFile.Write([]byte("\n"))
-	al.currentFile.Sync()
+	_, _ = al.currentFile.Write(data)
+	_, _ = al.currentFile.Write([]byte("\n"))
+	_ = al.currentFile.Sync()
 }
 
 func (al *AuditLogger) matchesQuery(event AuditEvent, query AuditLogQuery) bool {

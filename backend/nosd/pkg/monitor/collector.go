@@ -149,7 +149,7 @@ func (c *Collector) collectCPU(now time.Time) {
 	}
 	
 	if len(percent) > 0 {
-		c.storage.Store(MetricTypeCPU, now, percent[0], nil)
+		_ = c.storage.Store(MetricTypeCPU, now, percent[0], nil)
 		c.updateLastValue("cpu_percent", percent[0])
 	}
 	
@@ -158,7 +158,7 @@ func (c *Collector) collectCPU(now time.Time) {
 	if err == nil {
 		for i, p := range perCore {
 			labels := map[string]string{"core": strconv.Itoa(i)}
-			c.storage.Store(MetricTypeCPU, now, p, labels)
+			_ = c.storage.Store(MetricTypeCPU, now, p, labels)
 		}
 	}
 	
@@ -175,7 +175,7 @@ func (c *Collector) collectCPUTemperature(now time.Time) {
 		if temp, err := strconv.Atoi(strings.TrimSpace(string(output))); err == nil {
 			tempC := float64(temp) / 1000.0
 			labels := map[string]string{"sensor": "cpu"}
-			c.storage.Store(MetricTypeDiskTemp, now, tempC, labels)
+			_ = c.storage.Store(MetricTypeDiskTemp, now, tempC, labels)
 		}
 	}
 }

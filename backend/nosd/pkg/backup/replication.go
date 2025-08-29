@@ -220,7 +220,7 @@ func (r *Replicator) TestDestination(id string) error {
 	}
 	r.mu.Unlock()
 	
-	r.saveState()
+	_ = r.saveState()
 	
 	return err
 }
@@ -477,7 +477,7 @@ func (r *Replicator) replicateSSH(job *BackupJob, dest *Destination, snapshotPat
 			if err := pvCmd.Start(); err != nil {
 				return fmt.Errorf("failed to start pv: %w", err)
 			}
-			defer pvCmd.Wait()
+			defer func() { _ = pvCmd.Wait() }()
 		}
 	}
 	
@@ -540,7 +540,7 @@ func (r *Replicator) replicateRclone(job *BackupJob, dest *Destination, snapshot
 	if err := mountCmd.Run(); err != nil {
 		return fmt.Errorf("failed to mount snapshot: %w", err)
 	}
-	defer exec.Command("umount", mountPoint).Run()
+	defer func() { _ = exec.Command("umount", mountPoint).Run() }()
 	
 	// Build rclone command
 	rcloneArgs := []string{

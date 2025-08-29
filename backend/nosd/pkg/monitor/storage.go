@@ -233,7 +233,7 @@ func (s *TimeSeriesStorage) Query(q TimeSeriesQuery) (*TimeSeries, error) {
 		}
 		
 		if labelsJSON.Valid {
-			json.Unmarshal([]byte(labelsJSON.String), &dp.Labels)
+			_ = json.Unmarshal([]byte(labelsJSON.String), &dp.Labels)
 		}
 		
 		ts.DataPoints = append(ts.DataPoints, dp)
@@ -446,8 +446,8 @@ func (s *TimeSeriesStorage) GetStorageStats() (map[string]interface{}, error) {
 	
 	// Get database size
 	var pageCount, pageSize int64
-	s.db.QueryRow("PRAGMA page_count").Scan(&pageCount)
-	s.db.QueryRow("PRAGMA page_size").Scan(&pageSize)
+	_ = s.db.QueryRow("PRAGMA page_count").Scan(&pageCount)
+	_ = s.db.QueryRow("PRAGMA page_size").Scan(&pageSize)
 	stats["db_size_bytes"] = pageCount * pageSize
 	
 	return stats, nil

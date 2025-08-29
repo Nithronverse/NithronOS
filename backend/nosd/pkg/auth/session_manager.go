@@ -537,13 +537,13 @@ func (sm *SessionManager) ClearLockout(lockoutID string, actorID string, reason 
 
 func (sm *SessionManager) generateSessionID() string {
 	b := make([]byte, 32)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	return base64.URLEncoding.EncodeToString(b)
 }
 
 func (sm *SessionManager) generateRefreshToken() string {
 	b := make([]byte, 64)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	return base64.URLEncoding.EncodeToString(b)
 }
 

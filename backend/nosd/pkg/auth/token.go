@@ -333,7 +333,7 @@ func (tm *TokenManager) HasScope(token *APIToken, scope string) bool {
 func (tm *TokenManager) generateTokenValue(tokenType TokenType) string {
 	// Generate random bytes
 	b := make([]byte, 32)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	
 	// Encode to base64
 	encoded := base64.URLEncoding.EncodeToString(b)

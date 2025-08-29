@@ -501,7 +501,7 @@ func (s *Scheduler) runScheduledBackup(scheduleID string) {
 	s.mu.Unlock()
 	
 	// Save state
-	s.saveState()
+	_ = s.saveState()
 }
 
 func (s *Scheduler) runSnapshotJob(job *BackupJob, subvolumes []string, tag string, schedule *Schedule) {
@@ -614,7 +614,7 @@ func (s *Scheduler) runSnapshotJob(job *BackupJob, subvolumes []string, tag stri
 	s.jobManager.UpdateJob(job)
 	
 	// Save state
-	s.saveState()
+	_ = s.saveState()
 	
 	s.logger.Info().Int("count", len(createdSnapshots)).Msg("Snapshots created successfully")
 }
@@ -782,7 +782,7 @@ func (s *Scheduler) retentionLoop(ctx context.Context) {
 				}
 			}
 			
-			s.saveState()
+			_ = s.saveState()
 		}
 	}
 }

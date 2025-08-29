@@ -29,7 +29,6 @@ type Manager struct {
 	retryDelay     time.Duration
 	timeout        time.Duration
 	maxQueueSize   int
-	deadLetterPath string
 }
 
 // NewManager creates a new webhook manager
