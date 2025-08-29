@@ -1,0 +1,265 @@
+site_name: NithronOS Documentation
+site_url: https://docs.nithronos.org
+site_description: Complete documentation for NithronOS - The secure, self-hosted storage and app platform
+site_author: NithronOS Team
+copyright: Copyright &copy; 2024 NithronOS
+
+repo_url: https://github.com/yourusername/NithronOS
+repo_name: NithronOS
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  custom_dir: overrides
+  language: en
+  
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.prune
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - toc.integrate
+    - search.suggest
+    - search.highlight
+    - search.share
+    - header.autohide
+    - content.code.annotate
+    - content.code.copy
+    - content.code.select
+    - content.tabs.link
+    - content.tooltips
+    
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+        
+  font:
+    text: Inter
+    code: JetBrains Mono
+    
+  favicon: assets/favicon.svg
+  logo: assets/logo.svg
+
+plugins:
+  - search:
+      separator: '[\s\-\.]+'
+      lang:
+        - en
+  - mermaid2
+  - git-revision-date-localized:
+      enable_creation_date: true
+      type: iso_datetime
+  - minify:
+      minify_html: true
+      minify_js: true
+      minify_css: true
+  - mike:
+      version_selector: true
+      css_dir: css
+      javascript_dir: js
+      canonical_version: latest
+
+extra:
+  version:
+    provider: mike
+    default: latest
+  
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/yourusername/NithronOS
+    - icon: fontawesome/brands/docker
+      link: https://hub.docker.com/r/nithronos/nithronos
+    - icon: fontawesome/brands/discord
+      link: https://discord.gg/nithronos
+      
+  analytics:
+    provider: google
+    property: G-XXXXXXXXXX
+    
+  consent:
+    title: Cookie consent
+    description: >-
+      We use cookies to recognize your repeated visits and preferences, as well
+      as to measure the effectiveness of our documentation and whether users
+      find what they're searching for. With your consent, you're helping us to
+      make our documentation better.
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/extra.js
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:mermaid2.fence_mermaid
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+  - pymdownx.snippets:
+      auto_append:
+        - includes/abbreviations.md
+
+nav:
+  - Home: index.md
+  
+  - Getting Started:
+    - getting-started/index.md
+    - Installation:
+      - getting-started/installation/requirements.md
+      - getting-started/installation/iso-install.md
+      - getting-started/installation/debian-install.md
+      - getting-started/installation/docker.md
+    - First Boot:
+      - getting-started/first-boot/otp.md
+      - getting-started/first-boot/setup-wizard.md
+      - getting-started/first-boot/network.md
+    - Quick Start: getting-started/quickstart.md
+    
+  - User Guide:
+    - user-guide/index.md
+    - Dashboard: user-guide/dashboard.md
+    - Storage:
+      - user-guide/storage/pools.md
+      - user-guide/storage/snapshots.md
+      - user-guide/storage/health.md
+      - user-guide/storage/shares.md
+    - Applications:
+      - user-guide/apps/catalog.md
+      - user-guide/apps/installing.md
+      - user-guide/apps/managing.md
+      - user-guide/apps/custom.md
+    - Backup:
+      - user-guide/backup/schedules.md
+      - user-guide/backup/destinations.md
+      - user-guide/backup/restore.md
+    - Monitoring:
+      - user-guide/monitoring/dashboard.md
+      - user-guide/monitoring/alerts.md
+      - user-guide/monitoring/notifications.md
+    - Security:
+      - user-guide/security/users.md
+      - user-guide/security/2fa.md
+      - user-guide/security/sessions.md
+      - user-guide/security/audit.md
+    - Settings:
+      - user-guide/settings/system.md
+      - user-guide/settings/network.md
+      - user-guide/settings/updates.md
+      
+  - Administrator Guide:
+    - admin/index.md
+    - System:
+      - admin/system/services.md
+      - admin/system/logs.md
+      - admin/system/certificates.md
+    - Storage:
+      - admin/storage/btrfs.md
+      - admin/storage/raid.md
+      - admin/storage/encryption.md
+    - Networking:
+      - admin/networking/firewall.md
+      - admin/networking/vpn.md
+      - admin/networking/remote-access.md
+    - Advanced:
+      - admin/advanced/recovery.md
+      - admin/advanced/migration.md
+      - admin/advanced/performance.md
+      
+  - Developer Guide:
+    - developer/index.md
+    - Architecture:
+      - developer/architecture/overview.md
+      - developer/architecture/components.md
+      - developer/architecture/security.md
+    - API:
+      - developer/api/authentication.md
+      - developer/api/endpoints.md
+      - developer/api/webhooks.md
+      - developer/api/client-libraries.md
+    - CLI:
+      - developer/cli/installation.md
+      - developer/cli/commands.md
+      - developer/cli/scripting.md
+    - App Development:
+      - developer/apps/sdk.md
+      - developer/apps/manifest.md
+      - developer/apps/lifecycle.md
+      - developer/apps/publishing.md
+    - Contributing:
+      - developer/contributing/setup.md
+      - developer/contributing/guidelines.md
+      - developer/contributing/testing.md
+      
+  - API Reference:
+    - api/index.md
+    - api/v1/index.md
+    
+  - CLI Reference:
+    - cli/index.md
+    - cli/commands.md
+    
+  - Troubleshooting:
+    - troubleshooting/index.md
+    - Common Issues:
+      - troubleshooting/boot.md
+      - troubleshooting/networking.md
+      - troubleshooting/storage.md
+      - troubleshooting/apps.md
+    - FAQ: troubleshooting/faq.md
+    
+  - Release Notes:
+    - releases/index.md
+    - releases/v1.0.md
+    - releases/changelog.md
