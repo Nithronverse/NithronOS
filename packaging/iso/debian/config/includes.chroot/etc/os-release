@@ -1,0 +1,11 @@
+PRETTY_NAME="NithronOS 1.0 (Stable)"
+NAME="NithronOS"
+VERSION_ID="1.0"
+VERSION="1.0 (Stable)"
+VERSION_CODENAME=stable
+ID=nithronos
+ID_LIKE=debian
+HOME_URL="https://github.com/Nithronverse/NithronOS"
+SUPPORT_URL="https://github.com/Nithronverse/NithronOS/issues"
+BUG_REPORT_URL="https://github.com/Nithronverse/NithronOS/issues"
+DOCUMENTATION_URL="https://github.com/Nithronverse/NithronOS/wiki"
