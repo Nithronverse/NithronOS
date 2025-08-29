@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 
 import Setup from '../pages/Setup'
 import { api } from '../lib/api-client'
+import { GlobalNoticeProvider } from '../lib/globalNotice'
 
 // Mock the API client
 vi.mock('../lib/api-client', () => ({
@@ -45,14 +46,7 @@ vi.mock('qrcode.react', () => ({
   ),
 }))
 
-// Mock globalNotice
-vi.mock('../lib/globalNotice', () => ({
-  GlobalNoticeProvider: ({ children }: any) => children,
-  useGlobalNotice: () => ({
-    notice: null,
-    setNotice: vi.fn(),
-  }),
-}))
+
 
 describe('Setup Flow', () => {
   beforeEach(() => {
@@ -63,23 +57,32 @@ describe('Setup Flow', () => {
   const renderSetup = () => {
     return render(
       <BrowserRouter>
-        <Setup />
+        <GlobalNoticeProvider>
+          <Setup />
+        </GlobalNoticeProvider>
       </BrowserRouter>
     )
   }
 
   describe('Setup State Check', () => {
     it('should redirect to login if setup is already complete', async () => {
-      vi.mocked(api.setup.getState).mockResolvedValueOnce({
-        firstBoot: false,
-        otpRequired: false,
+      vi.mocked(api.setup.getState).mockRejectedValueOnce({
+        status: 410,
+        message: 'Setup already completed',
       })
       
       renderSetup()
+      const user = userEvent.setup()
       
+      // Wait for error message and button
       await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith('/login', { replace: true })
+        expect(screen.getByText(/setup already completed/i)).toBeInTheDocument()
       })
+      
+      // Click button to go to login
+      await user.click(screen.getByRole('button', { name: /go to sign in/i }))
+      
+      expect(mockNavigate).toHaveBeenCalledWith('/login')
     })
 
     it('should show OTP form when first boot requires OTP', async () => {
@@ -96,7 +99,7 @@ describe('Setup Flow', () => {
       })
     })
 
-    it('should show admin creation form when OTP not required', async () => {
+    it('should show waiting message when OTP not required', async () => {
       vi.mocked(api.setup.getState).mockResolvedValueOnce({
         firstBoot: true,
         otpRequired: false,
@@ -105,8 +108,7 @@ describe('Setup Flow', () => {
       renderSetup()
       
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /create admin account/i })).toBeInTheDocument()
-        expect(screen.getByLabelText(/username/i)).toBeInTheDocument()
+        expect(screen.getByText(/waiting for otp generation/i)).toBeInTheDocument()
       })
     })
   })

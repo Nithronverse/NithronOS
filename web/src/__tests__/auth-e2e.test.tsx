@@ -41,7 +41,11 @@ describe('Auth E2E Flow', () => {
       // Should redirect to setup
       await waitFor(() => {
         expect(screen.getByText(/first-time setup/i)).toBeInTheDocument()
-        expect(screen.getByText(/enter one-time password/i)).toBeInTheDocument()
+      })
+      
+      // Wait for OTP form
+      await waitFor(() => {
+        expect(screen.getByLabelText(/one-time password/i)).toBeInTheDocument()
       })
       
       // Step 1: Verify OTP
@@ -58,7 +62,7 @@ describe('Auth E2E Flow', () => {
       
       // Should move to admin creation
       await waitFor(() => {
-        expect(screen.getByText(/create admin account/i)).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /create admin account/i })).toBeInTheDocument()
       })
       
       // Step 2: Create admin account
@@ -70,8 +74,8 @@ describe('Auth E2E Flow', () => {
         })
       )
       
-      await user.type(screen.getByLabelText(/^username/i), 'admin')
-      await user.type(screen.getByLabelText(/^password/i), 'AdminPassword123!')
+      await user.type(screen.getByLabelText(/username/i), 'admin')
+      await user.type(screen.getByLabelText(/password/i), 'AdminPassword123!')
       await user.type(screen.getByLabelText(/confirm password/i), 'AdminPassword123!')
       await user.click(screen.getByRole('button', { name: /create admin account/i }))
       
@@ -127,6 +131,18 @@ describe('Auth E2E Flow', () => {
             ok: false,
             status: 410,
             headers: new Headers({ 'content-type': 'application/json' }),
+            json: async () => ({ error: 'Gone' }),
+            text: async () => 'Gone',
+          })
+        )
+        // Auth session - unauthorized
+        .mockImplementationOnce(() =>
+          Promise.resolve({
+            ok: false,
+            status: 401,
+            headers: new Headers({ 'content-type': 'application/json' }),
+            json: async () => ({ error: 'Unauthorized' }),
+            text: async () => 'Unauthorized',
           })
         )
         // Login request
