@@ -1,37 +1,16 @@
 [Unit]
 Description=NithronOS Privileged Agent (nos-agent)
 After=network.target
-Before=nosd.service
 
 [Service]
 User=root
 Group=root
 ExecStart=/usr/sbin/nos-agent
-RuntimeDirectory=nos-agent
-RuntimeDirectoryMode=0750
 Restart=on-failure
 RestartSec=2s
-# Create and own the socket; group nos can access
-ExecStartPre=/usr/bin/mkdir -p /run
-ExecStartPre=/usr/bin/rm -f /run/nos-agent.sock
-ExecStartPost=/bin/sh -c 'for i in $(seq 1 50); do \
-  if [ -S /run/nos-agent.sock ]; then chgrp nos /run/nos-agent.sock && chmod 660 /run/nos-agent.sock; exit 0; fi; \
-  sleep 0.1; done; exit 1'
-AmbientCapabilities=CAP_SYS_ADMIN CAP_DAC_READ_SEARCH
-NoNewPrivileges=true
-ProtectSystem=strict
-ProtectHome=yes
-PrivateTmp=yes
-PrivateDevices=yes
-ProtectKernelTunables=yes
-ProtectKernelLogs=yes
-ProtectControlGroups=yes
-CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_READ_SEARCH
-LockPersonality=yes
-MemoryDenyWriteExecute=yes
-RestrictAddressFamilies=AF_UNIX
-RestrictRealtime=yes
-SystemCallFilter=@system-service
+StandardOutput=journal+console
+StandardError=journal+console
+# Simplified for ISO environment - full sandboxing in production
 
 [Install]
 WantedBy=multi-user.target
