@@ -119,7 +119,7 @@ describe('Login Flow', () => {
 
   it.skip('should handle login with TOTP', async () => {
     // First attempt returns requires_totp
-    const error = new APIError(401, 'code required')
+    const error = new APIError('code required', 401)
     vi.mocked(api.auth.login).mockRejectedValueOnce(error)
     
     renderLogin()
@@ -154,7 +154,7 @@ describe('Login Flow', () => {
   })
 
   it('should handle invalid credentials error', async () => {
-    const error = new APIError(401, 'Invalid username or password')
+    const error = new APIError('Invalid username or password', 401)
     vi.mocked(api.auth.login).mockRejectedValueOnce(error)
     
     renderLogin()
@@ -170,7 +170,7 @@ describe('Login Flow', () => {
   })
 
   it('should handle rate limiting error', async () => {
-    const error = new APIError(429, 'Too many attempts')
+    const error = new APIError('Too many attempts', 429)
     vi.mocked(api.auth.login).mockRejectedValueOnce(error)
     
     renderLogin()
@@ -186,7 +186,7 @@ describe('Login Flow', () => {
   })
 
   it('should preserve username on failed attempts', async () => {
-    const error = new APIError(401, 'Invalid username or password')
+    const error = new APIError('Invalid username or password', 401)
     vi.mocked(api.auth.login).mockRejectedValueOnce(error)
     
     renderLogin()
