@@ -22,7 +22,7 @@ vi.mock('../lib/api-client', () => ({
     },
   },
   APIError: class APIError extends Error {
-    constructor(public status: number, message: string) {
+    constructor(message: string, public status: number) {
       super(message)
       this.status = status
     }
