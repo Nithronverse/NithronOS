@@ -28,6 +28,21 @@ NC='\033[0m' # No Color
 cleanup() {
     echo "Cleaning up..."
     
+    # Save final results before cleanup
+    if [ -n "$RESULTS_DIR" ] && [ -d "$RESULTS_DIR" ]; then
+        cat > "$RESULTS_DIR/storage-test-results.json" << EOF
+{
+    "test_suite": "storage-e2e",
+    "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+    "tests_run": ${TESTS_RUN:-0},
+    "tests_passed": ${TESTS_PASSED:-0},
+    "tests_failed": ${TESTS_FAILED:-0},
+    "status": "$([ ${TESTS_FAILED:-0} -eq 0 ] && echo "passed" || echo "failed")",
+    "cleanup": "completed"
+}
+EOF
+    fi
+    
     # Unmount if mounted
     if mountpoint -q "$MOUNT_POINT" 2>/dev/null; then
         umount "$MOUNT_POINT" || true
@@ -57,8 +72,25 @@ log_fail() {
     exit 1
 }
 
-# Create results directory
+# Create results directory (use absolute path if relative doesn't exist)
+if [[ "$RESULTS_DIR" != /* ]]; then
+    # Convert to absolute path from script location
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    RESULTS_DIR="$SCRIPT_DIR/results"
+fi
 mkdir -p "$RESULTS_DIR"
+
+# Initialize results file immediately
+cat > "$RESULTS_DIR/storage-test-results.json" << EOF
+{
+    "test_suite": "storage-e2e",
+    "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+    "status": "running",
+    "tests_run": 0,
+    "tests_passed": 0,
+    "tests_failed": 0
+}
+EOF
 
 # Test results tracking
 TESTS_RUN=0
