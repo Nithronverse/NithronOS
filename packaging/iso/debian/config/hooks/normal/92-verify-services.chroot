@@ -3,7 +3,7 @@ set -e
 
 # Services should already be enabled by earlier hooks, just verify
 # sanity: print unit files exist and wanted symlinks are created  
-systemctl is-enabled nithronos-certgen caddy nosd nos-agent nithronos-firstboot || true
+systemctl is-enabled nos-tls-gen caddy nosd nos-agent nithronos-firstboot || true
 
 if command -v curl >/dev/null 2>&1; then
   # Basic smoke: UI HTML and setup state JSON

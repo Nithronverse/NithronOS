@@ -1,7 +1,7 @@
 [Unit]
 Description=NithronOS: announce first-boot OTP to console
-Wants=nosd.service getty@tty1.service
-After=multi-user.target getty@tty1.service nosd.service systemd-user-sessions.service
+Wants=nosd.service
+After=multi-user.target nosd.service systemd-user-sessions.service
 Before=getty@tty1.service
 
 [Service]
@@ -18,4 +18,4 @@ RestartSec=2s
 StartLimitBurst=5
 
 [Install]
-WantedBy=multi-user.target getty.target
+WantedBy=multi-user.target

@@ -9,7 +9,7 @@ systemctl enable caddy.service || true
 systemctl enable nosd.service || true
 systemctl enable nos-agent.service || true
 systemctl enable nithronos-firstboot.service || true
-systemctl enable nithronos-certgen.service || true
+systemctl enable nos-tls-gen.service || true
 
 echo "[10-enable-services] Core services enabled"
 
