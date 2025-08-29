@@ -10,8 +10,7 @@ avahi-daemon
 acl
 attr
 docker.io
-docker-buildx-plugin
-docker-compose-plugin
+docker-compose
 jq
 wireguard
 caddy
