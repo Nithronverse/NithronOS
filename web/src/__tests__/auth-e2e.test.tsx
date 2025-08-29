@@ -100,6 +100,7 @@ describe('Auth E2E Flow', () => {
           status: 410,
           headers: new Headers({ 'content-type': 'application/json' }),
           json: async () => ({ error: 'Gone' }),
+          text: async () => 'Gone',
         })
       )
       
@@ -200,6 +201,7 @@ describe('Auth E2E Flow', () => {
           status: 410,
           headers: new Headers({ 'content-type': 'application/json' }),
           json: async () => ({ error: 'Gone' }),
+          text: async () => 'Gone',
         })
       )
       
@@ -210,6 +212,7 @@ describe('Auth E2E Flow', () => {
           status: 401,
           headers: new Headers({ 'content-type': 'application/json' }),
           json: async () => ({ error: 'Unauthorized' }),
+          text: async () => 'Unauthorized',
         })
       )
       
@@ -220,6 +223,7 @@ describe('Auth E2E Flow', () => {
           status: 401,
           headers: new Headers({ 'content-type': 'application/json' }),
           json: async () => ({ error: 'Unauthorized' }),
+          text: async () => 'Unauthorized',
         })
       )
       
@@ -248,6 +252,7 @@ describe('Auth E2E Flow', () => {
           status: 410,
           headers: new Headers({ 'content-type': 'application/json' }),
           json: async () => ({ error: 'Gone' }),
+          text: async () => 'Gone',
         })
       )
       
@@ -279,6 +284,7 @@ describe('Auth E2E Flow', () => {
           ok: true,
           headers: new Headers({ 'content-type': 'application/json' }),
           json: async () => ({ success: true }),
+          text: async () => JSON.stringify({ success: true }),
         })
       )
       
@@ -303,6 +309,7 @@ describe('Auth E2E Flow', () => {
           status: 502,
           headers: new Headers({ 'content-type': 'text/html' }),
           text: async () => '<html>502 Bad Gateway</html>',
+          json: async () => { throw new Error('Not JSON') },
         })
       )
       
@@ -327,6 +334,18 @@ describe('Auth E2E Flow', () => {
           status: 410,
           headers: new Headers({ 'content-type': 'application/json' }),
           json: async () => ({ error: 'Gone' }),
+          text: async () => 'Gone',
+        })
+      )
+      
+      // Mock auth session - unauthorized
+      mockFetch.mockImplementationOnce(() =>
+        Promise.resolve({
+          ok: false,
+          status: 401,
+          headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => ({ error: 'Unauthorized' }),
+          text: async () => 'Unauthorized',
         })
       )
       
@@ -342,6 +361,7 @@ describe('Auth E2E Flow', () => {
             'retry-after': '30',
           }),
           json: async () => ({ error: 'Too many requests' }),
+          text: async () => 'Too many requests',
         })
       )
       

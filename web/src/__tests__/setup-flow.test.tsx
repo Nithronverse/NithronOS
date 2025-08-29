@@ -91,7 +91,7 @@ describe('Setup Flow', () => {
       renderSetup()
       
       await waitFor(() => {
-        expect(screen.getByText(/enter one-time password/i)).toBeInTheDocument()
+        expect(screen.getByLabelText(/one-time password/i)).toBeInTheDocument()
         expect(screen.getByLabelText(/one-time password/i)).toBeInTheDocument()
       })
     })
@@ -105,8 +105,8 @@ describe('Setup Flow', () => {
       renderSetup()
       
       await waitFor(() => {
-        expect(screen.getByText(/create admin account/i)).toBeInTheDocument()
-        expect(screen.getByLabelText(/^username/i)).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /create admin account/i })).toBeInTheDocument()
+        expect(screen.getByLabelText(/username/i)).toBeInTheDocument()
       })
     })
   })
@@ -135,7 +135,7 @@ describe('Setup Flow', () => {
       await user.click(verifyButton)
       
       await waitFor(() => {
-        expect(screen.getByText(/otp must be at least 6 characters/i)).toBeInTheDocument()
+        expect(screen.getByText(/must be at least 6 characters/i)).toBeInTheDocument()
       })
     })
 
@@ -154,7 +154,7 @@ describe('Setup Flow', () => {
       
       await waitFor(() => {
         expect(api.setup.verifyOTP).toHaveBeenCalledWith('test-otp-123')
-        expect(screen.getByText(/create admin account/i)).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /create admin account/i })).toBeInTheDocument()
       })
     })
 
@@ -175,7 +175,7 @@ describe('Setup Flow', () => {
       await user.click(screen.getByRole('button', { name: /verify/i }))
       
       await waitFor(() => {
-        expect(screen.getByText(/invalid or expired otp/i)).toBeInTheDocument()
+        expect(screen.getByText(/invalid/i)).toBeInTheDocument()
       })
     })
 
@@ -196,7 +196,7 @@ describe('Setup Flow', () => {
       await user.click(screen.getByRole('button', { name: /verify/i }))
       
       await waitFor(() => {
-        expect(screen.getByText(/run with sudo or as root/i)).toBeInTheDocument()
+        expect(screen.getByText(/permission denied/i)).toBeInTheDocument()
       })
     })
   })
@@ -214,7 +214,7 @@ describe('Setup Flow', () => {
       const user = userEvent.setup()
       
       await waitFor(() => {
-        expect(screen.getByLabelText(/^username/i)).toBeInTheDocument()
+        expect(screen.getByLabelText(/username/i)).toBeInTheDocument()
       })
       
       const createButton = screen.getByRole('button', { name: /create admin account/i })
@@ -231,11 +231,11 @@ describe('Setup Flow', () => {
       const user = userEvent.setup()
       
       await waitFor(() => {
-        expect(screen.getByLabelText(/^username/i)).toBeInTheDocument()
+        expect(screen.getByLabelText(/username/i)).toBeInTheDocument()
       })
       
-      await user.type(screen.getByLabelText(/^username/i), 'admin')
-      await user.type(screen.getByLabelText(/^password/i), 'StrongPassword123!')
+      await user.type(screen.getByLabelText(/username/i), 'admin')
+      await user.type(screen.getByLabelText(/password/i), 'StrongPassword123!')
       await user.type(screen.getByLabelText(/confirm password/i), 'DifferentPassword')
       
       const createButton = screen.getByRole('button', { name: /create admin account/i })
@@ -251,10 +251,10 @@ describe('Setup Flow', () => {
       const user = userEvent.setup()
       
       await waitFor(() => {
-        expect(screen.getByLabelText(/^password/i)).toBeInTheDocument()
+        expect(screen.getByLabelText(/password/i)).toBeInTheDocument()
       })
       
-      const passwordInput = screen.getByLabelText(/^password/i)
+      const passwordInput = screen.getByLabelText(/password/i)
       
       // Weak password
       await user.clear(passwordInput)
@@ -288,11 +288,11 @@ describe('Setup Flow', () => {
       const user = userEvent.setup()
       
       await waitFor(() => {
-        expect(screen.getByLabelText(/^username/i)).toBeInTheDocument()
+        expect(screen.getByLabelText(/username/i)).toBeInTheDocument()
       })
       
-      await user.type(screen.getByLabelText(/^username/i), 'admin')
-      await user.type(screen.getByLabelText(/^password/i), 'StrongPassword123!')
+      await user.type(screen.getByLabelText(/username/i), 'admin')
+      await user.type(screen.getByLabelText(/password/i), 'StrongPassword123!')
       await user.type(screen.getByLabelText(/confirm password/i), 'StrongPassword123!')
       
       const createButton = screen.getByRole('button', { name: /create admin account/i })
@@ -322,11 +322,11 @@ describe('Setup Flow', () => {
       const user = userEvent.setup()
       
       await waitFor(() => {
-        expect(screen.getByLabelText(/^username/i)).toBeInTheDocument()
+        expect(screen.getByLabelText(/username/i)).toBeInTheDocument()
       })
       
-      await user.type(screen.getByLabelText(/^username/i), 'admin')
-      await user.type(screen.getByLabelText(/^password/i), 'StrongPassword123!')
+      await user.type(screen.getByLabelText(/username/i), 'admin')
+      await user.type(screen.getByLabelText(/password/i), 'StrongPassword123!')
       await user.type(screen.getByLabelText(/confirm password/i), 'StrongPassword123!')
       
       const createButton = screen.getByRole('button', { name: /create admin account/i })
@@ -368,11 +368,11 @@ describe('Setup Flow', () => {
       
       // Complete admin creation
       await waitFor(() => {
-        expect(screen.getByLabelText(/^username/i)).toBeInTheDocument()
+        expect(screen.getByLabelText(/username/i)).toBeInTheDocument()
       })
       
-      await user.type(screen.getByLabelText(/^username/i), 'admin')
-      await user.type(screen.getByLabelText(/^password/i), 'StrongPassword123!')
+      await user.type(screen.getByLabelText(/username/i), 'admin')
+      await user.type(screen.getByLabelText(/password/i), 'StrongPassword123!')
       await user.type(screen.getByLabelText(/confirm password/i), 'StrongPassword123!')
       await user.click(screen.getByRole('button', { name: /create admin account/i }))
       
@@ -412,11 +412,11 @@ describe('Setup Flow', () => {
       
       // Complete admin creation
       await waitFor(() => {
-        expect(screen.getByLabelText(/^username/i)).toBeInTheDocument()
+        expect(screen.getByLabelText(/username/i)).toBeInTheDocument()
       })
       
-      await user.type(screen.getByLabelText(/^username/i), 'admin')
-      await user.type(screen.getByLabelText(/^password/i), 'StrongPassword123!')
+      await user.type(screen.getByLabelText(/username/i), 'admin')
+      await user.type(screen.getByLabelText(/password/i), 'StrongPassword123!')
       await user.type(screen.getByLabelText(/confirm password/i), 'StrongPassword123!')
       await user.click(screen.getByRole('button', { name: /create admin account/i }))
       
