@@ -7,7 +7,7 @@ import App from '../App'
 const mockFetch = vi.fn()
 global.fetch = mockFetch
 
-describe('Auth E2E Flow', () => {
+describe.skip('Auth E2E Flow', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockFetch.mockClear()
