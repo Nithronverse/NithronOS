@@ -850,7 +850,7 @@ func (um *UserManager) revokeUserSessionsInternal(userID string) {
 func (um *UserManager) createDefaultAdmin() {
 	// Generate random password
 	b := make([]byte, 16)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	password := base64.URLEncoding.EncodeToString(b)
 	
 	// Create admin user
@@ -1009,7 +1009,7 @@ func (um *UserManager) getPassword(userID string) string {
 	passwords := make(map[string]string)
 	
 	if data, err := os.ReadFile(passwordsPath); err == nil {
-		json.Unmarshal(data, &passwords)
+		_ = json.Unmarshal(data, &passwords)
 	}
 	
 	return passwords[userID]
@@ -1037,13 +1037,13 @@ func (um *UserManager) storeTOTPSecret(userID string, secret *TOTPSecret) {
 	secrets := make(map[string]*TOTPSecret)
 	
 	if data, err := os.ReadFile(totpPath); err == nil {
-		json.Unmarshal(data, &secrets)
+		_ = json.Unmarshal(data, &secrets)
 	}
 	
 	secrets[userID] = secret
 	
 	if data, err := json.Marshal(secrets); err == nil {
-		os.WriteFile(totpPath, data, 0600)
+		_ = os.WriteFile(totpPath, data, 0600)
 	}
 }
 
@@ -1052,7 +1052,7 @@ func (um *UserManager) getTOTPSecret(userID string) *TOTPSecret {
 	secrets := make(map[string]*TOTPSecret)
 	
 	if data, err := os.ReadFile(totpPath); err == nil {
-		json.Unmarshal(data, &secrets)
+		_ = json.Unmarshal(data, &secrets)
 	}
 	
 	return secrets[userID]
@@ -1063,13 +1063,13 @@ func (um *UserManager) deleteTOTPSecret(userID string) {
 	secrets := make(map[string]*TOTPSecret)
 	
 	if data, err := os.ReadFile(totpPath); err == nil {
-		json.Unmarshal(data, &secrets)
+		_ = json.Unmarshal(data, &secrets)
 	}
 	
 	delete(secrets, userID)
 	
 	if data, err := json.Marshal(secrets); err == nil {
-		os.WriteFile(totpPath, data, 0600)
+		_ = os.WriteFile(totpPath, data, 0600)
 	}
 }
 
@@ -1078,13 +1078,13 @@ func (um *UserManager) storeTempTOTP(userID string, secret *TOTPSecret) {
 	secrets := make(map[string]*TOTPSecret)
 	
 	if data, err := os.ReadFile(tempPath); err == nil {
-		json.Unmarshal(data, &secrets)
+		_ = json.Unmarshal(data, &secrets)
 	}
 	
 	secrets[userID] = secret
 	
 	if data, err := json.Marshal(secrets); err == nil {
-		os.WriteFile(tempPath, data, 0600)
+		_ = os.WriteFile(tempPath, data, 0600)
 	}
 }
 
@@ -1093,7 +1093,7 @@ func (um *UserManager) getTempTOTP(userID string) *TOTPSecret {
 	secrets := make(map[string]*TOTPSecret)
 	
 	if data, err := os.ReadFile(tempPath); err == nil {
-		json.Unmarshal(data, &secrets)
+		_ = json.Unmarshal(data, &secrets)
 	}
 	
 	return secrets[userID]
@@ -1104,12 +1104,12 @@ func (um *UserManager) clearTempTOTP(userID string) {
 	secrets := make(map[string]*TOTPSecret)
 	
 	if data, err := os.ReadFile(tempPath); err == nil {
-		json.Unmarshal(data, &secrets)
+		_ = json.Unmarshal(data, &secrets)
 	}
 	
 	delete(secrets, userID)
 	
 	if data, err := json.Marshal(secrets); err == nil {
-		os.WriteFile(tempPath, data, 0600)
+		_ = os.WriteFile(tempPath, data, 0600)
 	}
 }

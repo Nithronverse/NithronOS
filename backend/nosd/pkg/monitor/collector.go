@@ -34,7 +34,7 @@ func NewCollector(logger zerolog.Logger, storage *TimeSeriesStorage, interval ti
 	if interval == 0 {
 		interval = 60 * time.Second
 	}
-	
+
 	return &Collector{
 		logger:     logger.With().Str("component", "metrics-collector").Logger(),
 		storage:    storage,
@@ -46,24 +46,24 @@ func NewCollector(logger zerolog.Logger, storage *TimeSeriesStorage, interval ti
 // Start begins metric collection
 func (c *Collector) Start(ctx context.Context) error {
 	c.logger.Info().Dur("interval", c.interval).Msg("Starting metrics collector")
-	
+
 	ctx, cancel := context.WithCancel(ctx)
 	c.cancel = cancel
-	
+
 	// Start collection goroutines
 	go c.collectLoop(ctx)
-	
+
 	return nil
 }
 
 // Stop halts metric collection
 func (c *Collector) Stop() error {
 	c.logger.Info().Msg("Stopping metrics collector")
-	
+
 	if c.cancel != nil {
 		c.cancel()
 	}
-	
+
 	return nil
 }
 
@@ -71,10 +71,10 @@ func (c *Collector) Stop() error {
 func (c *Collector) collectLoop(ctx context.Context) {
 	ticker := time.NewTicker(c.interval)
 	defer ticker.Stop()
-	
+
 	// Collect immediately
 	c.collect()
-	
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -88,54 +88,54 @@ func (c *Collector) collectLoop(ctx context.Context) {
 // collect gathers all metrics
 func (c *Collector) collect() {
 	now := time.Now()
-	
+
 	// Collect different metric types in parallel
 	var wg sync.WaitGroup
-	
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		c.collectCPU(now)
 	}()
-	
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		c.collectMemory(now)
 	}()
-	
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		c.collectLoad(now)
 	}()
-	
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		c.collectDisk(now)
 	}()
-	
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		c.collectNetwork(now)
 	}()
-	
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		c.collectServices(now)
 	}()
-	
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		c.collectBtrfs(now)
 	}()
-	
+
 	wg.Wait()
-	
+
 	c.logger.Debug().Msg("Metrics collection completed")
 }
 
@@ -147,12 +147,12 @@ func (c *Collector) collectCPU(now time.Time) {
 		c.logger.Error().Err(err).Msg("Failed to get CPU usage")
 		return
 	}
-	
+
 	if len(percent) > 0 {
 		_ = c.storage.Store(MetricTypeCPU, now, percent[0], nil)
 		c.updateLastValue("cpu_percent", percent[0])
 	}
-	
+
 	// Per-core CPU usage
 	perCore, err := cpu.Percent(time.Second, true)
 	if err == nil {
@@ -161,7 +161,7 @@ func (c *Collector) collectCPU(now time.Time) {
 			_ = c.storage.Store(MetricTypeCPU, now, p, labels)
 		}
 	}
-	
+
 	// CPU temperature (if available)
 	c.collectCPUTemperature(now)
 }
@@ -187,21 +187,21 @@ func (c *Collector) collectMemory(now time.Time) {
 		c.logger.Error().Err(err).Msg("Failed to get memory info")
 		return
 	}
-	
+
 	_ = c.storage.Store(MetricTypeMemory, now, v.UsedPercent, nil)
 	_ = c.storage.Store(MetricTypeMemory, now, float64(v.Used), map[string]string{"type": "used"})
 	_ = c.storage.Store(MetricTypeMemory, now, float64(v.Available), map[string]string{"type": "available"})
-	
+
 	c.updateLastValue("memory_percent", v.UsedPercent)
 	c.updateLastValue("memory_used", v.Used)
 	c.updateLastValue("memory_total", v.Total)
-	
+
 	// Swap
 	s, err := mem.SwapMemory()
 	if err == nil && s.Total > 0 {
-		c.storage.Store(MetricTypeSwap, now, s.UsedPercent, nil)
-		c.storage.Store(MetricTypeSwap, now, float64(s.Used), map[string]string{"type": "used"})
-		
+		_ = c.storage.Store(MetricTypeSwap, now, s.UsedPercent, nil)
+		_ = c.storage.Store(MetricTypeSwap, now, float64(s.Used), map[string]string{"type": "used"})
+
 		c.updateLastValue("swap_percent", s.UsedPercent)
 		c.updateLastValue("swap_used", s.Used)
 		c.updateLastValue("swap_total", s.Total)
@@ -215,11 +215,11 @@ func (c *Collector) collectLoad(now time.Time) {
 		c.logger.Error().Err(err).Msg("Failed to get load average")
 		return
 	}
-	
-	c.storage.Store(MetricTypeLoad, now, l.Load1, map[string]string{"period": "1m"})
-	c.storage.Store(MetricTypeLoad, now, l.Load5, map[string]string{"period": "5m"})
-	c.storage.Store(MetricTypeLoad, now, l.Load15, map[string]string{"period": "15m"})
-	
+
+	_ = c.storage.Store(MetricTypeLoad, now, l.Load1, map[string]string{"period": "1m"})
+	_ = c.storage.Store(MetricTypeLoad, now, l.Load5, map[string]string{"period": "5m"})
+	_ = c.storage.Store(MetricTypeLoad, now, l.Load15, map[string]string{"period": "15m"})
+
 	c.updateLastValue("load1", l.Load1)
 	c.updateLastValue("load5", l.Load5)
 	c.updateLastValue("load15", l.Load15)
@@ -233,53 +233,53 @@ func (c *Collector) collectDisk(now time.Time) {
 		c.logger.Error().Err(err).Msg("Failed to get disk partitions")
 		return
 	}
-	
+
 	for _, p := range partitions {
 		// Skip pseudo filesystems
 		if strings.HasPrefix(p.Fstype, "tmpfs") || p.Fstype == "devtmpfs" {
 			continue
 		}
-		
+
 		usage, err := disk.Usage(p.Mountpoint)
 		if err != nil {
 			continue
 		}
-		
+
 		labels := map[string]string{
 			"device":     p.Device,
 			"mountpoint": p.Mountpoint,
 			"fstype":     p.Fstype,
 		}
-		
-		c.storage.Store(MetricTypeDiskSpace, now, usage.UsedPercent, labels)
-		c.storage.Store(MetricTypeDiskSpace, now, float64(usage.Used), 
+
+		_ = c.storage.Store(MetricTypeDiskSpace, now, usage.UsedPercent, labels)
+		_ = c.storage.Store(MetricTypeDiskSpace, now, float64(usage.Used),
 			mergeMaps(labels, map[string]string{"type": "used"}))
-		c.storage.Store(MetricTypeDiskSpace, now, float64(usage.Free), 
+		_ = c.storage.Store(MetricTypeDiskSpace, now, float64(usage.Free),
 			mergeMaps(labels, map[string]string{"type": "free"}))
-		
+
 		// Update last values for dashboard
 		if p.Mountpoint == "/" {
 			c.updateLastValue("disk_root_percent", usage.UsedPercent)
 		}
 	}
-	
+
 	// Disk I/O
 	ioCounters, err := disk.IOCounters()
 	if err == nil {
 		for device, io := range ioCounters {
 			labels := map[string]string{"device": device}
-			
-			c.storage.Store(MetricTypeDiskIO, now, float64(io.ReadBytes), 
+
+			_ = c.storage.Store(MetricTypeDiskIO, now, float64(io.ReadBytes),
 				mergeMaps(labels, map[string]string{"type": "read_bytes"}))
-			c.storage.Store(MetricTypeDiskIO, now, float64(io.WriteBytes), 
+			_ = c.storage.Store(MetricTypeDiskIO, now, float64(io.WriteBytes),
 				mergeMaps(labels, map[string]string{"type": "write_bytes"}))
-			c.storage.Store(MetricTypeDiskIO, now, float64(io.ReadCount), 
+			_ = c.storage.Store(MetricTypeDiskIO, now, float64(io.ReadCount),
 				mergeMaps(labels, map[string]string{"type": "read_ops"}))
-			c.storage.Store(MetricTypeDiskIO, now, float64(io.WriteCount), 
+			_ = c.storage.Store(MetricTypeDiskIO, now, float64(io.WriteCount),
 				mergeMaps(labels, map[string]string{"type": "write_ops"}))
 		}
 	}
-	
+
 	// Disk temperatures and SMART
 	c.collectDiskSMART(now)
 }
@@ -291,19 +291,19 @@ func (c *Collector) collectDiskSMART(now time.Time) {
 	if err != nil {
 		return
 	}
-	
+
 	for _, line := range strings.Split(string(devices), "\n") {
 		fields := strings.Fields(line)
 		if len(fields) < 2 || fields[1] != "disk" {
 			continue
 		}
-		
+
 		device := "/dev/" + fields[0]
-		
+
 		// Run smartctl to get health and temperature
 		cmd := exec.Command("smartctl", "-H", "-A", "-j", device)
 		output, _ := cmd.Output()
-		
+
 		var smartData struct {
 			SmartStatus struct {
 				Passed bool `json:"passed"`
@@ -313,43 +313,43 @@ func (c *Collector) collectDiskSMART(now time.Time) {
 			} `json:"temperature"`
 			AtaSmartAttributes struct {
 				Table []struct {
-					ID    int `json:"id"`
+					ID    int    `json:"id"`
 					Name  string `json:"name"`
-					Value int `json:"value"`
+					Value int    `json:"value"`
 					Raw   struct {
 						Value int `json:"value"`
 					} `json:"raw"`
 				} `json:"table"`
 			} `json:"ata_smart_attributes"`
 		}
-		
+
 		if err := json.Unmarshal(output, &smartData); err == nil {
 			// Temperature
 			if smartData.Temperature.Current > 0 {
 				labels := map[string]string{"device": device}
-				c.storage.Store(MetricTypeDiskTemp, now, float64(smartData.Temperature.Current), labels)
+				_ = c.storage.Store(MetricTypeDiskTemp, now, float64(smartData.Temperature.Current), labels)
 			}
-			
+
 			// SMART health
 			health := 0.0
 			if smartData.SmartStatus.Passed {
 				health = 1.0
 			}
 			labels := map[string]string{"device": device}
-			c.storage.Store(MetricTypeDiskSMART, now, health, labels)
-			
+			_ = c.storage.Store(MetricTypeDiskSMART, now, health, labels)
+
 			// Specific attributes
 			for _, attr := range smartData.AtaSmartAttributes.Table {
 				switch attr.ID {
 				case 5: // Reallocated sectors
 					labels := map[string]string{"device": device, "attr": "reallocated"}
-					c.storage.Store(MetricTypeDiskSMART, now, float64(attr.Raw.Value), labels)
+					_ = c.storage.Store(MetricTypeDiskSMART, now, float64(attr.Raw.Value), labels)
 				case 197: // Current pending sectors
 					labels := map[string]string{"device": device, "attr": "pending"}
-					c.storage.Store(MetricTypeDiskSMART, now, float64(attr.Raw.Value), labels)
+					_ = c.storage.Store(MetricTypeDiskSMART, now, float64(attr.Raw.Value), labels)
 				case 198: // Uncorrectable sectors
 					labels := map[string]string{"device": device, "attr": "uncorrectable"}
-					c.storage.Store(MetricTypeDiskSMART, now, float64(attr.Raw.Value), labels)
+					_ = c.storage.Store(MetricTypeDiskSMART, now, float64(attr.Raw.Value), labels)
 				}
 			}
 		}
@@ -363,24 +363,24 @@ func (c *Collector) collectNetwork(now time.Time) {
 		c.logger.Error().Err(err).Msg("Failed to get network stats")
 		return
 	}
-	
+
 	for _, iface := range interfaces {
 		// Skip loopback
 		if iface.Name == "lo" {
 			continue
 		}
-		
+
 		labels := map[string]string{"interface": iface.Name}
-		
-		c.storage.Store(MetricTypeNetworkRX, now, float64(iface.BytesRecv), labels)
-		c.storage.Store(MetricTypeNetworkTX, now, float64(iface.BytesSent), labels)
-		c.storage.Store(MetricTypeNetworkRX, now, float64(iface.PacketsRecv), 
+
+		_ = c.storage.Store(MetricTypeNetworkRX, now, float64(iface.BytesRecv), labels)
+		_ = c.storage.Store(MetricTypeNetworkTX, now, float64(iface.BytesSent), labels)
+		_ = c.storage.Store(MetricTypeNetworkRX, now, float64(iface.PacketsRecv),
 			mergeMaps(labels, map[string]string{"type": "packets"}))
-		c.storage.Store(MetricTypeNetworkTX, now, float64(iface.PacketsSent), 
+		_ = c.storage.Store(MetricTypeNetworkTX, now, float64(iface.PacketsSent),
 			mergeMaps(labels, map[string]string{"type": "packets"}))
-		c.storage.Store(MetricTypeNetworkRX, now, float64(iface.Errin), 
+		_ = c.storage.Store(MetricTypeNetworkRX, now, float64(iface.Errin),
 			mergeMaps(labels, map[string]string{"type": "errors"}))
-		c.storage.Store(MetricTypeNetworkTX, now, float64(iface.Errout), 
+		_ = c.storage.Store(MetricTypeNetworkTX, now, float64(iface.Errout),
 			mergeMaps(labels, map[string]string{"type": "errors"}))
 	}
 }
@@ -388,15 +388,15 @@ func (c *Collector) collectNetwork(now time.Time) {
 // collectServices gathers service health
 func (c *Collector) collectServices(now time.Time) {
 	services := []string{"nosd", "nos-agent", "caddy", "wireguard", "docker"}
-	
+
 	for _, service := range services {
-		cmd := exec.Command("systemctl", "show", service, 
+		cmd := exec.Command("systemctl", "show", service,
 			"--property=ActiveState,SubState,MainPID,NRestarts")
 		output, err := cmd.Output()
 		if err != nil {
 			continue
 		}
-		
+
 		props := make(map[string]string)
 		for _, line := range strings.Split(string(output), "\n") {
 			parts := strings.SplitN(line, "=", 2)
@@ -404,32 +404,32 @@ func (c *Collector) collectServices(now time.Time) {
 				props[parts[0]] = parts[1]
 			}
 		}
-		
+
 		health := 0.0
 		if props["ActiveState"] == "active" {
 			health = 1.0
 		}
-		
+
 		labels := map[string]string{"service": service}
-		c.storage.Store(MetricTypeServiceHealth, now, health, labels)
-		
+		_ = c.storage.Store(MetricTypeServiceHealth, now, health, labels)
+
 		// Restart count
 		if restarts, err := strconv.Atoi(props["NRestarts"]); err == nil {
 			labels := map[string]string{"service": service, "type": "restarts"}
-			c.storage.Store(MetricTypeServiceHealth, now, float64(restarts), labels)
+			_ = c.storage.Store(MetricTypeServiceHealth, now, float64(restarts), labels)
 		}
-		
+
 		// CPU and memory if running
 		if pid, err := strconv.Atoi(props["MainPID"]); err == nil && pid > 0 {
 			if proc, err := process.NewProcess(int32(pid)); err == nil {
 				if cpu, err := proc.CPUPercent(); err == nil {
 					labels := map[string]string{"service": service, "type": "cpu"}
-					c.storage.Store(MetricTypeServiceHealth, now, cpu, labels)
+					_ = c.storage.Store(MetricTypeServiceHealth, now, cpu, labels)
 				}
-				
+
 				if mem, err := proc.MemoryInfo(); err == nil {
 					labels := map[string]string{"service": service, "type": "memory"}
-					c.storage.Store(MetricTypeServiceHealth, now, float64(mem.RSS), labels)
+					_ = c.storage.Store(MetricTypeServiceHealth, now, float64(mem.RSS), labels)
 				}
 			}
 		}
@@ -444,32 +444,32 @@ func (c *Collector) collectBtrfs(now time.Time) {
 		if mount.Fstype != "btrfs" {
 			continue
 		}
-		
+
 		// Device stats
 		cmd := exec.Command("btrfs", "device", "stats", mount.Mountpoint)
 		output, err := cmd.Output()
 		if err == nil {
 			errors := c.parseBtrfsErrors(string(output))
 			labels := map[string]string{"mountpoint": mount.Mountpoint}
-			
+
 			for errorType, count := range errors {
 				l := mergeMaps(labels, map[string]string{"error_type": errorType})
-				c.storage.Store(MetricTypeBtrfsErrors, now, float64(count), l)
+				_ = c.storage.Store(MetricTypeBtrfsErrors, now, float64(count), l)
 			}
 		}
-		
+
 		// Scrub status
 		cmd = exec.Command("btrfs", "scrub", "status", mount.Mountpoint)
 		output, err = cmd.Output()
 		if err == nil {
 			scrubInfo := c.parseScrubStatus(string(output))
 			labels := map[string]string{"mountpoint": mount.Mountpoint}
-			
+
 			if scrubInfo["running"] == "1" {
-				c.storage.Store(MetricTypeBtrfsScrub, now, 1.0, 
+				_ = c.storage.Store(MetricTypeBtrfsScrub, now, 1.0,
 					mergeMaps(labels, map[string]string{"state": "running"}))
 			} else {
-				c.storage.Store(MetricTypeBtrfsScrub, now, 0.0, 
+				_ = c.storage.Store(MetricTypeBtrfsScrub, now, 0.0,
 					mergeMaps(labels, map[string]string{"state": "idle"}))
 			}
 		}
@@ -522,12 +522,12 @@ func (c *Collector) GetSystemMetrics() (*SystemMetrics, error) {
 	metrics := &SystemMetrics{
 		Timestamp: time.Now(),
 	}
-	
+
 	// CPU
 	if percent, err := cpu.Percent(time.Second, false); err == nil && len(percent) > 0 {
 		metrics.CPU.UsagePercent = percent[0]
 	}
-	
+
 	// Memory
 	if v, err := mem.VirtualMemory(); err == nil {
 		metrics.Memory.Total = v.Total
@@ -536,25 +536,25 @@ func (c *Collector) GetSystemMetrics() (*SystemMetrics, error) {
 		metrics.Memory.Available = v.Available
 		metrics.Memory.UsedPercent = v.UsedPercent
 	}
-	
+
 	if s, err := mem.SwapMemory(); err == nil {
 		metrics.Memory.SwapTotal = s.Total
 		metrics.Memory.SwapUsed = s.Used
 		metrics.Memory.SwapPercent = s.UsedPercent
 	}
-	
+
 	// Load
 	if l, err := load.Avg(); err == nil {
 		metrics.Load.Load1 = l.Load1
 		metrics.Load.Load5 = l.Load5
 		metrics.Load.Load15 = l.Load15
 	}
-	
+
 	// Uptime
 	if uptime, err := host.Uptime(); err == nil {
 		metrics.Uptime = int64(uptime)
 	}
-	
+
 	return metrics, nil
 }
 
@@ -563,24 +563,24 @@ func (c *Collector) GetOverview() (*MonitorOverview, error) {
 	overview := &MonitorOverview{
 		Timestamp: time.Now(),
 	}
-	
+
 	// System metrics
 	if system, err := c.GetSystemMetrics(); err == nil {
 		overview.System = *system
 	}
-	
+
 	// Disk metrics
 	partitions, _ := disk.Partitions(false)
 	for _, p := range partitions {
 		if strings.HasPrefix(p.Fstype, "tmpfs") || p.Fstype == "devtmpfs" {
 			continue
 		}
-		
+
 		usage, err := disk.Usage(p.Mountpoint)
 		if err != nil {
 			continue
 		}
-		
+
 		dm := DiskMetrics{
 			Device:      p.Device,
 			MountPoint:  p.Mountpoint,
@@ -589,32 +589,32 @@ func (c *Collector) GetOverview() (*MonitorOverview, error) {
 			Free:        usage.Free,
 			UsedPercent: usage.UsedPercent,
 		}
-		
+
 		overview.Disks = append(overview.Disks, dm)
 	}
-	
+
 	// Network metrics
 	interfaces, _ := net.IOCounters(true)
 	for _, iface := range interfaces {
 		if iface.Name == "lo" {
 			continue
 		}
-		
+
 		nm := NetworkMetrics{
-			Interface:  iface.Name,
-			RxBytes:    iface.BytesRecv,
-			TxBytes:    iface.BytesSent,
-			RxPackets:  iface.PacketsRecv,
-			TxPackets:  iface.PacketsSent,
-			RxErrors:   iface.Errin,
-			TxErrors:   iface.Errout,
-			RxDropped:  iface.Dropin,
-			TxDropped:  iface.Dropout,
+			Interface: iface.Name,
+			RxBytes:   iface.BytesRecv,
+			TxBytes:   iface.BytesSent,
+			RxPackets: iface.PacketsRecv,
+			TxPackets: iface.PacketsSent,
+			RxErrors:  iface.Errin,
+			TxErrors:  iface.Errout,
+			RxDropped: iface.Dropin,
+			TxDropped: iface.Dropout,
 		}
-		
+
 		overview.Network = append(overview.Network, nm)
 	}
-	
+
 	// Service health
 	services := []string{"nosd", "nos-agent", "caddy"}
 	for _, service := range services {
@@ -623,19 +623,19 @@ func (c *Collector) GetOverview() (*MonitorOverview, error) {
 			overview.Services = append(overview.Services, *sm)
 		}
 	}
-	
+
 	return overview, nil
 }
 
 // getServiceMetrics gets metrics for a single service
 func (c *Collector) getServiceMetrics(service string) *ServiceMetrics {
-	cmd := exec.Command("systemctl", "show", service, 
+	cmd := exec.Command("systemctl", "show", service,
 		"--property=ActiveState,SubState,MainPID")
 	output, err := cmd.Output()
 	if err != nil {
 		return nil
 	}
-	
+
 	props := make(map[string]string)
 	for _, line := range strings.Split(string(output), "\n") {
 		parts := strings.SplitN(line, "=", 2)
@@ -643,7 +643,7 @@ func (c *Collector) getServiceMetrics(service string) *ServiceMetrics {
 			props[parts[0]] = parts[1]
 		}
 	}
-	
+
 	sm := &ServiceMetrics{
 		Name:     service,
 		State:    props["ActiveState"],
@@ -651,11 +651,11 @@ func (c *Collector) getServiceMetrics(service string) *ServiceMetrics {
 		Active:   props["ActiveState"] == "active",
 		Running:  props["SubState"] == "running",
 	}
-	
+
 	if pid, err := strconv.Atoi(props["MainPID"]); err == nil && pid > 0 {
 		sm.MainPID = pid
 	}
-	
+
 	return sm
 }
 

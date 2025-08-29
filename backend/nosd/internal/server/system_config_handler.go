@@ -499,7 +499,7 @@ func (h *SystemConfigHandler) GetTelemetryConsent(w http.ResponseWriter, r *http
 	// Read consent from file
 	consentPath := "/etc/nos/telemetry/consent.json"
 	if data, err := os.ReadFile(consentPath); err == nil {
-		json.Unmarshal(data, &consent)
+		_ = json.Unmarshal(data, &consent)
 	}
 	
 	respondJSON(w, http.StatusOK, consent)

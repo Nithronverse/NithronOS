@@ -671,7 +671,7 @@ func (e *Engine) saveConfig() error {
 	
 	eventsPath := filepath.Join(e.configPath, "events.json")
 	if data, err := json.MarshalIndent(eventsToSave, "", "  "); err == nil {
-		os.WriteFile(eventsPath, data, 0600)
+		_ = os.WriteFile(eventsPath, data, 0600)
 	}
 	
 	return nil
