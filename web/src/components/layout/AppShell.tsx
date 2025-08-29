@@ -132,11 +132,11 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           {/* Sidebar Header */}
           <div className="flex h-14 items-center border-b border-border px-4">
             <Link to="/" className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-primary/10 p-1">
-                <svg viewBox="0 0 24 24" className="h-full w-full fill-primary">
-                  <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z" />
-                </svg>
-              </div>
+              <img 
+                src="/brand/nithronos-logo-mark.svg" 
+                alt="NithronOS Logo" 
+                className="h-8 w-8"
+              />
               <span className="text-lg font-semibold">NithronOS</span>
             </Link>
             <button

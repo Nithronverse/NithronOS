@@ -10,6 +10,15 @@ desktop-color: "#0B0E13"
 terminal-font: "DroidSans-32"
 terminal-box: "terminal_*.png"
 
+# NithronOS Logo
++ image {
+  left = 50%-64
+  top = 10%
+  width = 128
+  height = 128
+  file = "nithronos-logo-mark.png"
+}
+
 # Boot menu styling
 + boot_menu {
   left = 15%

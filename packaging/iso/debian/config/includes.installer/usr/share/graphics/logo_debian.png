@@ -1,4 +1,4 @@
-# Placeholder for NithronOS logo
-# This file should be replaced with the actual NithronOS logo PNG file
-# The debian-installer will use this logo during installation
-# Recommended size: 800x75 pixels
+# NithronOS Logo for Debian Installer
+# The nithronos-logo-mark.png has been added to this directory
+# The installer will use this logo during installation
+# Additional banner images can be created as needed

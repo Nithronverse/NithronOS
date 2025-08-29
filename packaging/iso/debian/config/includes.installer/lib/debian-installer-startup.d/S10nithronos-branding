@@ -9,6 +9,11 @@ db_set debian-installer/title "NithronOS Installer"
 # Set organization name
 db_set debian-installer/organization "NithronOS Project"
 
+# Set logo if exists
+if [ -f /usr/share/graphics/nithronos-logo-mark.png ]; then
+    db_set debian-installer/logo /usr/share/graphics/nithronos-logo-mark.png
+fi
+
 # Custom banner text
 cat > /tmp/nithronos-banner << 'EOF'
 ================================================================================

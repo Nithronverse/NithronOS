@@ -81,6 +81,16 @@ EOF
 # Create identifier file
 touch config/includes.binary/NITHRONOS
 
+# Copy NithronOS branding assets
+echo -e "${YELLOW}[*] Copying NithronOS branding assets...${NC}"
+if [ -f ../../../assets/brand/nithronos-logo-mark.png ]; then
+    # Copy logo to various locations
+    cp ../../../assets/brand/nithronos-logo-mark.png config/includes.binary/isolinux/splash.png 2>/dev/null || true
+    cp ../../../assets/brand/nithronos-logo-mark.png config/includes.installer/usr/share/graphics/ 2>/dev/null || true
+    cp ../../../assets/brand/nithronos-logo-mark.png config/includes.chroot/boot/grub/themes/nithron/ 2>/dev/null || true
+    echo -e "${GREEN}[✓] Branding assets copied${NC}"
+fi
+
 # Ensure debian-installer is configured
 echo -e "${YELLOW}[*] Configuring Debian Installer...${NC}"
 mkdir -p config/debian-installer
