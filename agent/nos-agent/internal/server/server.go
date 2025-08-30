@@ -50,6 +50,9 @@ func Start() error {
 // buildMux constructs the HTTP handler with all routes registered.
 func buildMux() http.Handler {
 	mux := http.NewServeMux()
+	// System configuration endpoint
+	mux.HandleFunc("/execute", handleExecute)
+	// Storage endpoints
 	mux.HandleFunc("/v1/btrfs/create", handleBtrfsCreate)
 	mux.HandleFunc("/v1/btrfs/mount", handleBtrfsMount)
 	mux.HandleFunc("/v1/btrfs/snapshot", handleBtrfsSnapshot)
