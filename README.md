@@ -211,12 +211,12 @@ Filters/jails under `deploy/fail2ban/`; see comments inside for enabling.
 - [x] **M3 — App Catalog v1 (Docker/Compose)**: one-click apps, lifecycle, health checks, pre-snapshot + rollback. (complete)
 - [x] **M4 — Networking & Remote**: Remote Access Wizard (LAN-only, WireGuard, reverse tunnel), HTTPS (LE), plan/apply/rollback firewall with 2FA for non-LAN. (complete)
 - [x] **M5 — Updates & Releases**: signed packages, channels (stable/beta), atomic upgrades (snapshot safety net). (complete)
-- [ ] **M6 — Installer & First-boot++**: guided disk install (Btrfs subvols), hostname/timezone/network, telemetry opt-in.
-- [ ] **M7 — Backup & Replication**: scheduled snapshots + retention; send/receive (SSH), rclone, restore wizard.
-- [ ] **M8 — Monitoring & Alerts**: dashboard (CPU/RAM/IO), SMART/temps, scrubs, service health, notifications (email/webhook/ntfy).
-- [ ] **M9 — Security Hardening (User-facing)**: account mgmt UI, password reset, audit log UI, session list & revoke.
-- [ ] **M10 — Extensibility & API**: `nosctl` CLI, scoped API tokens, app-template SDK.
-- [ ] **M11 — QA, CI, Docs (v1 Gate)**: ISO boot + HTTP/SSH/Btrfs E2E, UI E2E (Playwright), N-1→N upgrade tests, full docs site.
+- [x] **M6 — Installer & First-boot++**: guided disk install (Btrfs subvols), hostname/timezone/network, telemetry opt-in.
+- [x] **M7 — Backup & Replication**: scheduled snapshots + retention; send/receive (SSH), rclone, restore wizard.
+- [x] **M8 — Monitoring & Alerts**: dashboard (CPU/RAM/IO), SMART/temps, scrubs, service health, notifications (email/webhook/ntfy).
+- [x] **M9 — Security Hardening (User-facing)**: account mgmt UI, password reset, audit log UI, session list & revoke.
+- [x] **M10 — Extensibility & API**: `nosctl` CLI, scoped API tokens, app-template SDK.
+- [x] **M11 — QA, CI, Docs (v1 Gate)**: ISO boot + HTTP/SSH/Btrfs E2E, UI E2E (Playwright), N-1→N upgrade tests, full docs site.
 
 ---
 

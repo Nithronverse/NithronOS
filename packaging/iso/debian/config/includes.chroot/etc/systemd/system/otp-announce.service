@@ -1,26 +1,17 @@
 [Unit]
-Description=NithronOS: announce first-boot OTP to console
-After=multi-user.target getty@tty1.service
+Description=NithronOS: OTP Generation Service
+After=multi-user.target
 ConditionPathExists=/usr/lib/nithronos/otp-notify
-# Run after system and console are ready
+# OTP is now shown in web UI, not on console
+# To re-enable terminal display, create /etc/nos/enable-terminal-otp
+ConditionPathExists=/etc/nos/enable-terminal-otp
 
 [Service]
 Type=oneshot
-# Wait longer to ensure terminal is fully ready and user can see
-ExecStartPre=/bin/sleep 5
 ExecStart=/usr/lib/nithronos/otp-notify
-# Also display OTP multiple times with pauses for visibility
-ExecStartPost=/bin/sleep 2
-ExecStartPost=/usr/lib/nithronos/otp-notify
-ExecStartPost=/bin/sleep 2
-ExecStartPost=/usr/lib/nithronos/otp-notify
-StandardOutput=journal+console
-StandardError=journal+console
+StandardOutput=journal
+StandardError=journal
 RemainAfterExit=yes
-# Try multiple times if OTP not ready yet
-Restart=on-failure
-RestartSec=2s
-StartLimitBurst=5
 
 [Install]
 WantedBy=multi-user.target

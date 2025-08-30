@@ -13,7 +13,7 @@ import { toast } from '@/components/ui/toast'
 // Type Definitions
 // ============================================================================
 
-type SetupStep = 'otp' | 'admin' | 'system' | 'network' | 'telemetry' | 'totp' | 'done'
+type SetupStep = 'welcome' | 'otp' | 'admin' | 'system' | 'network' | 'telemetry' | 'totp' | 'done'
 
 // ============================================================================
 // Password Validation
@@ -55,7 +55,7 @@ type CreateAdminInput = z.infer<typeof CreateAdminSchema>
 export default function Setup() {
   const navigate = useNavigate()
   const { notice } = useGlobalNotice()
-  const [step, setStep] = useState<SetupStep>('otp')
+  const [step, setStep] = useState<SetupStep>('welcome')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [setupToken, setSetupToken] = useState<string | null>(null)
@@ -151,6 +151,12 @@ export default function Setup() {
           <>
             <SetupSteps currentStep={step} />
             
+            {step === 'welcome' && (
+              <StepWelcome 
+                onContinue={() => setStep('otp')}
+              />
+            )}
+            
             {step === 'otp' && (
               <StepOTP 
                 onSuccess={(token) => {
@@ -221,6 +227,7 @@ export default function Setup() {
 
 function SetupSteps({ currentStep }: { currentStep: SetupStep }) {
   const steps = [
+    { id: 'welcome', label: 'Welcome' },
     { id: 'otp', label: 'OTP' },
     { id: 'admin', label: 'Admin' },
     { id: 'system', label: 'System' },
@@ -244,6 +251,92 @@ function SetupSteps({ currentStep }: { currentStep: SetupStep }) {
           {index + 1}. {step.label}
         </div>
       ))}
+    </div>
+  )
+}
+
+// ============================================================================
+// Step 0: Welcome Screen with OTP Instructions
+// ============================================================================
+
+function StepWelcome({ onContinue }: { onContinue: () => void }) {
+  const [otpLocation] = useState('/etc/nos/otp')
+  
+  return (
+    <div className="space-y-4">
+      <div className="text-center">
+        <h2 className="text-xl font-semibold mb-2">Welcome to NithronOS!</h2>
+        <p className="text-sm text-muted-foreground">
+          Let's get your system set up and ready to use.
+        </p>
+      </div>
+      
+      <div className="border border-muted rounded p-4 space-y-3">
+        <h3 className="font-medium">Getting Your One-Time Password (OTP)</h3>
+        <p className="text-sm text-muted-foreground">
+          To begin setup, you'll need the OTP that was generated when the system started.
+          The OTP is stored in a file on the server.
+        </p>
+        
+        <div className="space-y-2">
+          <div className="bg-card rounded p-3">
+            <p className="text-xs text-muted-foreground mb-1">OTP File Location:</p>
+            <code className="block bg-background rounded p-2 text-sm font-mono">
+              {otpLocation}
+            </code>
+          </div>
+          
+          <div className="bg-card rounded p-3">
+            <p className="text-xs text-muted-foreground mb-1">To view the OTP via SSH:</p>
+            <code className="block bg-background rounded p-2 text-sm font-mono">
+              ssh your-server-ip "cat {otpLocation}"
+            </code>
+          </div>
+          
+          <div className="bg-card rounded p-3">
+            <p className="text-xs text-muted-foreground mb-1">Or if you have console access:</p>
+            <code className="block bg-background rounded p-2 text-sm font-mono">
+              cat {otpLocation}
+            </code>
+          </div>
+        </div>
+        
+        <div className="text-xs text-muted-foreground">
+          <strong>Note:</strong> The OTP is valid for 10 minutes after generation. 
+          If it expires, restart the nosd service to generate a new one.
+        </div>
+      </div>
+      
+      <div className="border border-muted rounded p-4">
+        <h3 className="font-medium mb-2">Documentation & Support</h3>
+        <div className="space-y-2 text-sm">
+          <div>
+            📚 <a href="https://docs.nithron.com" target="_blank" rel="noopener noreferrer" 
+                className="text-primary hover:underline">
+              Documentation
+            </a>
+          </div>
+          <div>
+            💬 <a href="https://github.com/Nithronverse/NithronOS/discussions" target="_blank" rel="noopener noreferrer" 
+                className="text-primary hover:underline">
+              Community Forum
+            </a>
+          </div>
+          <div>
+            🐛 <a href="https://github.com/Nithronverse/NithronOS/issues" target="_blank" rel="noopener noreferrer" 
+                className="text-primary hover:underline">
+              Report Issues
+            </a>
+          </div>
+        </div>
+      </div>
+      
+      <button
+        className="btn bg-primary text-primary-foreground w-full py-3"
+        onClick={onContinue}
+      >
+        I Have My OTP - Continue
+      </button>
     </div>
   )
 }
