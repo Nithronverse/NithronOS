@@ -38,7 +38,7 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 		handleSetTimezone(w, req.Params)
 	case "system.ntp.set", "system.ntp.configure":
 		handleSetNTP(w, req.Params)
-	case "system.network.configure":
+	case "system.network.configure", "network.interface.configure":
 		handleConfigureNetwork(w, req.Params)
 	default:
 		writeErr(w, http.StatusBadRequest, fmt.Sprintf("unknown action: %s", req.Action))
@@ -162,7 +162,132 @@ func handleSetNTP(w http.ResponseWriter, params map[string]interface{}) {
 }
 
 func handleConfigureNetwork(w http.ResponseWriter, params map[string]interface{}) {
-	// Placeholder for network configuration
-	// This would need more complex implementation based on the network manager in use
+	// Extract network configuration parameters
+	iface, _ := params["interface"].(string)
+	dhcp, _ := params["dhcp"].(bool)
+	ipv4Address, _ := params["ipv4_address"].(string)
+	ipv4Gateway, _ := params["ipv4_gateway"].(string)
+	dnsServers, _ := params["dns"].([]interface{})
+	
+	if iface == "" {
+		writeErr(w, http.StatusBadRequest, "interface name required")
+		return
+	}
+	
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	
+	// Different approaches based on the network manager
+	// First, try NetworkManager if available
+	if _, err := exec.LookPath("nmcli"); err == nil {
+		// Use NetworkManager
+		if dhcp {
+			// Configure DHCP
+			_ = exec.CommandContext(ctx, "nmcli", "con", "mod", iface, "ipv4.method", "auto").Run()
+			_ = exec.CommandContext(ctx, "nmcli", "con", "mod", iface, "ipv4.addresses", "").Run()
+			_ = exec.CommandContext(ctx, "nmcli", "con", "mod", iface, "ipv4.gateway", "").Run()
+			_ = exec.CommandContext(ctx, "nmcli", "con", "mod", iface, "ipv4.dns", "").Run()
+		} else {
+			// Configure static IP
+			if ipv4Address != "" {
+				_ = exec.CommandContext(ctx, "nmcli", "con", "mod", iface, "ipv4.method", "manual").Run()
+				_ = exec.CommandContext(ctx, "nmcli", "con", "mod", iface, "ipv4.addresses", ipv4Address).Run()
+				
+				if ipv4Gateway != "" {
+					_ = exec.CommandContext(ctx, "nmcli", "con", "mod", iface, "ipv4.gateway", ipv4Gateway).Run()
+				}
+				
+				if len(dnsServers) > 0 {
+					var dnsList []string
+					for _, dns := range dnsServers {
+						if str, ok := dns.(string); ok {
+							dnsList = append(dnsList, str)
+						}
+					}
+					if len(dnsList) > 0 {
+						_ = exec.CommandContext(ctx, "nmcli", "con", "mod", iface, "ipv4.dns", strings.Join(dnsList, " ")).Run()
+					}
+				}
+			}
+		}
+		
+		// Restart the connection
+		_ = exec.CommandContext(ctx, "nmcli", "con", "down", iface).Run()
+		_ = exec.CommandContext(ctx, "nmcli", "con", "up", iface).Run()
+		
+	} else if _, err := exec.LookPath("systemctl"); err == nil {
+		// Use systemd-networkd
+		// Create a network configuration file
+		configDir := "/etc/systemd/network"
+		_ = os.MkdirAll(configDir, 0755)
+		
+		configFile := filepath.Join(configDir, fmt.Sprintf("10-%s.network", iface))
+		
+		var config strings.Builder
+		config.WriteString("[Match]\n")
+		config.WriteString(fmt.Sprintf("Name=%s\n\n", iface))
+		config.WriteString("[Network]\n")
+		
+		if dhcp {
+			config.WriteString("DHCP=yes\n")
+		} else {
+			if ipv4Address != "" {
+				config.WriteString(fmt.Sprintf("Address=%s\n", ipv4Address))
+			}
+			if ipv4Gateway != "" {
+				config.WriteString(fmt.Sprintf("Gateway=%s\n", ipv4Gateway))
+			}
+			for _, dns := range dnsServers {
+				if str, ok := dns.(string); ok {
+					config.WriteString(fmt.Sprintf("DNS=%s\n", str))
+				}
+			}
+		}
+		
+		_ = os.WriteFile(configFile, []byte(config.String()), 0644)
+		
+		// Restart systemd-networkd
+		_ = exec.CommandContext(ctx, "systemctl", "restart", "systemd-networkd").Run()
+		
+	} else {
+		// Fallback: Use traditional ifconfig/route commands
+		if dhcp {
+			// Try to start dhclient
+			_ = exec.CommandContext(ctx, "dhclient", "-r", iface).Run() // Release any existing lease
+			_ = exec.CommandContext(ctx, "dhclient", iface).Run()
+		} else {
+			// Configure static IP using ip command
+			if ipv4Address != "" {
+				// Bring interface down
+				_ = exec.CommandContext(ctx, "ip", "link", "set", iface, "down").Run()
+				
+				// Remove existing addresses
+				_ = exec.CommandContext(ctx, "ip", "addr", "flush", "dev", iface).Run()
+				
+				// Add new address
+				_ = exec.CommandContext(ctx, "ip", "addr", "add", ipv4Address, "dev", iface).Run()
+				
+				// Bring interface up
+				_ = exec.CommandContext(ctx, "ip", "link", "set", iface, "up").Run()
+				
+				// Add default route if gateway provided
+				if ipv4Gateway != "" {
+					_ = exec.CommandContext(ctx, "ip", "route", "add", "default", "via", ipv4Gateway).Run()
+				}
+				
+				// Configure DNS in /etc/resolv.conf
+				if len(dnsServers) > 0 {
+					var resolvConf strings.Builder
+					for _, dns := range dnsServers {
+						if str, ok := dns.(string); ok {
+							resolvConf.WriteString(fmt.Sprintf("nameserver %s\n", str))
+						}
+					}
+					_ = os.WriteFile("/etc/resolv.conf", []byte(resolvConf.String()), 0644)
+				}
+			}
+		}
+	}
+	
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "result": "success"})
 }
