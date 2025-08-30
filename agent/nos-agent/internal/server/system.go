@@ -168,15 +168,15 @@ func handleConfigureNetwork(w http.ResponseWriter, params map[string]interface{}
 	ipv4Address, _ := params["ipv4_address"].(string)
 	ipv4Gateway, _ := params["ipv4_gateway"].(string)
 	dnsServers, _ := params["dns"].([]interface{})
-	
+
 	if iface == "" {
 		writeErr(w, http.StatusBadRequest, "interface name required")
 		return
 	}
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	
+
 	// Different approaches based on the network manager
 	// First, try NetworkManager if available
 	if _, err := exec.LookPath("nmcli"); err == nil {
@@ -192,11 +192,11 @@ func handleConfigureNetwork(w http.ResponseWriter, params map[string]interface{}
 			if ipv4Address != "" {
 				_ = exec.CommandContext(ctx, "nmcli", "con", "mod", iface, "ipv4.method", "manual").Run()
 				_ = exec.CommandContext(ctx, "nmcli", "con", "mod", iface, "ipv4.addresses", ipv4Address).Run()
-				
+
 				if ipv4Gateway != "" {
 					_ = exec.CommandContext(ctx, "nmcli", "con", "mod", iface, "ipv4.gateway", ipv4Gateway).Run()
 				}
-				
+
 				if len(dnsServers) > 0 {
 					var dnsList []string
 					for _, dns := range dnsServers {
@@ -210,24 +210,24 @@ func handleConfigureNetwork(w http.ResponseWriter, params map[string]interface{}
 				}
 			}
 		}
-		
+
 		// Restart the connection
 		_ = exec.CommandContext(ctx, "nmcli", "con", "down", iface).Run()
 		_ = exec.CommandContext(ctx, "nmcli", "con", "up", iface).Run()
-		
+
 	} else if _, err := exec.LookPath("systemctl"); err == nil {
 		// Use systemd-networkd
 		// Create a network configuration file
 		configDir := "/etc/systemd/network"
 		_ = os.MkdirAll(configDir, 0755)
-		
+
 		configFile := filepath.Join(configDir, fmt.Sprintf("10-%s.network", iface))
-		
+
 		var config strings.Builder
 		config.WriteString("[Match]\n")
 		config.WriteString(fmt.Sprintf("Name=%s\n\n", iface))
 		config.WriteString("[Network]\n")
-		
+
 		if dhcp {
 			config.WriteString("DHCP=yes\n")
 		} else {
@@ -243,12 +243,12 @@ func handleConfigureNetwork(w http.ResponseWriter, params map[string]interface{}
 				}
 			}
 		}
-		
+
 		_ = os.WriteFile(configFile, []byte(config.String()), 0644)
-		
+
 		// Restart systemd-networkd
 		_ = exec.CommandContext(ctx, "systemctl", "restart", "systemd-networkd").Run()
-		
+
 	} else {
 		// Fallback: Use traditional ifconfig/route commands
 		if dhcp {
@@ -260,21 +260,21 @@ func handleConfigureNetwork(w http.ResponseWriter, params map[string]interface{}
 			if ipv4Address != "" {
 				// Bring interface down
 				_ = exec.CommandContext(ctx, "ip", "link", "set", iface, "down").Run()
-				
+
 				// Remove existing addresses
 				_ = exec.CommandContext(ctx, "ip", "addr", "flush", "dev", iface).Run()
-				
+
 				// Add new address
 				_ = exec.CommandContext(ctx, "ip", "addr", "add", ipv4Address, "dev", iface).Run()
-				
+
 				// Bring interface up
 				_ = exec.CommandContext(ctx, "ip", "link", "set", iface, "up").Run()
-				
+
 				// Add default route if gateway provided
 				if ipv4Gateway != "" {
 					_ = exec.CommandContext(ctx, "ip", "route", "add", "default", "via", ipv4Gateway).Run()
 				}
-				
+
 				// Configure DNS in /etc/resolv.conf
 				if len(dnsServers) > 0 {
 					var resolvConf strings.Builder
@@ -288,6 +288,6 @@ func handleConfigureNetwork(w http.ResponseWriter, params map[string]interface{}
 			}
 		}
 	}
-	
+
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "result": "success"})
 }
