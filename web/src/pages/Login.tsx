@@ -142,6 +142,16 @@ export function Login() {
           return
         }
         
+        // Handle setup incomplete - redirect to setup
+        if (err.status === 403 && err.code === 'setup.incomplete') {
+          setError('Setup is not complete. Redirecting to setup...')
+          toast.info('Please complete the setup process first')
+          setTimeout(() => {
+            navigate('/setup', { replace: true })
+          }, 1500)
+          return
+        }
+        
         // Handle invalid credentials
         if (err.status === 401) {
           setError('Invalid username or password')

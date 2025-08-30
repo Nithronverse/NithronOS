@@ -1,8 +1,27 @@
-#!/bin/sh
+#!/bin/bash
 # Generate OTP for NithronOS first boot
 
-# Generate random 6-digit OTP
-OTP=$(printf "%06d" $((RANDOM % 1000000)))
+# Generate random 6-digit OTP using /dev/urandom for better randomness
+# Fall back to multiple methods to ensure we get a non-zero OTP
+if [ -r /dev/urandom ]; then
+    # Use /dev/urandom for cryptographically secure random
+    OTP=$(od -An -N3 -i /dev/urandom | awk '{print $1 % 1000000}' | xargs printf "%06d")
+elif [ -n "$RANDOM" ]; then
+    # Fall back to bash RANDOM if available
+    OTP=$(printf "%06d" $((RANDOM % 1000000)))
+else
+    # Last resort: use current time microseconds
+    OTP=$(date +%N | cut -c1-6)
+fi
+
+# Ensure OTP is not 000000
+if [ "$OTP" = "000000" ] || [ -z "$OTP" ]; then
+    # Generate based on current time if we got 000000
+    OTP=$(date +%s | tail -c 6)
+    if [ "$OTP" = "000000" ]; then
+        OTP="$(date +%H%M%S)"
+    fi
+fi
 
 # Create directories
 mkdir -p /var/lib/nos/state

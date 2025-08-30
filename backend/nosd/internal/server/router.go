@@ -1722,16 +1722,16 @@ func NewRouter(cfg config.Config) http.Handler {
 		// Allow setup token authentication for system config during setup
 		sr.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				// Check if setup is complete
-				us, _ := userstore.New(cfg.UsersPath)
-				if us != nil && us.HasAdmin() {
-					// Setup complete, require normal auth
+				// Check if setup is ACTUALLY complete (not just if admin exists)
+				setupCompleteFile := filepath.Join(cfg.EtcDir, "nos", "setup-complete")
+				if _, err := os.Stat(setupCompleteFile); err == nil {
+					// Setup is complete, require normal auth
 					if _, ok := codec.DecodeFromRequest(r); !ok {
 						httpx.WriteTypedError(w, http.StatusUnauthorized, "auth.required", "Authentication required. Please sign in.", 0)
 						return
 					}
 				} else {
-					// During setup, allow with setup token
+					// During setup, allow with setup token OR if no admin exists
 					authz := r.Header.Get("Authorization")
 					if strings.HasPrefix(authz, "Bearer ") {
 						tok := strings.TrimSpace(authz[7:])
@@ -1742,7 +1742,17 @@ func NewRouter(cfg config.Config) http.Handler {
 							return
 						}
 					}
-					// No valid auth during setup
+					
+					// Check if we're still in first-boot (no admin yet)
+					us, _ := userstore.New(cfg.UsersPath)
+					if us == nil || !us.HasAdmin() {
+						// No admin yet, this might be recovery mode or initial setup
+						// Allow the request to proceed
+						next.ServeHTTP(w, r)
+						return
+					}
+					
+					// Has admin but no valid setup token
 					httpx.WriteTypedError(w, http.StatusUnauthorized, "auth.required", "Setup authentication required.", 0)
 					return
 				}
