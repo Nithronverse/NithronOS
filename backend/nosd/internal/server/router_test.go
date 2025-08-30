@@ -42,6 +42,10 @@ func TestLoginThrottleLockUnlock(t *testing.T) {
 	t.Setenv("NOS_USERS_PATH", up)
 	// Make rate limiter permissive so we test account locking, not 429s
 	t.Setenv("NOS_RATE_LOGIN_PER_15M", "1000")
+	// Mark setup as complete for this test
+	t.Setenv("NOS_ETC_DIR", dir)
+	_ = os.MkdirAll(filepath.Join(dir, "nos"), 0o755)
+	_ = os.WriteFile(filepath.Join(dir, "nos", "setup-complete"), []byte(""), 0o644)
 	cfg := config.FromEnv()
 	_ = os.Setenv("NOS_RL_PATH", filepath.Join(filepath.Dir(up), "ratelimit.json"))
 	r := NewRouter(cfg)
@@ -74,6 +78,10 @@ func TestDisksShape(t *testing.T) {
 		_ = os.MkdirAll(filepath.Dir(up), 0o755)
 		_ = os.WriteFile(up, []byte(`{"version":1,"users":[{"id":"u1","username":"admin@example.com","password_hash":"plain:admin123","roles":["admin"],"created_at":"","updated_at":""}]}`), 0o600)
 	}
+	// Mark setup as complete for this test
+	dir := t.TempDir()
+	t.Setenv("NOS_SETUP_COMPLETE_PATH", filepath.Join(dir, "setup-complete"))
+	_ = os.WriteFile(filepath.Join(dir, "setup-complete"), []byte(""), 0o644)
 	cfg := config.FromEnv()
 	_ = os.Setenv("NOS_RL_PATH", filepath.Join(filepath.Dir(cfg.SharesPath), "ratelimit.json"))
 	r := NewRouter(cfg)
@@ -141,6 +149,11 @@ func TestDeleteShareReturnsNoContent(t *testing.T) {
 		_ = os.MkdirAll(filepath.Dir(up), 0o755)
 		_ = os.WriteFile(up, []byte(`{"version":1,"users":[{"id":"u1","username":"admin@example.com","password_hash":"plain:admin123","roles":["admin"],"created_at":"","updated_at":""}]}`), 0o600)
 	}
+	// Mark setup as complete for this test
+	etcDir := t.TempDir()
+	t.Setenv("NOS_ETC_DIR", etcDir)
+	_ = os.MkdirAll(filepath.Join(etcDir, "nos"), 0o755)
+	_ = os.WriteFile(filepath.Join(etcDir, "nos", "setup-complete"), []byte(""), 0o644)
 	cfg := config.FromEnv()
 	_ = os.Setenv("NOS_RL_PATH", filepath.Join(filepath.Dir(cfg.SharesPath), "ratelimit.json"))
 	// Seed a store with an entry

@@ -96,6 +96,18 @@ func TestSetupFullFlowAnd410(t *testing.T) {
 		}
 	}
 
+	// Mark setup as complete
+	{
+		t.Log("mark-setup-complete")
+		req := httptest.NewRequest(http.MethodPost, "/api/setup/complete", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		res := httptest.NewRecorder()
+		r.ServeHTTP(res, req)
+		if res.Code != http.StatusNoContent {
+			t.Fatalf("setup/complete: expected 204, got %d %s", res.Code, res.Body.String())
+		}
+	}
+
 	// state now 410
 	{
 		t.Log("state-410")
@@ -477,6 +489,17 @@ func TestSetupTransition_DeleteUsersRestoresFirstBoot(t *testing.T) {
 		r.ServeHTTP(res, req)
 		if res.Code != http.StatusNoContent {
 			t.Fatalf("create-admin: %d %s", res.Code, res.Body.String())
+		}
+	}
+
+	// Mark setup as complete
+	{
+		req := httptest.NewRequest(http.MethodPost, "/api/setup/complete", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		res := httptest.NewRecorder()
+		r.ServeHTTP(res, req)
+		if res.Code != http.StatusNoContent {
+			t.Fatalf("setup/complete: %d %s", res.Code, res.Body.String())
 		}
 	}
 

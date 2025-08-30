@@ -389,6 +389,11 @@ func NewRouter(cfg config.Config) http.Handler {
 	r.Route("/api/setup", func(sr chi.Router) {
 		sr.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// Allow /complete endpoint to bypass the check
+				if strings.HasSuffix(r.URL.Path, "/complete") {
+					next.ServeHTTP(w, r)
+					return
+				}
 				// Evaluate setup completion from disk on every request (robust against file changes)
 				us, _ := userstore.New(cfg.UsersPath)
 				if us != nil && us.HasAdmin() {
@@ -548,6 +553,14 @@ func NewRouter(cfg config.Config) http.Handler {
 
 		// Mark setup as complete - called after all setup steps are done
 		sr.Post("/complete", func(w http.ResponseWriter, r *http.Request) {
+			// Check if already complete
+			setupCompleteFile := filepath.Join(cfg.EtcDir, "nos", "setup-complete")
+			if _, err := os.Stat(setupCompleteFile); err == nil {
+				// Already marked complete, just return success
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+
 			authz := r.Header.Get("Authorization")
 			const prefix = "Bearer "
 			if !strings.HasPrefix(authz, prefix) {
@@ -566,7 +579,6 @@ func NewRouter(cfg config.Config) http.Handler {
 			}
 
 			// Create setup-complete marker file
-			setupCompleteFile := filepath.Join(cfg.EtcDir, "nos", "setup-complete")
 			_ = os.MkdirAll(filepath.Dir(setupCompleteFile), 0o755)
 			if err := os.WriteFile(setupCompleteFile, []byte(time.Now().UTC().Format(time.RFC3339)+"\n"), 0o644); err != nil {
 				httpx.WriteTypedError(w, http.StatusInternalServerError, "setup.write_failed", "Failed to mark setup as complete", 0)
@@ -579,7 +591,7 @@ func NewRouter(cfg config.Config) http.Handler {
 			_ = os.Remove("/etc/nos/otp")
 			_ = os.Remove("/run/nos/firstboot-otp")
 
-			writeJSON(w, map[string]any{"ok": true})
+			w.WriteHeader(http.StatusNoContent)
 		})
 	})
 
