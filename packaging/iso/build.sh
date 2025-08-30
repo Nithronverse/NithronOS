@@ -96,10 +96,16 @@ cat > "$HOOK" <<'EOS'
 #!/bin/sh
 set -e
 if ls /root/debs/*.deb 1>/dev/null 2>&1; then
-  dpkg -i /root/debs/*.deb || apt-get -y -f install || true
+  # Use non-interactive mode to avoid config file prompts
+  export DEBIAN_FRONTEND=noninteractive
+  export DEBCONF_NONINTERACTIVE_SEEN=true
+  
+  # Install packages, keeping existing config files
+  dpkg --force-confold -i /root/debs/*.deb || apt-get -y -f install -o Dpkg::Options::="--force-confold" || true
+  
   # Try again for nos-web specifically if first pass failed due to conflicts
   if ! dpkg -l | grep -qi '^ii\s\+nos-web'; then
-    apt-get -y install ./root/debs/nos-web_*.deb 2>/dev/null || true
+    apt-get -y install -o Dpkg::Options::="--force-confold" ./root/debs/nos-web_*.deb 2>/dev/null || true
   fi
 fi
 # Enable Caddy if present

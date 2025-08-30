@@ -3,9 +3,18 @@ set -e
 
 echo "[98-setup-installer] Setting up installer..."
 
-# Make installer executable
-chmod +x /usr/bin/nithronos-installer
-chmod +x /usr/lib/nithronos/installer-welcome
+# Make installer executable if it exists
+if [ -f /usr/bin/nithronos-installer ]; then
+    chmod +x /usr/bin/nithronos-installer
+else
+    echo "[98-setup-installer] Warning: /usr/bin/nithronos-installer not found"
+fi
+
+if [ -f /usr/lib/nithronos/installer-welcome ]; then
+    chmod +x /usr/lib/nithronos/installer-welcome
+else
+    echo "[98-setup-installer] Warning: /usr/lib/nithronos/installer-welcome not found"
+fi
 
 # Enable installer welcome service
 systemctl enable nithronos-installer-welcome.service || true
