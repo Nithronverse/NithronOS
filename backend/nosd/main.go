@@ -195,6 +195,9 @@ func ensureFirstBootOTP(cfg config.Config) {
 		if t, err := time.Parse(time.RFC3339, st.CreatedAt); err == nil {
 			if time.Since(t) < 15*time.Minute {
 				valid = true
+				// Ensure OTP is accessible to users
+				_ = os.MkdirAll("/etc/nos", 0o755)
+				_ = os.WriteFile("/etc/nos/otp", []byte(st.OTP+"\n"), 0o644)
 			}
 		}
 	}
@@ -204,6 +207,10 @@ func ensureFirstBootOTP(cfg config.Config) {
 		st.Used = false
 		_ = os.MkdirAll(filepath.Dir(cfg.FirstBootPath), 0o755)
 		_ = fsatomic.SaveJSON(context.TODO(), cfg.FirstBootPath, st, 0o600)
+		
+		// Write OTP to /etc/nos/otp for user access
+		_ = os.MkdirAll("/etc/nos", 0o755)
+		_ = os.WriteFile("/etc/nos/otp", []byte(st.OTP+"\n"), 0o644)
 	}
 	msg := fmt.Sprintf("First-boot OTP: %s (valid 15m)", st.OTP)
 	fmt.Println(msg)

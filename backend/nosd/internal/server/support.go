@@ -136,17 +136,26 @@ func handleSupportBundle(cfg config.Config) http.HandlerFunc {
 	}
 }
 
-// writeFirstBootOTPFile writes the current 6-digit code to /run/nos/firstboot-otp
+// writeFirstBootOTPFile writes the current 6-digit code to both /etc/nos/otp and /run/nos/firstboot-otp
 // in a simple format: digits + newline. Best-effort and idempotent.
 func writeFirstBootOTPFile(otp string) error {
 	otp = strings.TrimSpace(otp)
 	if otp == "" {
 		return nil
 	}
-	const p = "/run/nos/firstboot-otp"
-	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+	
+	// Write to /etc/nos/otp for user access (as documented in the web UI)
+	const etcPath = "/etc/nos/otp"
+	if err := os.MkdirAll(filepath.Dir(etcPath), 0o755); err == nil {
+		data := []byte(otp + "\n")
+		_ = os.WriteFile(etcPath, data, 0o644)
+	}
+	
+	// Also write to /run/nos/firstboot-otp for backward compatibility
+	const runPath = "/run/nos/firstboot-otp"
+	if err := os.MkdirAll(filepath.Dir(runPath), 0o755); err != nil {
 		return err
 	}
 	data := []byte(otp + "\n")
-	return os.WriteFile(p, data, 0o644)
+	return os.WriteFile(runPath, data, 0o644)
 }

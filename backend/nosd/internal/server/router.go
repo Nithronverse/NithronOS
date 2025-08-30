@@ -537,6 +537,9 @@ func NewRouter(cfg config.Config) http.Handler {
 			}
 			// Success: remove first-boot state so OTP stops printing on restarts (best-effort)
 			_ = os.Remove(cfg.FirstBootPath)
+			// Remove OTP files (best-effort)
+			_ = os.Remove("/etc/nos/otp")
+			_ = os.Remove("/run/nos/firstboot-otp")
 			// Remove MOTD hint if present (best-effort)
 			_ = os.Remove("/etc/motd.d/10-nithronos-otp")
 			w.WriteHeader(http.StatusNoContent)
@@ -565,6 +568,8 @@ func NewRouter(cfg config.Config) http.Handler {
 		}
 		// Best-effort deletes
 		_ = os.Remove(cfg.FirstBootPath)
+		_ = os.Remove("/etc/nos/otp")
+		_ = os.Remove("/run/nos/firstboot-otp")
 		if body.DeleteUsers {
 			_ = os.Remove(cfg.UsersPath)
 		}
