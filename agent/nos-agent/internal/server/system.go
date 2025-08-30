@@ -55,7 +55,7 @@ func handleSetHostname(w http.ResponseWriter, params map[string]interface{}) {
 	// Set hostname using hostnamectl
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	
+
 	cmd := exec.CommandContext(ctx, "hostnamectl", "set-hostname", hostname)
 	if _, err := cmd.CombinedOutput(); err != nil {
 		// Fallback: write directly to /etc/hostname
@@ -64,7 +64,7 @@ func handleSetHostname(w http.ResponseWriter, params map[string]interface{}) {
 			return
 		}
 		// Also try to set it immediately
-		exec.Command("hostname", hostname).Run()
+		_ = exec.Command("hostname", hostname).Run()
 	}
 
 	// Update /etc/hosts
@@ -72,16 +72,16 @@ func handleSetHostname(w http.ResponseWriter, params map[string]interface{}) {
 	hostsData, _ := os.ReadFile(hostsPath)
 	lines := strings.Split(string(hostsData), "\n")
 	newLines := []string{}
-	
+
 	for _, line := range lines {
 		if strings.Contains(line, "127.0.1.1") {
 			newLines = append(newLines, fmt.Sprintf("127.0.1.1\t%s", hostname))
 		} else {
 			newLines = append(newLines, line)
 		}
-	}
+		}
 	
-	os.WriteFile(hostsPath, []byte(strings.Join(newLines, "\n")), 0644)
+	_ = os.WriteFile(hostsPath, []byte(strings.Join(newLines, "\n")), 0644)
 	
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "result": "success"})
 }
@@ -103,38 +103,38 @@ func handleSetTimezone(w http.ResponseWriter, params map[string]interface{}) {
 	// Set timezone using timedatectl
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	
+
 	cmd := exec.CommandContext(ctx, "timedatectl", "set-timezone", timezone)
 	if _, err := cmd.CombinedOutput(); err != nil {
 		// Fallback: create symlink manually
-		os.Remove("/etc/localtime")
+		_ = os.Remove("/etc/localtime")
 		if err := os.Symlink(tzPath, "/etc/localtime"); err != nil {
 			writeErr(w, http.StatusInternalServerError, fmt.Sprintf("failed to set timezone: %v", err))
 			return
 		}
 		// Also write to /etc/timezone
-		os.WriteFile("/etc/timezone", []byte(timezone+"\n"), 0644)
+		_ = os.WriteFile("/etc/timezone", []byte(timezone+"\n"), 0644)
 	}
-	
+
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "result": "success"})
 }
 
 func handleSetNTP(w http.ResponseWriter, params map[string]interface{}) {
 	enabled, _ := params["enabled"].(bool)
 	servers, _ := params["servers"].([]interface{})
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	
-	if enabled {
+
+		if enabled {
 		// Enable NTP
-		exec.CommandContext(ctx, "timedatectl", "set-ntp", "true").Run()
+		_ = exec.CommandContext(ctx, "timedatectl", "set-ntp", "true").Run()
 		
 		// Configure NTP servers if provided
 		if len(servers) > 0 {
 			// Create timesyncd config
 			configDir := "/etc/systemd/timesyncd.conf.d"
-			os.MkdirAll(configDir, 0755)
+			_ = os.MkdirAll(configDir, 0755)
 			
 			var serverList []string
 			for _, s := range servers {
@@ -146,18 +146,18 @@ func handleSetNTP(w http.ResponseWriter, params map[string]interface{}) {
 			if len(serverList) > 0 {
 				config := "[Time]\n"
 				config += fmt.Sprintf("NTP=%s\n", strings.Join(serverList, " "))
-				os.WriteFile(filepath.Join(configDir, "nithronos.conf"), []byte(config), 0644)
+				_ = os.WriteFile(filepath.Join(configDir, "nithronos.conf"), []byte(config), 0644)
 			}
 		}
 		
 		// Restart timesyncd
-		exec.CommandContext(ctx, "systemctl", "restart", "systemd-timesyncd").Run()
+		_ = exec.CommandContext(ctx, "systemctl", "restart", "systemd-timesyncd").Run()
 	} else {
 		// Disable NTP
-		exec.CommandContext(ctx, "timedatectl", "set-ntp", "false").Run()
-		exec.CommandContext(ctx, "systemctl", "stop", "systemd-timesyncd").Run()
+		_ = exec.CommandContext(ctx, "timedatectl", "set-ntp", "false").Run()
+		_ = exec.CommandContext(ctx, "systemctl", "stop", "systemd-timesyncd").Run()
 	}
-	
+
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "result": "success"})
 }
 
