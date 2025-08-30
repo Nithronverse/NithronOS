@@ -1,0 +1,13 @@
+#!/bin/bash
+set -e
+
+echo "[98-setup-installer] Setting up installer..."
+
+# Make installer executable
+chmod +x /usr/bin/nithronos-installer
+chmod +x /usr/lib/nithronos/installer-welcome
+
+# Enable installer welcome service
+systemctl enable nithronos-installer-welcome.service || true
+
+echo "[98-setup-installer] Installer setup complete"

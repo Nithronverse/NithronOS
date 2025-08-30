@@ -1,0 +1,53 @@
+#!/bin/bash
+# Setup installer files for NithronOS
+set -e
+
+echo "[10-setup-installer] Setting up installer files..."
+
+# Check if we're in the right directory
+if [ ! -d "binary" ]; then
+    echo "[10-setup-installer] ERROR: Not in binary stage directory"
+    exit 1
+fi
+
+cd binary
+
+# Create install.amd directory if it doesn't exist
+mkdir -p install.amd
+
+# If d-i files exist in install/, copy them to install.amd/
+if [ -d "install" ] && [ -f "install/vmlinuz" ]; then
+    echo "[10-setup-installer] Copying installer files from install/ to install.amd/"
+    cp -v install/vmlinuz install.amd/
+    cp -v install/initrd.gz install.amd/
+elif [ -d "install.amd" ] && [ -f "install.amd/vmlinuz" ]; then
+    echo "[10-setup-installer] Installer files already in install.amd/"
+else
+    # Try to find and copy the installer kernel and initrd from d-i
+    echo "[10-setup-installer] Looking for debian-installer files..."
+    
+    # Check common locations
+    if [ -f "../chroot/boot/vmlinuz-*" ]; then
+        echo "[10-setup-installer] Copying kernel from chroot..."
+        cp -v ../chroot/boot/vmlinuz-* install.amd/vmlinuz
+    fi
+    
+    if [ -f "../chroot/boot/initrd.img-*" ]; then
+        echo "[10-setup-installer] Creating installer initrd..."
+        # For installer we need the d-i initrd, not the live one
+        # This is a placeholder - actual d-i initrd should come from debian-installer
+        cp -v ../chroot/boot/initrd.img-* install.amd/initrd.gz
+    fi
+fi
+
+# Ensure the files exist
+if [ ! -f "install.amd/vmlinuz" ] || [ ! -f "install.amd/initrd.gz" ]; then
+    echo "[10-setup-installer] WARNING: Installer files not found!"
+    echo "[10-setup-installer] The installer will not work properly."
+    echo "[10-setup-installer] Contents of binary directory:"
+    ls -la
+    echo "[10-setup-installer] Contents of install directories:"
+    ls -la install* 2>/dev/null || true
+fi
+
+echo "[10-setup-installer] Installer setup complete"
