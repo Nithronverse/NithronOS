@@ -367,6 +367,7 @@ export const api = {
       password: string  
       enable_totp?: boolean
     }) => apiClient.postWithAuth('/api/setup/create-admin', token, data),
+    complete: (token: string) => apiClient.postWithAuth('/api/setup/complete', token, {}),
   },
 
   // Auth
@@ -436,44 +437,96 @@ export const api = {
     rollback: (data: any) => apiClient.post('/api/updates/rollback', data),
   },
   
-  // System configuration
+  // System configuration (with optional setup token for first-boot)
   system: {
-    getHostname: async () => apiClient.get<{ hostname: string; pretty_hostname?: string }>('/api/v1/system/hostname'),
-    setHostname: async (data: { hostname: string; pretty_hostname?: string }) => 
-      apiClient.post<{ status: string }>('/api/v1/system/hostname', data),
+    getHostname: async (setupToken?: string) => {
+      const headers = setupToken ? { 'Authorization': `Bearer ${setupToken}` } : undefined
+      return apiClient.request<{ hostname: string; pretty_hostname?: string }>('/api/v1/system/hostname', { headers })
+    },
+    setHostname: async (data: { hostname: string; pretty_hostname?: string }, setupToken?: string) => {
+      const headers = setupToken ? { 'Authorization': `Bearer ${setupToken}` } : undefined
+      return apiClient.request<{ status: string }>('/api/v1/system/hostname', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers,
+      })
+    },
     
-    getTimezone: async () => apiClient.get<{ timezone: string; time: string; utc: boolean }>('/api/v1/system/timezone'),
-    setTimezone: async (data: { timezone: string; utc?: boolean }) => 
-      apiClient.post<{ status: string }>('/api/v1/system/timezone', data),
-    getTimezones: async () => apiClient.get<{ timezones: string[] }>('/api/v1/system/timezones'),
+    getTimezone: async (setupToken?: string) => {
+      const headers = setupToken ? { 'Authorization': `Bearer ${setupToken}` } : undefined
+      return apiClient.request<{ timezone: string; time: string; utc: boolean }>('/api/v1/system/timezone', { headers })
+    },
+    setTimezone: async (data: { timezone: string; utc?: boolean }, setupToken?: string) => {
+      const headers = setupToken ? { 'Authorization': `Bearer ${setupToken}` } : undefined
+      return apiClient.request<{ status: string }>('/api/v1/system/timezone', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers,
+      })
+    },
+    getTimezones: async (setupToken?: string) => {
+      const headers = setupToken ? { 'Authorization': `Bearer ${setupToken}` } : undefined
+      return apiClient.request<{ timezones: string[] }>('/api/v1/system/timezones', { headers })
+    },
     
-    getNTP: async () => apiClient.get<{ enabled: boolean; servers: string[]; status: string }>('/api/v1/system/ntp'),
-    setNTP: async (data: { enabled: boolean; servers?: string[] }) => 
-      apiClient.post<{ status: string }>('/api/v1/system/ntp', data),
+    getNTP: async (setupToken?: string) => {
+      const headers = setupToken ? { 'Authorization': `Bearer ${setupToken}` } : undefined
+      return apiClient.request<{ enabled: boolean; servers: string[]; status: string }>('/api/v1/system/ntp', { headers })
+    },
+    setNTP: async (data: { enabled: boolean; servers?: string[] }, setupToken?: string) => {
+      const headers = setupToken ? { 'Authorization': `Bearer ${setupToken}` } : undefined
+      return apiClient.request<{ status: string }>('/api/v1/system/ntp', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers,
+      })
+    },
   },
   
-  // Network configuration
+  // Network configuration (with optional setup token for first-boot)
   network: {
-    getInterfaces: async () => apiClient.get<{ interfaces: any[] }>('/api/v1/system/network/interfaces'),
-    getInterface: async (iface: string) => apiClient.get<any>(`/api/v1/system/network/interfaces/${iface}`),
+    getInterfaces: async (setupToken?: string) => {
+      const headers = setupToken ? { 'Authorization': `Bearer ${setupToken}` } : undefined
+      return apiClient.request<{ interfaces: any[] }>('/api/v1/system/network/interfaces', { headers })
+    },
+    getInterface: async (iface: string, setupToken?: string) => {
+      const headers = setupToken ? { 'Authorization': `Bearer ${setupToken}` } : undefined
+      return apiClient.request<any>(`/api/v1/system/network/interfaces/${iface}`, { headers })
+    },
     configureInterface: async (iface: string, config: {
       dhcp: boolean;
       ipv4_address?: string;
       ipv4_gateway?: string;
       dns?: string[];
-    }) => apiClient.post<{ status: string }>(`/api/v1/system/network/interfaces/${iface}`, config),
+    }, setupToken?: string) => {
+      const headers = setupToken ? { 'Authorization': `Bearer ${setupToken}` } : undefined
+      return apiClient.request<{ status: string }>(`/api/v1/system/network/interfaces/${iface}`, {
+        method: 'POST',
+        body: JSON.stringify(config),
+        headers,
+      })
+    },
   },
   
-  // Telemetry consent
+  // Telemetry consent (with optional setup token for first-boot)
   telemetry: {
-    getConsent: async () => apiClient.get<{
-      enabled: boolean;
-      consented_at?: string;
-      data_types?: string[];
-      last_report_at?: string;
-    }>('/api/v1/system/telemetry/consent'),
-    setConsent: async (data: { enabled: boolean; data_types?: string[] }) => 
-      apiClient.post<{ status: string }>('/api/v1/system/telemetry/consent', data),
+    getConsent: async (setupToken?: string) => {
+      const headers = setupToken ? { 'Authorization': `Bearer ${setupToken}` } : undefined
+      return apiClient.request<{
+        enabled: boolean;
+        consented_at?: string;
+        data_types?: string[];
+        last_report_at?: string;
+      }>('/api/v1/system/telemetry/consent', { headers })
+    },
+    setConsent: async (data: { enabled: boolean; data_types?: string[] }, setupToken?: string) => {
+      const headers = setupToken ? { 'Authorization': `Bearer ${setupToken}` } : undefined
+      return apiClient.request<{ status: string }>('/api/v1/system/telemetry/consent', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers,
+      })
+    },
   },
 }
 

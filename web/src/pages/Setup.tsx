@@ -180,34 +180,51 @@ export default function Setup() {
               />
             )}
             
-            {step === 'system' && (
+            {step === 'system' && setupToken && (
               <StepSystemConfig
+                token={setupToken}
                 onSuccess={() => setStep('network')}
               />
             )}
             
-            {step === 'network' && (
+            {step === 'network' && setupToken && (
               <StepNetworkConfig
+                token={setupToken}
                 onSuccess={() => setStep('telemetry')}
               />
             )}
             
-            {step === 'telemetry' && (
+            {step === 'telemetry' && setupToken && (
               <StepTelemetry
-                onSuccess={() => {
+                token={setupToken}
+                onSuccess={async () => {
                   if (enableTotp && adminCreds) {
                     setStep('totp')
                   } else {
+                    // Mark setup as complete if no TOTP
+                    try {
+                      await api.setup.complete(setupToken)
+                    } catch (err) {
+                      console.error('Failed to mark setup complete:', err)
+                    }
                     setStep('done')
                   }
                 }}
               />
             )}
             
-            {step === 'totp' && adminCreds && (
+            {step === 'totp' && adminCreds && setupToken && (
               <StepTOTPEnroll
                 credentials={adminCreds}
-                onSuccess={() => setStep('done')}
+                onSuccess={async () => {
+                  // Mark setup as complete after TOTP
+                  try {
+                    await api.setup.complete(setupToken)
+                  } catch (err) {
+                    console.error('Failed to mark setup complete:', err)
+                  }
+                  setStep('done')
+                }}
               />
             )}
             
@@ -260,8 +277,6 @@ function SetupSteps({ currentStep }: { currentStep: SetupStep }) {
 // ============================================================================
 
 function StepWelcome({ onContinue }: { onContinue: () => void }) {
-  const [otpLocation] = useState('/etc/nos/otp')
-  
   return (
     <div className="space-y-4">
       <div className="text-center">
@@ -275,28 +290,35 @@ function StepWelcome({ onContinue }: { onContinue: () => void }) {
         <h3 className="font-medium">Getting Your One-Time Password (OTP)</h3>
         <p className="text-sm text-muted-foreground">
           To begin setup, you'll need the OTP that was generated when the system started.
-          The OTP is stored in a file on the server.
+          The OTP is available in two locations for your convenience.
         </p>
         
         <div className="space-y-2">
           <div className="bg-card rounded p-3">
-            <p className="text-xs text-muted-foreground mb-1">OTP File Location:</p>
+            <p className="text-xs text-muted-foreground mb-1">Primary OTP Location (accessible by all users):</p>
             <code className="block bg-background rounded p-2 text-sm font-mono">
-              {otpLocation}
+              /tmp/nos-otp
+            </code>
+          </div>
+          
+          <div className="bg-card rounded p-3">
+            <p className="text-xs text-muted-foreground mb-1">Alternative OTP Location:</p>
+            <code className="block bg-background rounded p-2 text-sm font-mono">
+              /etc/nos/otp
             </code>
           </div>
           
           <div className="bg-card rounded p-3">
             <p className="text-xs text-muted-foreground mb-1">To view the OTP via SSH:</p>
             <code className="block bg-background rounded p-2 text-sm font-mono">
-              ssh your-server-ip "cat {otpLocation}"
+              ssh user@your-server-ip "cat /tmp/nos-otp"
             </code>
           </div>
           
           <div className="bg-card rounded p-3">
             <p className="text-xs text-muted-foreground mb-1">Or if you have console access:</p>
             <code className="block bg-background rounded p-2 text-sm font-mono">
-              cat {otpLocation}
+              cat /tmp/nos-otp
             </code>
           </div>
         </div>
@@ -861,7 +883,7 @@ function StepDone({ onContinue }: { onContinue: () => void }) {
 // Step: System Configuration (Hostname, Timezone)
 // ============================================================================
 
-function StepSystemConfig({ onSuccess }: { onSuccess: () => void }) {
+function StepSystemConfig({ token, onSuccess }: { token: string; onSuccess: () => void }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hostname, setHostname] = useState('')
@@ -877,9 +899,9 @@ function StepSystemConfig({ onSuccess }: { onSuccess: () => void }) {
   const loadCurrentConfig = async () => {
     try {
       const [hostnameRes, timezoneRes, ntpRes] = await Promise.all([
-        api.system.getHostname(),
-        api.system.getTimezone(),
-        api.system.getNTP(),
+        api.system.getHostname(token),
+        api.system.getTimezone(token),
+        api.system.getNTP(token),
       ])
       
       setHostname(hostnameRes.hostname || 'nithronos')
@@ -892,7 +914,7 @@ function StepSystemConfig({ onSuccess }: { onSuccess: () => void }) {
   
   const loadTimezones = async () => {
     try {
-      const res = await api.system.getTimezones()
+      const res = await api.system.getTimezones(token)
       setTimezones(res.timezones || [])
     } catch (err) {
       console.error('Failed to load timezones:', err)
@@ -933,9 +955,9 @@ function StepSystemConfig({ onSuccess }: { onSuccess: () => void }) {
       setError(null)
       
       await Promise.all([
-        api.system.setHostname({ hostname }),
-        api.system.setTimezone({ timezone }),
-        api.system.setNTP({ enabled: ntp }),
+        api.system.setHostname({ hostname }, token),
+        api.system.setTimezone({ timezone }, token),
+        api.system.setNTP({ enabled: ntp }, token),
       ])
       
       toast.success('System configuration updated')
@@ -1017,7 +1039,7 @@ function StepSystemConfig({ onSuccess }: { onSuccess: () => void }) {
 // Step: Network Configuration
 // ============================================================================
 
-function StepNetworkConfig({ onSuccess }: { onSuccess: () => void }) {
+function StepNetworkConfig({ token, onSuccess }: { token: string; onSuccess: () => void }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [interfaces, setInterfaces] = useState<any[]>([])
@@ -1033,7 +1055,7 @@ function StepNetworkConfig({ onSuccess }: { onSuccess: () => void }) {
   
   const loadInterfaces = async () => {
     try {
-      const res = await api.network.getInterfaces()
+      const res = await api.network.getInterfaces(token)
       const ifaces = res.interfaces || []
       setInterfaces(ifaces)
       
@@ -1094,7 +1116,7 @@ function StepNetworkConfig({ onSuccess }: { onSuccess: () => void }) {
         ipv4_address: dhcp ? undefined : ipAddress,
         ipv4_gateway: dhcp ? undefined : gateway,
         dns: dhcp ? undefined : dns.filter(d => d),
-      })
+      }, token)
       
       toast.success('Network configuration updated')
       onSuccess()
@@ -1233,7 +1255,7 @@ function StepNetworkConfig({ onSuccess }: { onSuccess: () => void }) {
 // Step: Telemetry Consent
 // ============================================================================
 
-function StepTelemetry({ onSuccess }: { onSuccess: () => void }) {
+function StepTelemetry({ token, onSuccess }: { token: string; onSuccess: () => void }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [consent, setConsent] = useState(false)
@@ -1257,7 +1279,7 @@ function StepTelemetry({ onSuccess }: { onSuccess: () => void }) {
       await api.telemetry.setConsent({
         enabled: consent,
         data_types: consent ? selectedTypes : [],
-      })
+      }, token)
       
       toast.success(
         consent 

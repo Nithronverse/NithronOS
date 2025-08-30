@@ -538,11 +538,48 @@ func NewRouter(cfg config.Config) http.Handler {
 			// Success: remove first-boot state so OTP stops printing on restarts (best-effort)
 			_ = os.Remove(cfg.FirstBootPath)
 			// Remove OTP files (best-effort)
+			_ = os.Remove("/tmp/nos-otp")
 			_ = os.Remove("/etc/nos/otp")
 			_ = os.Remove("/run/nos/firstboot-otp")
 			// Remove MOTD hint if present (best-effort)
 			_ = os.Remove("/etc/motd.d/10-nithronos-otp")
 			w.WriteHeader(http.StatusNoContent)
+		})
+
+		// Mark setup as complete - called after all setup steps are done
+		sr.Post("/complete", func(w http.ResponseWriter, r *http.Request) {
+			authz := r.Header.Get("Authorization")
+			const prefix = "Bearer "
+			if !strings.HasPrefix(authz, prefix) {
+				httpx.WriteTypedError(w, http.StatusUnauthorized, "setup.session.invalid", "Missing setup bearer token", 0)
+				return
+			}
+			tok := strings.TrimSpace(authz[len(prefix):])
+			claims, err := setupDecodeToken(cfg, tok)
+			if err != nil {
+				httpx.WriteTypedError(w, http.StatusUnauthorized, "setup.session.invalid", "Invalid setup token", 0)
+				return
+			}
+			if claims["purpose"] != "setup" {
+				httpx.WriteTypedError(w, http.StatusUnauthorized, "setup.session.invalid", "Invalid setup token", 0)
+				return
+			}
+
+			// Create setup-complete marker file
+			setupCompleteFile := filepath.Join(cfg.EtcDir, "nos", "setup-complete")
+			_ = os.MkdirAll(filepath.Dir(setupCompleteFile), 0o755)
+			if err := os.WriteFile(setupCompleteFile, []byte(time.Now().UTC().Format(time.RFC3339)+"\n"), 0o644); err != nil {
+				httpx.WriteTypedError(w, http.StatusInternalServerError, "setup.write_failed", "Failed to mark setup as complete", 0)
+				return
+			}
+
+			// Also remove the firstboot state
+			_ = os.Remove(cfg.FirstBootPath)
+			_ = os.Remove("/tmp/nos-otp")
+			_ = os.Remove("/etc/nos/otp")
+			_ = os.Remove("/run/nos/firstboot-otp")
+
+			writeJSON(w, map[string]any{"ok": true})
 		})
 	})
 
@@ -568,6 +605,7 @@ func NewRouter(cfg config.Config) http.Handler {
 		}
 		// Best-effort deletes
 		_ = os.Remove(cfg.FirstBootPath)
+		_ = os.Remove("/tmp/nos-otp")
 		_ = os.Remove("/etc/nos/otp")
 		_ = os.Remove("/run/nos/firstboot-otp")
 		if body.DeleteUsers {
@@ -642,6 +680,18 @@ func NewRouter(cfg config.Config) http.Handler {
 	// Auth (legacy + new store integration)
 
 	r.Post("/api/auth/login", func(w http.ResponseWriter, r *http.Request) {
+		// Check if setup is complete (has admin user AND setup marked complete)
+		setupCompleteFile := filepath.Join(cfg.EtcDir, "nos", "setup-complete")
+		if _, err := os.Stat(setupCompleteFile); os.IsNotExist(err) {
+			// Setup not marked complete, check if in setup mode
+			us, _ := userstore.New(cfg.UsersPath)
+			if us != nil && us.HasAdmin() {
+				// Has admin but setup not complete, likely still in setup
+				httpx.WriteTypedError(w, http.StatusForbidden, "setup.incomplete", "System setup is not complete. Please complete all setup steps.", 0)
+				return
+			}
+		}
+
 		var body struct {
 			Username   string `json:"username"`
 			Password   string `json:"password"`
@@ -1278,10 +1328,6 @@ func NewRouter(cfg config.Config) http.Handler {
 			pr.With(adminRequired).Post("/api/v1/apps/catalog/sync", handleSyncCatalogs(appsManager))
 		}
 
-		// System endpoints
-		systemHandler := NewSystemHandler()
-		pr.Mount("/api/v1/system", systemHandler.Routes())
-
 		// Health endpoints
 		healthHandler := NewHealthHandler(agentclient.New(cfg.AgentSocket()))
 		pr.Mount("/api/v1/health", healthHandler.Routes())
@@ -1649,6 +1695,43 @@ func NewRouter(cfg config.Config) http.Handler {
 			_ = id // unused for now
 			writeJSON(w, resp)
 		})
+	})
+
+	// System configuration endpoints (outside auth for setup access)
+	// During setup, these need to work without authentication
+	systemConfigHandler := NewSystemConfigHandler(*Logger(cfg), agentclient.New(cfg.AgentSocket()))
+	r.Route("/api/v1/system", func(sr chi.Router) {
+		// Allow setup token authentication for system config during setup
+		sr.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// Check if setup is complete
+				us, _ := userstore.New(cfg.UsersPath)
+				if us != nil && us.HasAdmin() {
+					// Setup complete, require normal auth
+					if _, ok := codec.DecodeFromRequest(r); !ok {
+						httpx.WriteTypedError(w, http.StatusUnauthorized, "auth.required", "Authentication required. Please sign in.", 0)
+						return
+					}
+				} else {
+					// During setup, allow with setup token
+					authz := r.Header.Get("Authorization")
+					if strings.HasPrefix(authz, "Bearer ") {
+						tok := strings.TrimSpace(authz[7:])
+						claims, err := setupDecodeToken(cfg, tok)
+						if err == nil && claims["purpose"] == "setup" {
+							// Valid setup token
+							next.ServeHTTP(w, r)
+							return
+						}
+					}
+					// No valid auth during setup
+					httpx.WriteTypedError(w, http.StatusUnauthorized, "auth.required", "Setup authentication required.", 0)
+					return
+				}
+				next.ServeHTTP(w, r)
+			})
+		})
+		sr.Mount("/", systemConfigHandler.Routes())
 	})
 
 	return r
