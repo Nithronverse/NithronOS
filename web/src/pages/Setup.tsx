@@ -8,6 +8,7 @@ import BrandHeader from '@/components/BrandHeader'
 import { useGlobalNotice } from '@/lib/globalNotice'
 import { api, APIError, ProxyMisconfiguredError, getErrorMessage } from '@/lib/api-client'
 import { toast } from '@/components/ui/toast'
+import { TIMEZONE_REGIONS, getTimezoneInfo } from '@/lib/timezone-data'
 
 // ============================================================================
 // Type Definitions
@@ -890,14 +891,21 @@ function StepSystemConfig({ token, onSuccess }: { token: string; onSuccess: () =
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hostname, setHostname] = useState('')
+  const [selectedRegion, setSelectedRegion] = useState('UTC')
   const [timezone, setTimezone] = useState('UTC')
   const [ntp, setNtp] = useState(true)
-  const [timezones, setTimezones] = useState<string[]>([])
   
   useEffect(() => {
     loadCurrentConfig()
-    loadTimezones()
   }, [])
+  
+  // When region changes, auto-select the first timezone in that region
+  useEffect(() => {
+    const region = TIMEZONE_REGIONS[selectedRegion]
+    if (region && region.timezones.length > 0) {
+      setTimezone(region.timezones[0].id)
+    }
+  }, [selectedRegion])
   
   const loadCurrentConfig = async () => {
     try {
@@ -907,34 +915,18 @@ function StepSystemConfig({ token, onSuccess }: { token: string; onSuccess: () =
       ])
       
       // Don't pre-populate hostname during setup - let user choose
-      // setHostname(hostnameRes.hostname || 'nithronos')
-      setTimezone(timezoneRes.timezone || 'UTC')
+      const currentTz = timezoneRes.timezone || 'UTC'
+      setTimezone(currentTz)
+      
+      // Find which region this timezone belongs to
+      const tzInfo = getTimezoneInfo(currentTz)
+      if (tzInfo) {
+        setSelectedRegion(tzInfo.region)
+      }
+      
       setNtp(ntpRes.enabled)
     } catch (err) {
       console.error('Failed to load system config:', err)
-    }
-  }
-  
-  const loadTimezones = async () => {
-    try {
-      const res = await api.system.getTimezones(token)
-      setTimezones(res.timezones || [])
-    } catch (err) {
-      console.error('Failed to load timezones:', err)
-      // Fallback to common timezones
-      setTimezones([
-        'UTC',
-        'America/New_York',
-        'America/Chicago',
-        'America/Denver',
-        'America/Los_Angeles',
-        'Europe/London',
-        'Europe/Paris',
-        'Europe/Berlin',
-        'Asia/Tokyo',
-        'Asia/Shanghai',
-        'Australia/Sydney',
-      ])
     }
   }
   
@@ -995,6 +987,23 @@ function StepSystemConfig({ token, onSuccess }: { token: string; onSuccess: () =
       </div>
       
       <div>
+        <label htmlFor="region" className="block text-sm font-medium mb-2">
+          Region
+        </label>
+        <select
+          id="region"
+          className="w-full rounded bg-card p-2"
+          value={selectedRegion}
+          onChange={(e) => setSelectedRegion(e.target.value)}
+          disabled={loading}
+        >
+          {Object.keys(TIMEZONE_REGIONS).map((region) => (
+            <option key={region} value={region}>{TIMEZONE_REGIONS[region].name}</option>
+          ))}
+        </select>
+      </div>
+      
+      <div>
         <label htmlFor="timezone" className="block text-sm font-medium mb-2">
           Timezone
         </label>
@@ -1005,8 +1014,8 @@ function StepSystemConfig({ token, onSuccess }: { token: string; onSuccess: () =
           onChange={(e) => setTimezone(e.target.value)}
           disabled={loading}
         >
-          {timezones.map((tz) => (
-            <option key={tz} value={tz}>{tz}</option>
+          {TIMEZONE_REGIONS[selectedRegion]?.timezones.map((tz) => (
+            <option key={tz.id} value={tz.id}>{tz.name}</option>
           ))}
         </select>
       </div>

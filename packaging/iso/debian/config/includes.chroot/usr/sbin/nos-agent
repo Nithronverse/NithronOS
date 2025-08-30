@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # NithronOS Privileged Agent placeholder for ISO boot
 # This will be replaced by the actual binary in production
 
@@ -7,12 +7,87 @@ echo "[nos-agent] Starting placeholder privileged agent..."
 # Create socket directory
 mkdir -p /run
 
-# Create a dummy socket file (not functional, just placeholder)
-touch /run/nos-agent.sock
-# Make it world-writable for ISO environment (production will be more restrictive)
-chmod 666 /run/nos-agent.sock
+# Create a simple HTTP server that responds to agent requests
+{
+    echo "[nos-agent] Starting mock HTTP server on socket..."
+    
+    # Use socat if available, otherwise use nc
+    if command -v socat >/dev/null 2>&1; then
+        # Create Unix socket and handle HTTP requests
+        socat UNIX-LISTEN:/run/nos-agent.sock,fork,reuseaddr EXEC:"/usr/sbin/nos-agent-handler" &
+    elif command -v nc >/dev/null 2>&1; then
+        # Fallback to netcat (less reliable but works)
+        rm -f /run/nos-agent.sock
+        mkfifo /run/nos-agent.sock
+        chmod 666 /run/nos-agent.sock
+        while true; do
+            # Simple response for any request
+            (echo -e "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 15\r\n\r\n{\"status\":\"ok\"}" | nc -l -U /run/nos-agent.sock) &
+            sleep 0.1
+        done &
+    else
+        # No socat or nc, create a dummy socket
+        touch /run/nos-agent.sock
+        chmod 666 /run/nos-agent.sock
+        
+        # Create a simple handler script
+        cat > /usr/sbin/nos-agent-handler << 'HANDLER'
+#!/bin/bash
+# Read the HTTP request
+while IFS= read -r line; do
+    [ "$line" = $'\r' ] && break
+done
+# Read any body
+if read -t 1 -r body; then
+    true
+fi
+# Always return success
+echo -e "HTTP/1.1 200 OK\r"
+echo -e "Content-Type: application/json\r"
+echo -e "Content-Length: 15\r"
+echo -e "\r"
+echo '{"status":"ok"}'
+HANDLER
+        chmod +x /usr/sbin/nos-agent-handler
+        
+        # Try to use socat from busybox or python
+        if python3 -c "import socket" 2>/dev/null; then
+            python3 << 'PYTHON' &
+import socket
+import os
 
-echo "[nos-agent] Placeholder agent running (no-op mode)"
+sock_path = '/run/nos-agent.sock'
+if os.path.exists(sock_path):
+    os.unlink(sock_path)
+
+server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+server.bind(sock_path)
+os.chmod(sock_path, 0o666)
+server.listen(5)
+
+print("[nos-agent] Python mock server listening on", sock_path)
+
+while True:
+    try:
+        conn, addr = server.accept()
+        data = conn.recv(4096)
+        # Simple HTTP response
+        response = b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 15\r\n\r\n{\"status\":\"ok\"}"
+        conn.send(response)
+        conn.close()
+    except Exception as e:
+        print(f"[nos-agent] Error: {e}")
+        continue
+PYTHON
+        fi
+    fi
+} 2>/dev/null
+
+# Ensure socket has correct permissions
+sleep 2
+[ -e /run/nos-agent.sock ] && chmod 666 /run/nos-agent.sock
+
+echo "[nos-agent] Placeholder agent running"
 
 # Keep the service running
 while true; do

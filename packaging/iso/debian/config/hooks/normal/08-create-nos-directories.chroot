@@ -1,0 +1,28 @@
+#!/bin/bash
+set -e
+
+echo "[08-create-nos-directories] Creating NithronOS directories..."
+
+# Create required directories with proper permissions
+mkdir -p /var/lib/nos/state
+mkdir -p /var/lib/nos-update
+mkdir -p /etc/nos
+mkdir -p /run/nos
+
+# Set permissions - nos user might not exist yet, so be flexible
+chmod 755 /var/lib/nos
+chmod 755 /var/lib/nos/state
+chmod 755 /var/lib/nos-update
+chmod 755 /etc/nos
+chmod 755 /run/nos
+
+# If nos user exists, set ownership
+if id -u nos >/dev/null 2>&1; then
+    chown -R nos:nos /var/lib/nos /var/lib/nos-update /etc/nos
+else
+    # Will be fixed by nosd service on first run
+    chmod 777 /var/lib/nos /var/lib/nos-update
+    chmod 755 /etc/nos
+fi
+
+echo "[08-create-nos-directories] Directories created"
