@@ -79,10 +79,10 @@ func handleSetHostname(w http.ResponseWriter, params map[string]interface{}) {
 		} else {
 			newLines = append(newLines, line)
 		}
-		}
-	
+	}
+
 	_ = os.WriteFile(hostsPath, []byte(strings.Join(newLines, "\n")), 0644)
-	
+
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "result": "success"})
 }
 
@@ -126,30 +126,30 @@ func handleSetNTP(w http.ResponseWriter, params map[string]interface{}) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-		if enabled {
+	if enabled {
 		// Enable NTP
 		_ = exec.CommandContext(ctx, "timedatectl", "set-ntp", "true").Run()
-		
+
 		// Configure NTP servers if provided
 		if len(servers) > 0 {
 			// Create timesyncd config
 			configDir := "/etc/systemd/timesyncd.conf.d"
 			_ = os.MkdirAll(configDir, 0755)
-			
+
 			var serverList []string
 			for _, s := range servers {
 				if str, ok := s.(string); ok {
 					serverList = append(serverList, str)
 				}
 			}
-			
+
 			if len(serverList) > 0 {
 				config := "[Time]\n"
 				config += fmt.Sprintf("NTP=%s\n", strings.Join(serverList, " "))
 				_ = os.WriteFile(filepath.Join(configDir, "nithronos.conf"), []byte(config), 0644)
 			}
 		}
-		
+
 		// Restart timesyncd
 		_ = exec.CommandContext(ctx, "systemctl", "restart", "systemd-timesyncd").Run()
 	} else {
