@@ -9,8 +9,8 @@ mkdir -p /run
 
 # Create a dummy socket file (not functional, just placeholder)
 touch /run/nos-agent.sock
-chmod 660 /run/nos-agent.sock
-chgrp nos /run/nos-agent.sock 2>/dev/null || true
+# Make it world-writable for ISO environment (production will be more restrictive)
+chmod 666 /run/nos-agent.sock
 
 echo "[nos-agent] Placeholder agent running (no-op mode)"
 

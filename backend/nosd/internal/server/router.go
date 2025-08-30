@@ -1742,7 +1742,7 @@ func NewRouter(cfg config.Config) http.Handler {
 							return
 						}
 					}
-					
+
 					// Check if we're still in first-boot (no admin yet)
 					us, _ := userstore.New(cfg.UsersPath)
 					if us == nil || !us.HasAdmin() {
@@ -1751,7 +1751,7 @@ func NewRouter(cfg config.Config) http.Handler {
 						next.ServeHTTP(w, r)
 						return
 					}
-					
+
 					// Has admin but no valid setup token
 					httpx.WriteTypedError(w, http.StatusUnauthorized, "auth.required", "Setup authentication required.", 0)
 					return

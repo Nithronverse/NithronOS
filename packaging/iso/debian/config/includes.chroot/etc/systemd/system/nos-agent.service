@@ -8,6 +8,7 @@ Type=simple
 User=root
 Group=root
 ExecStart=/usr/sbin/nos-agent
+ExecStartPost=/bin/sh -c 'sleep 1; chmod 666 /run/nos-agent.sock 2>/dev/null || true'
 Restart=on-failure
 RestartSec=5s
 StandardOutput=journal

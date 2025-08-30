@@ -901,13 +901,13 @@ function StepSystemConfig({ token, onSuccess }: { token: string; onSuccess: () =
   
   const loadCurrentConfig = async () => {
     try {
-      const [hostnameRes, timezoneRes, ntpRes] = await Promise.all([
-        api.system.getHostname(token),
+      const [timezoneRes, ntpRes] = await Promise.all([
         api.system.getTimezone(token),
         api.system.getNTP(token),
       ])
       
-      setHostname(hostnameRes.hostname || 'nithronos')
+      // Don't pre-populate hostname during setup - let user choose
+      // setHostname(hostnameRes.hostname || 'nithronos')
       setTimezone(timezoneRes.timezone || 'UTC')
       setNtp(ntpRes.enabled)
     } catch (err) {
