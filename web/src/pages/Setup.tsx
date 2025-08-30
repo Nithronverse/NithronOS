@@ -302,9 +302,12 @@ function StepWelcome({ onContinue }: { onContinue: () => void }) {
           </div>
           
           <div className="bg-card rounded p-3">
-            <p className="text-xs text-muted-foreground mb-1">Alternative OTP Location:</p>
+            <p className="text-xs text-muted-foreground mb-1">Alternative OTP Locations:</p>
             <code className="block bg-background rounded p-2 text-sm font-mono">
               /etc/nos/otp
+            </code>
+            <code className="block bg-background rounded p-2 text-sm font-mono mt-1">
+              /run/nos/firstboot-otp
             </code>
           </div>
           
