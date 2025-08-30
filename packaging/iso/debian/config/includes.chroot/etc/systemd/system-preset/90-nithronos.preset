@@ -1,17 +1,21 @@
 # NithronOS default service presets
-# These services will be enabled at runtime after boot
+# These services will be enabled at boot
 
-# Core system services (safe to enable)
+# Core system services
 enable ssh.service
 enable networking.service
 enable systemd-networkd.service
 
+# Essential NithronOS services (must run for setup)
+enable nos-agent.service
+enable nosd.service
+enable nithronos-otp-gen.service
+enable nithronos-issue-gen.service
+
 # Runtime enabler (enables other services after boot)
 enable nithronos-runtime-enable.service
 
-# Disable services that should not start automatically
-disable nos-agent.service
-disable nosd.service
+# Services that start conditionally or later
 disable caddy.service
 disable nos-tls-gen.service
 disable otp-announce.service

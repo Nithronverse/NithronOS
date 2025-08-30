@@ -39,19 +39,27 @@ EOF
 # Create the runtime enabler script
 cat > /usr/local/bin/nithronos-enable-services.sh << 'EOF'
 #!/bin/sh
-# Enable NithronOS services at runtime after basic system is up
+# Enable additional NithronOS services at runtime after basic system is up
 
-echo "Enabling NithronOS services..."
+echo "Starting NithronOS runtime services..."
 
-# Enable services if they exist
-for service in nos-agent nosd caddy nos-tls-gen otp-announce; do
+# Core services should already be enabled via presets (nos-agent, nosd)
+# Just ensure they're started
+for service in nos-agent nosd; do
+    if systemctl list-unit-files | grep -q "^${service}.service"; then
+        systemctl start "${service}.service" 2>/dev/null || true
+    fi
+done
+
+# Enable and start optional services if they exist
+for service in caddy nos-tls-gen docker smbd; do
     if systemctl list-unit-files | grep -q "^${service}.service"; then
         systemctl enable "${service}.service" 2>/dev/null || true
         systemctl start "${service}.service" 2>/dev/null || true
     fi
 done
 
-echo "NithronOS services enabled"
+echo "NithronOS runtime services started"
 EOF
 
 chmod +x /usr/local/bin/nithronos-enable-services.sh

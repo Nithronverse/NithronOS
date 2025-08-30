@@ -16,12 +16,14 @@ chmod 755 /var/lib/nos/state
 chmod 755 /var/lib/nos-update
 chmod 755 /etc/nos
 chmod 755 /etc/nithronos
-chmod 755 /etc/nithronos/update
+chmod 777 /etc/nithronos/update  # World-writable for ISO environment
 chmod 755 /run/nos
 
 # If nos user exists, set ownership
 if id -u nos >/dev/null 2>&1; then
     chown -R nos:nos /var/lib/nos /var/lib/nos-update /etc/nos
+    # Keep /etc/nithronos/update world-writable for now
+    chmod 777 /etc/nithronos/update
 else
     # Will be fixed by nosd service on first run
     chmod 777 /var/lib/nos /var/lib/nos-update

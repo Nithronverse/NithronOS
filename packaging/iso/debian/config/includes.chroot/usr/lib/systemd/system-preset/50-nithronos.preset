@@ -1,7 +1,14 @@
-enable caddy.service
-enable nosd.service
+# NithronOS systemd preset - Lower priority (50) than /etc presets (90)
+# Core services that must run for NithronOS to function
 enable nos-agent.service
-enable nos-tls-gen.service
-enable nithronos-ensure-services.service
+enable nosd.service
+enable nithronos-otp-gen.service
+enable nithronos-issue-gen.service
+enable nithronos-runtime-enable.service
+
+# Services enabled conditionally or later
+disable caddy.service
+disable nos-tls-gen.service
+disable docker.service
 
 

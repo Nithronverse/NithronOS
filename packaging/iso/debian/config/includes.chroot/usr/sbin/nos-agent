@@ -172,9 +172,25 @@ class SystemConfigAgent:
             return {'status': 'error', 'error': str(e)}
     
     def parse_http_request(self, data):
-        """Parse HTTP request to extract body"""
+        """Parse HTTP request to extract method, path, and body"""
         try:
             lines = data.decode('utf-8', errors='ignore').split('\r\n')
+            
+            # Parse request line
+            if lines:
+                request_line = lines[0].split(' ')
+                if len(request_line) >= 2:
+                    method = request_line[0]
+                    path = request_line[1]
+                    # Remove query params if present
+                    if '?' in path:
+                        path = path.split('?')[0]
+                else:
+                    method = ''
+                    path = ''
+            else:
+                method = ''
+                path = ''
             
             # Find empty line that separates headers from body
             body_start = -1
@@ -183,18 +199,26 @@ class SystemConfigAgent:
                     body_start = i + 1
                     break
             
+            body = None
             if body_start > 0 and body_start < len(lines):
                 body = '\r\n'.join(lines[body_start:])
-                return body
-            return None
+            
+            return method, path, body
         except Exception as e:
             logger.error(f"Error parsing HTTP request: {e}")
-            return None
+            return '', '', None
     
     def create_http_response(self, status_code, body):
         """Create HTTP response"""
+        status_text = {
+            200: 'OK',
+            400: 'Bad Request',
+            404: 'Not Found',
+            500: 'Internal Server Error'
+        }.get(status_code, 'Unknown')
+        
         body_str = json.dumps(body)
-        response = f"HTTP/1.1 {status_code} OK\r\n"
+        response = f"HTTP/1.1 {status_code} {status_text}\r\n"
         response += "Content-Type: application/json\r\n"
         response += f"Content-Length: {len(body_str)}\r\n"
         response += "\r\n"
@@ -208,16 +232,22 @@ class SystemConfigAgent:
             if not data:
                 return
             
-            # Parse HTTP request to get body
-            body = self.parse_http_request(data)
+            # Parse HTTP request
+            method, path, body = self.parse_http_request(data)
+            logger.info(f"Request: {method} {path}")
             
-            if body:
+            # Handle /execute endpoint
+            if path == '/execute' and body:
                 # Handle the request
                 result = self.handle_request(body)
                 response = self.create_http_response(200, result)
+            elif path == '/execute':
+                # No body, return error
+                response = self.create_http_response(400, {'status': 'error', 'error': 'missing_body'})
             else:
-                # No body, return simple OK
-                response = self.create_http_response(200, {'status': 'ok'})
+                # Unknown endpoint
+                logger.warning(f"Unknown endpoint: {path}")
+                response = self.create_http_response(404, {'status': 'error', 'error': 'not_found'})
             
             conn.send(response)
         except Exception as e:
