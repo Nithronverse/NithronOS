@@ -7,7 +7,9 @@ echo "[08-create-nos-directories] Creating NithronOS directories..."
 mkdir -p /var/lib/nos/state
 mkdir -p /var/lib/nos-update
 mkdir -p /etc/nos
+mkdir -p /etc/nosd
 mkdir -p /etc/nithronos/update
+mkdir -p /etc/apt/sources.list.d
 mkdir -p /run/nos
 
 # Set permissions - nos user might not exist yet, so be flexible
@@ -15,8 +17,10 @@ chmod 755 /var/lib/nos
 chmod 755 /var/lib/nos/state
 chmod 755 /var/lib/nos-update
 chmod 755 /etc/nos
+chmod 777 /etc/nosd  # World-writable for ISO environment (secret key)
 chmod 755 /etc/nithronos
 chmod 777 /etc/nithronos/update  # World-writable for ISO environment
+chmod 755 /etc/apt/sources.list.d  # Keep standard permissions for security
 chmod 755 /run/nos
 
 # If nos user exists, set ownership

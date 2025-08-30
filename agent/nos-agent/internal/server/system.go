@@ -36,7 +36,7 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 		handleSetHostname(w, req.Params)
 	case "system.timezone.set":
 		handleSetTimezone(w, req.Params)
-	case "system.ntp.set":
+	case "system.ntp.set", "system.ntp.configure":
 		handleSetNTP(w, req.Params)
 	case "system.network.configure":
 		handleConfigureNetwork(w, req.Params)
