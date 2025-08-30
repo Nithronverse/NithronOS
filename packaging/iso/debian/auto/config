@@ -10,10 +10,9 @@ lb config noauto \
     --architectures amd64 \
     --linux-flavours amd64 \
     --binary-images iso-hybrid \
-    --debian-installer true \
+    --debian-installer cdrom \
     --debian-installer-gui false \
     --debian-installer-distribution bookworm \
-    --debian-installer-preseedfile preseed.cfg \
     --apt-indices false \
     --apt-recommends true \
     --cache true \
