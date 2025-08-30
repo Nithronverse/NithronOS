@@ -80,8 +80,9 @@ func TestDisksShape(t *testing.T) {
 	}
 	// Mark setup as complete for this test
 	dir := t.TempDir()
-	t.Setenv("NOS_SETUP_COMPLETE_PATH", filepath.Join(dir, "setup-complete"))
-	_ = os.WriteFile(filepath.Join(dir, "setup-complete"), []byte(""), 0o644)
+	t.Setenv("NOS_ETC_DIR", dir)
+	_ = os.MkdirAll(filepath.Join(dir, "nos"), 0o755)
+	_ = os.WriteFile(filepath.Join(dir, "nos", "setup-complete"), []byte(""), 0o644)
 	cfg := config.FromEnv()
 	_ = os.Setenv("NOS_RL_PATH", filepath.Join(filepath.Dir(cfg.SharesPath), "ratelimit.json"))
 	r := NewRouter(cfg)

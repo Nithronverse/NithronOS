@@ -37,6 +37,7 @@ func TestSetupFullFlowAnd410(t *testing.T) {
 	t.Setenv("NOS_USERS_PATH", usersPath)
 	t.Setenv("NOS_FIRSTBOOT_PATH", firstbootPath)
 	t.Setenv("NOS_RL_PATH", filepath.Join(dir, "ratelimit.json"))
+	t.Setenv("NOS_ETC_DIR", dir)
 	cfg := config.FromEnv()
 	r := NewRouter(cfg)
 
@@ -322,6 +323,7 @@ func TestCreateAdmin_WriteFailThenRetrySameToken(t *testing.T) {
 	}
 	t.Setenv("NOS_SECRET_PATH", secretPath)
 	t.Setenv("NOS_USERS_PATH", usersPath)
+	t.Setenv("NOS_ETC_DIR", dir)
 	cfg := config.FromEnv()
 	r := NewRouter(cfg)
 
@@ -370,6 +372,7 @@ func TestSetupState_MissingEmptyInvalid(t *testing.T) {
 	t.Setenv("NOS_SECRET_PATH", secretPath)
 	t.Setenv("NOS_USERS_PATH", usersPath)
 	t.Setenv("NOS_FIRSTBOOT_PATH", firstbootPath)
+	t.Setenv("NOS_ETC_DIR", dir)
 	// Start with empty users.json
 	if err := os.WriteFile(usersPath, []byte(""), 0o600); err != nil {
 		t.Fatal(err)
@@ -452,6 +455,7 @@ func TestSetupTransition_DeleteUsersRestoresFirstBoot(t *testing.T) {
 	// high rate limits
 	t.Setenv("NOS_RATE_LOGIN_PER_15M", "1000")
 	t.Setenv("NOS_RATE_OTP_PER_MIN", "1000")
+	t.Setenv("NOS_ETC_DIR", dir)
 
 	cfg := config.FromEnv()
 	r := NewRouter(cfg)

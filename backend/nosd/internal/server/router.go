@@ -579,8 +579,14 @@ func NewRouter(cfg config.Config) http.Handler {
 			}
 
 			// Create setup-complete marker file
-			_ = os.MkdirAll(filepath.Dir(setupCompleteFile), 0o755)
+			dir := filepath.Dir(setupCompleteFile)
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				Logger(cfg).Error().Err(err).Str("dir", dir).Msg("Failed to create setup-complete directory")
+				httpx.WriteTypedError(w, http.StatusInternalServerError, "setup.write_failed", "Failed to mark setup as complete", 0)
+				return
+			}
 			if err := os.WriteFile(setupCompleteFile, []byte(time.Now().UTC().Format(time.RFC3339)+"\n"), 0o644); err != nil {
+				Logger(cfg).Error().Err(err).Str("file", setupCompleteFile).Msg("Failed to write setup-complete file")
 				httpx.WriteTypedError(w, http.StatusInternalServerError, "setup.write_failed", "Failed to mark setup as complete", 0)
 				return
 			}
