@@ -151,7 +151,7 @@ function SystemHealthWidget({ data, isLoading, error }: any) {
               animate={{ opacity: 1 }}
               className="font-medium"
             >
-              {formatBytes(system.mem?.used || 0)} / {formatBytes(system.mem?.total || 0)}
+              {bytesSafe(system.mem?.used)} / {bytesSafe(system.mem?.total)}
             </motion.span>
           </div>
           <Progress 
@@ -235,7 +235,7 @@ function StorageWidget({ data, isLoading }: any) {
                     <Cell key={`cell-${index}`} fill={entry.fill} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: any) => formatBytes(value)} />
+                <Tooltip formatter={(value: any) => bytesSafe(value)} />
               </PieChart>
             </ResponsiveContainer>
           </div>
