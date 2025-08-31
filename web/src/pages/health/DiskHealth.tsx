@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useDiskHealth, formatBytes, getDiskHealthColor } from '@/hooks/use-health'
 import { useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
+import { toFixedSafe } from '@/lib/format'
 import type { DiskHealth } from '@/lib/api-health'
 
 // Animation variants
@@ -114,7 +115,7 @@ function DiskCard({
                 "font-medium",
                 disk.tempC > 50 ? 'text-red-500' : disk.tempC > 40 ? 'text-yellow-500' : ''
               )}>
-                {disk.tempC.toFixed(0)}°C
+                {toFixedSafe(disk.tempC, 0, '0')}°C
               </span>
             </div>
           )}
@@ -351,7 +352,7 @@ export default function DiskHealth() {
                     <p className="text-sm text-muted-foreground">Avg Temperature</p>
                     <p className="text-xl font-bold flex items-center gap-1">
                       <Thermometer className="h-4 w-4" />
-                      {summary.avgTemp.toFixed(0)}°C
+                      {toFixedSafe(summary.avgTemp, 0, '0')}°C
                     </p>
                   </div>
                 )}

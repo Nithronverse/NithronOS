@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useSystemHealth, formatBytes, formatUptime, formatPercent, getHealthStatus } from '@/hooks/use-health'
 import { useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
+import { toFixedSafe, pctSafe, bytesSafe } from '@/lib/format'
 
 // Animation variants
 const containerVariants: any = {
@@ -251,7 +252,7 @@ export default function SystemHealth() {
         <motion.div variants={itemVariants}>
           <MetricCard
             title="CPU Usage"
-            value={formatPercent(metrics?.cpu || 0)}
+            value={pctSafe(metrics?.cpu, 0)}
             icon={Cpu}
             trend={metrics?.cpuTrend}
             color={metrics?.cpu && metrics.cpu > 80 ? 'text-red-500' : 'text-primary'}
@@ -261,7 +262,7 @@ export default function SystemHealth() {
         <motion.div variants={itemVariants}>
           <MetricCard
             title="Memory"
-            value={formatPercent(metrics?.memory?.usagePct || 0)}
+            value={pctSafe(metrics?.memory?.usagePct, 0)}
             icon={MemoryStick}
             trend={metrics?.memoryTrend}
             color={metrics?.memory?.usagePct && metrics.memory.usagePct > 80 ? 'text-red-500' : 'text-primary'}
@@ -271,7 +272,7 @@ export default function SystemHealth() {
         <motion.div variants={itemVariants}>
           <MetricCard
             title="System Load"
-            value={metrics?.load?.load1?.toFixed(2) || '0.00'}
+            value={toFixedSafe(metrics?.load?.load1, 2, '0.00')}
             icon={Activity}
             trend={metrics?.load?.load1 && metrics.load.load1 > metrics.load.load5 ? 'up' : 'down'}
           />
@@ -360,15 +361,15 @@ export default function SystemHealth() {
                 <div className="grid grid-cols-3 gap-4 pt-4 border-t">
                   <div>
                     <p className="text-sm text-muted-foreground">Load (1m)</p>
-                    <p className="text-lg font-semibold">{metrics?.load?.load1?.toFixed(2) || '0.00'}</p>
+                    <p className="text-lg font-semibold">{toFixedSafe(metrics?.load?.load1, 2, '0.00')}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Load (5m)</p>
-                    <p className="text-lg font-semibold">{metrics?.load?.load5?.toFixed(2) || '0.00'}</p>
+                    <p className="text-lg font-semibold">{toFixedSafe(metrics?.load?.load5, 2, '0.00')}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Load (15m)</p>
-                    <p className="text-lg font-semibold">{metrics?.load?.load15?.toFixed(2) || '0.00'}</p>
+                    <p className="text-lg font-semibold">{toFixedSafe(metrics?.load?.load15, 2, '0.00')}</p>
                   </div>
                 </div>
               </CardContent>
@@ -429,7 +430,7 @@ export default function SystemHealth() {
                       <p className="text-sm text-muted-foreground">CPU Temperature</p>
                       <p className="text-lg font-semibold flex items-center gap-1">
                         <Thermometer className="h-4 w-4" />
-                        {metrics.tempCpu.toFixed(1)}°C
+                        {metrics?.tempCpu !== undefined ? `${toFixedSafe(metrics.tempCpu, 1, '0.0')}°C` : 'N/A'}
                       </p>
                     </div>
                   )}

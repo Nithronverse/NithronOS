@@ -14,11 +14,11 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { 
   useDashboard,
   useRefreshDashboard,
-  formatBytes,
   formatUptime,
   formatTimestamp,
   getHealthBadgeVariant
 } from '@/hooks/use-dashboard'
+import { bytesSafe, toFixedSafe } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip
@@ -168,7 +168,7 @@ function SystemHealthWidget({ data, isLoading, error }: any) {
         {/* Load Average */}
         <div className="flex justify-between items-center text-sm">
           <span className="text-muted-foreground">Load</span>
-          <span className="font-medium">{system.load1?.toFixed(2) || '0.00'}</span>
+          <span className="font-medium">{toFixedSafe(system.load1, 2, '0.00')}</span>
         </div>
 
         {/* Uptime */}
@@ -248,13 +248,13 @@ function StorageWidget({ data, isLoading }: any) {
                 animate={{ opacity: 1 }}
                 className="text-lg font-semibold"
               >
-                {formatBytes(storage.usedBytes || 0)}
+                {bytesSafe(storage.usedBytes)}
               </motion.p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Total</p>
               <p className="text-lg font-semibold">
-                {formatBytes(storage.totalBytes || 0)}
+                {bytesSafe(storage.totalBytes)}
               </p>
             </div>
             <div>
@@ -264,7 +264,7 @@ function StorageWidget({ data, isLoading }: any) {
                 usagePercent > 90 ? 'text-red-500' :
                 usagePercent > 80 ? 'text-yellow-500' : ''
               )}>
-                {usagePercent.toFixed(1)}%
+                {toFixedSafe(usagePercent, 1, '0.0')}%
               </p>
             </div>
           </div>

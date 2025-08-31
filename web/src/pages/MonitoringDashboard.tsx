@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useMonitoringData, formatBytes, formatUptime } from '@/hooks/use-health'
 import { useQueryClient } from '@tanstack/react-query'
+import { toFixedSafe } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import {
   LineChart,
@@ -335,14 +336,14 @@ export default function MonitoringDashboard() {
                     <YAxis 
                       domain={[0, 100]}
                       className="text-xs"
-                      tickFormatter={(value) => `${value}%`}
+                      tickFormatter={(value) => `${toFixedSafe(value, 0, '0')}%`}
                     />
                     <Tooltip 
                       contentStyle={{ 
                         backgroundColor: 'hsl(var(--background))',
                         border: '1px solid hsl(var(--border))'
                       }}
-                      formatter={(value: number) => `${value.toFixed(1)}%`}
+                      formatter={(value: number) => `${toFixedSafe(value, 1, '0.0')}%`}
                     />
                     <Legend />
                     <Line 
@@ -524,20 +525,20 @@ export default function MonitoringDashboard() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">Load Average (1m)</p>
-                <p className="font-semibold">{metrics?.load1?.toFixed(2) || '0.00'}</p>
+                <p className="font-semibold">{toFixedSafe(metrics?.load1, 2, '0.00')}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Load Average (5m)</p>
-                <p className="font-semibold">{metrics?.load5?.toFixed(2) || '0.00'}</p>
+                <p className="font-semibold">{toFixedSafe(metrics?.load5, 2, '0.00')}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Load Average (15m)</p>
-                <p className="font-semibold">{metrics?.load15?.toFixed(2) || '0.00'}</p>
+                <p className="font-semibold">{toFixedSafe(metrics?.load15, 2, '0.00')}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">CPU Temperature</p>
                 <p className="font-semibold">
-                  {metrics?.tempCpu ? `${metrics.tempCpu.toFixed(1)}°C` : 'N/A'}
+                  {metrics?.tempCpu !== undefined ? `${toFixedSafe(metrics.tempCpu, 1, '0.0')}°C` : 'N/A'}
                 </p>
               </div>
             </div>
