@@ -127,16 +127,21 @@ export default function Setup() {
   if (loading) {
     return (
       <div className="min-h-screen w-full flex items-center justify-center">
-        <div className="text-muted-foreground">Loading setup...</div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <div className="text-muted-foreground">Loading setup...</div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen w-full overflow-y-auto py-8">
-      <div className="relative w-full max-w-md mx-auto p-6">
-        <BrandHeader />
-        <h1 className="mb-4 text-center text-2xl font-semibold">First-time Setup</h1>
+    <div className="min-h-screen w-full flex items-center justify-center overflow-y-auto">
+      <div className="relative w-full max-w-md mx-auto p-6 py-12">
+        <div className="mb-8">
+          <BrandHeader />
+        </div>
+        <h1 className="mb-6 text-center text-2xl font-semibold">First-time Setup</h1>
         
         {error && error.includes('Setup already completed') ? (
           <div className="text-center">
@@ -258,15 +263,20 @@ function SetupSteps({ currentStep }: { currentStep: SetupStep }) {
   const currentIndex = steps.findIndex(s => s.id === currentStep)
   
   return (
-    <div className="flex items-center justify-between mb-6">
+    <div className="flex items-center justify-between mb-8 px-2">
       {steps.map((step, index) => (
         <div
           key={step.id}
-          className={`text-sm ${
+          className={`text-xs ${
             index <= currentIndex ? 'text-primary' : 'text-muted-foreground'
           }`}
         >
-          {index + 1}. {step.label}
+          <div className={`w-6 h-6 rounded-full flex items-center justify-center mb-1 mx-auto ${
+            index <= currentIndex ? 'bg-primary text-primary-foreground' : 'bg-muted'
+          }`}>
+            {index + 1}
+          </div>
+          <span className="hidden sm:block">{step.label}</span>
         </div>
       ))}
     </div>
@@ -279,10 +289,10 @@ function SetupSteps({ currentStep }: { currentStep: SetupStep }) {
 
 function StepWelcome({ onContinue }: { onContinue: () => void }) {
   return (
-    <div className="space-y-4">
-      <div className="text-center">
-        <h2 className="text-xl font-semibold mb-2">Welcome to NithronOS!</h2>
-        <p className="text-sm text-muted-foreground">
+    <div className="space-y-6">
+      <div className="text-center space-y-3">
+        <h2 className="text-2xl font-semibold">Welcome to NithronOS!</h2>
+        <p className="text-muted-foreground">
           Let's get your system set up and ready to use.
         </p>
       </div>
