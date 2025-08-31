@@ -19,6 +19,7 @@ import {
   formatTimestamp,
   getHealthBadgeVariant
 } from '@/hooks/use-dashboard'
+import { getErrorMessage } from '@/lib/api-client'
 import { cn } from '@/lib/utils'
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip
@@ -633,6 +634,15 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6 p-6">
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Backend unreachable or proxy misconfigured — metrics temporarily unavailable.{' '}
+            <a href="/docs/dev/observability" className="underline">Troubleshooting</a>
+          </AlertDescription>
+        </Alert>
+      )}
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>

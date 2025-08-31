@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { getErrorMessage } from '@/lib/api-client'
 import { useMonitoringData, formatBytes, formatUptime } from '@/hooks/use-health'
 import { useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
@@ -223,7 +224,7 @@ export default function MonitoringDashboard() {
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Failed to load monitoring data. 
+            Backend unreachable or proxy misconfigured — metrics temporarily unavailable. 
             <Button 
               variant="link" 
               className="px-2"

@@ -1,5 +1,5 @@
 // Health API endpoints with proper types
-import { apiClient as api } from './api-client'
+import { api } from './api'
 
 // System health types
 export interface SystemHealth {
@@ -66,114 +66,18 @@ export interface DiskHealth {
 export const healthApi = {
   // Get system health metrics
   getSystemHealth: async (): Promise<SystemHealth> => {
-    try {
-      const response = await api.get<SystemHealth>('/health/system')
-      return response
-    } catch (error) {
-      console.warn('Failed to fetch system health:', error)
-      // Return default values on error
-      return {
-        cpu: 0,
-        load1: 0,
-        load5: 0,
-        load15: 0,
-        memory: {
-          total: 0,
-          used: 0,
-          free: 0,
-          available: 0,
-          usagePct: 0,
-          cached: 0,
-          buffers: 0
-        },
-        swap: {
-          total: 0,
-          used: 0,
-          free: 0,
-          usagePct: 0
-        },
-        uptimeSec: 0,
-        timestamp: Date.now() / 1000,
-        network: {
-          bytesRecv: 0,
-          bytesSent: 0,
-          packetsRecv: 0,
-          packetsSent: 0,
-          rxSpeed: 0,
-          txSpeed: 0
-        },
-        diskIO: {
-          readBytes: 0,
-          writeBytes: 0,
-          readOps: 0,
-          writeOps: 0,
-          readSpeed: 0,
-          writeSpeed: 0
-        }
-      }
-    }
+    // Let errors propagate so UI can show an unreachable banner
+    return await api.get<SystemHealth>('/health/system')
   },
 
   // Get disk health information
   getDiskHealth: async (): Promise<DiskHealth[]> => {
-    try {
-      const response = await api.get<DiskHealth[]>('/health/disks')
-      // Ensure we always return an array
-      return Array.isArray(response) ? response : []
-    } catch (error) {
-      console.warn('Failed to fetch disk health:', error)
-      // Return empty array on error
-      return []
-    }
+    const response = await api.get<DiskHealth[]>('/health/disks')
+    return Array.isArray(response) ? response : []
   },
 
   // Get monitoring data (reuses system health)
   getMonitoringData: async (): Promise<SystemHealth> => {
-    try {
-      const response = await api.get<SystemHealth>('/monitor/system')
-      return response
-    } catch (error) {
-      console.warn('Failed to fetch monitoring data:', error)
-      // Return default values on error
-      return {
-        cpu: 0,
-        load1: 0,
-        load5: 0,
-        load15: 0,
-        memory: {
-          total: 0,
-          used: 0,
-          free: 0,
-          available: 0,
-          usagePct: 0,
-          cached: 0,
-          buffers: 0
-        },
-        swap: {
-          total: 0,
-          used: 0,
-          free: 0,
-          usagePct: 0
-        },
-        uptimeSec: 0,
-        timestamp: Date.now() / 1000,
-        network: {
-          bytesRecv: 0,
-          bytesSent: 0,
-          packetsRecv: 0,
-          packetsSent: 0,
-          rxSpeed: 0,
-          txSpeed: 0
-        },
-        diskIO: {
-          readBytes: 0,
-          writeBytes: 0,
-          readOps: 0,
-          writeOps: 0,
-          readSpeed: 0,
-          writeSpeed: 0
-        }
-      }
-    }
+    return await api.get<SystemHealth>('/monitor/system')
   }
 }

@@ -270,6 +270,12 @@ func NewRouter(cfg config.Config) http.Handler {
 	r.Get("/api/health/disks", handleDiskHealth(cfg))
 	r.Get("/api/monitor/system", handleSystemHealth(cfg)) // Reuse system health for monitoring
 
+	// Metrics summary (alias to system health JSON shape)
+	r.Get("/api/metrics/summary", handleSystemHealth(cfg))
+
+	// Optional SSE stream for metrics at 1 Hz
+	r.Get("/api/metrics/stream", handleMetricsStream(cfg))
+
 	// Dashboard endpoints
 	r.Get("/api/dashboard", api.HandleDashboard)
 	r.Get("/api/storage/summary", api.HandleStorageSummary)
@@ -2011,6 +2017,120 @@ type DiskIOStats struct {
 	WriteSpeed uint64 `json:"writeSpeed"`
 }
 
+// handleMetricsStream emits SystemHealthResponse via SSE at 1Hz
+func handleMetricsStream(cfg config.Config) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Content-Type", "text/event-stream")
+        w.Header().Set("Cache-Control", "no-cache")
+        w.Header().Set("Connection", "keep-alive")
+        flusher, ok := w.(http.Flusher)
+        if !ok {
+            http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+            return
+        }
+
+        ctx := r.Context()
+        ticker := time.NewTicker(1 * time.Second)
+        defer ticker.Stop()
+
+        // Send first event immediately
+        send := func() {
+            // Reuse handleSystemHealth logic by constructing the payload here
+            // Minimal duplication: compute a fresh snapshot
+            payload := captureSystemHealth()
+            b, _ := json.Marshal(payload)
+            _, _ = w.Write([]byte("data: "))
+            _, _ = w.Write(b)
+            _, _ = w.Write([]byte("\n\n"))
+            flusher.Flush()
+        }
+
+        send()
+        for {
+            select {
+            case <-ctx.Done():
+                return
+            case <-ticker.C:
+                send()
+            }
+        }
+    }
+}
+
+// captureSystemHealth builds a SystemHealthResponse snapshot quickly
+func captureSystemHealth() SystemHealthResponse {
+    h := SystemHealthResponse{Timestamp: time.Now().Unix()}
+    if cpuPercent, err := cpu.Percent(100*time.Millisecond, false); err == nil && len(cpuPercent) > 0 {
+        h.CPU = cpuPercent[0]
+    }
+    if loadAvg, err := load.Avg(); err == nil {
+        h.Load1 = loadAvg.Load1
+        h.Load5 = loadAvg.Load5
+        h.Load15 = loadAvg.Load15
+    }
+    if vmStat, err := mem.VirtualMemory(); err == nil {
+        h.Memory = MemoryInfo{
+            Total:     vmStat.Total,
+            Used:      vmStat.Used,
+            Free:      vmStat.Free,
+            Available: vmStat.Available,
+            UsagePct:  vmStat.UsedPercent,
+            Cached:    vmStat.Cached,
+            Buffers:   vmStat.Buffers,
+        }
+    }
+    if swapStat, err := mem.SwapMemory(); err == nil {
+        h.Swap = SwapInfo{Total: swapStat.Total, Used: swapStat.Used, Free: swapStat.Free, UsagePct: swapStat.UsedPercent}
+    }
+    if uptime, err := host.Uptime(); err == nil {
+        h.Uptime = int64(uptime)
+    }
+    if netStats, err := net.IOCounters(false); err == nil && len(netStats) > 0 {
+        current := netStats[0]
+        now := time.Now()
+        h.Network = NetworkInfo{BytesRecv: current.BytesRecv, BytesSent: current.BytesSent, PacketsRecv: current.PacketsRecv, PacketsSent: current.PacketsSent}
+        if !lastNetStatsTime.IsZero() {
+            duration := now.Sub(lastNetStatsTime).Seconds()
+            if duration > 0 {
+                h.Network.RxSpeed = uint64(float64(current.BytesRecv-lastNetStats.BytesRecv) / duration)
+                h.Network.TxSpeed = uint64(float64(current.BytesSent-lastNetStats.BytesSent) / duration)
+            }
+        }
+        lastNetStats = current
+        lastNetStatsTime = now
+    }
+    if diskStats, err := disk.IOCounters(); err == nil {
+        var totalRead, totalWrite, totalReadOps, totalWriteOps uint64
+        for _, stat := range diskStats {
+            totalRead += stat.ReadBytes
+            totalWrite += stat.WriteBytes
+            totalReadOps += stat.ReadCount
+            totalWriteOps += stat.WriteCount
+        }
+        now := time.Now()
+        h.DiskIO = DiskIOStats{ReadBytes: totalRead, WriteBytes: totalWrite, ReadOps: totalReadOps, WriteOps: totalWriteOps}
+        if !lastDiskStatsTime.IsZero() {
+            duration := now.Sub(lastDiskStatsTime).Seconds()
+            if duration > 0 {
+                h.DiskIO.ReadSpeed = uint64(float64(totalRead-lastDiskStats.ReadBytes) / duration)
+                h.DiskIO.WriteSpeed = uint64(float64(totalWrite-lastDiskStats.WriteBytes) / duration)
+            }
+        }
+        lastDiskStats = disk.IOCountersStat{ReadBytes: totalRead, WriteBytes: totalWrite}
+        lastDiskStatsTime = now
+    }
+    if runtime.GOOS == "linux" {
+        if temps, err := host.SensorsTemperatures(); err == nil {
+            for _, temp := range temps {
+                if temp.SensorKey == "coretemp_core_0" || temp.SensorKey == "cpu_thermal" {
+                    h.TempCPU = &temp.Temperature
+                    break
+                }
+            }
+        }
+    }
+    return h
+}
 // DiskHealthResponse represents a disk's health information
 type DiskHealthResponse struct {
 	ID         string      `json:"id"`

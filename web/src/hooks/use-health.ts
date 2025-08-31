@@ -11,7 +11,7 @@ export function useSystemHealth() {
     refetchIntervalInBackground: true,
     staleTime: 500, // Consider data stale after 500ms
     gcTime: 60000, // Keep in cache for 1 minute (was cacheTime)
-    retry: 1,
+    retry: 2,
     retryDelay: 1000,
   })
 }
@@ -41,7 +41,7 @@ export function useMonitoringData() {
     refetchIntervalInBackground: true,
     staleTime: 500, // Consider data stale after 500ms
     gcTime: 60000, // Keep in cache for 1 minute
-    retry: 1,
+    retry: 2,
     retryDelay: 1000,
   })
 }
