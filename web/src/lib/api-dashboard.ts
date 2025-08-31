@@ -79,7 +79,7 @@ export const dashboardApi = {
   // Get all dashboard data
   getDashboard: async (): Promise<DashboardData> => {
     try {
-      return await api.get<DashboardData>('/dashboard')
+      return await api.get<DashboardData>('/v1/dashboard')
     } catch (error) {
       console.warn('Failed to fetch dashboard data:', error)
       // Return safe defaults
@@ -119,7 +119,7 @@ export const dashboardApi = {
   // Individual endpoints for granular updates
   getSystemSummary: async (): Promise<SystemSummary> => {
     try {
-      return await api.get<SystemSummary>('/health/system')
+      return await api.get<SystemSummary>('/v1/health/system')
     } catch (error) {
       return {
         status: 'ok',
@@ -134,7 +134,7 @@ export const dashboardApi = {
 
   getStorageSummary: async (): Promise<StorageSummary> => {
     try {
-      return await api.get<StorageSummary>('/storage/summary')
+      return await api.get<StorageSummary>('/v1/storage/summary')
     } catch (error) {
       return {
         totalBytes: 0,
@@ -147,7 +147,7 @@ export const dashboardApi = {
 
   getDisksSummary: async (): Promise<DisksSummary> => {
     try {
-      return await api.get<DisksSummary>('/disks/summary')
+      return await api.get<DisksSummary>('/v1/health/disks/summary')
     } catch (error) {
       return {
         total: 0,
@@ -161,7 +161,7 @@ export const dashboardApi = {
 
   getShares: async (): Promise<ShareInfo[]> => {
     try {
-      const response = await api.get<ShareInfo[]>('/shares')
+      const response = await api.get<ShareInfo[]>('/v1/shares')
       return Array.isArray(response) ? response : []
     } catch (error) {
       return []
@@ -170,7 +170,7 @@ export const dashboardApi = {
 
   getInstalledApps: async (): Promise<AppInfo[]> => {
     try {
-      const response = await api.get<AppInfo[]>('/apps/installed')
+      const response = await api.get<AppInfo[]>('/v1/apps/installed')
       return Array.isArray(response) ? response : []
     } catch (error) {
       return []
@@ -179,7 +179,7 @@ export const dashboardApi = {
 
   getMaintenanceStatus: async (): Promise<MaintenanceStatus> => {
     try {
-      return await api.get<MaintenanceStatus>('/maintenance/status')
+      return await api.get<MaintenanceStatus>('/v1/maintenance/status')
     } catch (error) {
       return {
         scrub: { state: 'idle', nextISO: '' },
@@ -190,7 +190,7 @@ export const dashboardApi = {
 
   getRecentEvents: async (limit = 10): Promise<EventInfo[]> => {
     try {
-      const response = await api.get<EventInfo[]>(`/events/recent?limit=${limit}`)
+      const response = await api.get<EventInfo[]>(`/v1/events/recent?limit=${limit}`)
       return Array.isArray(response) ? response : []
     } catch (error) {
       return []
