@@ -7,6 +7,8 @@ export interface ScrubStatus {
   progress?: number;
   eta?: string;
   status?: string;
+  poolId?: string;
+  nextRun?: string;
 }
 
 export interface BalanceStatus {
@@ -14,6 +16,7 @@ export interface BalanceStatus {
   progress?: number;
   eta?: string;
   status?: string;
+  poolId?: string;
 }
 
 export interface Schedule {
@@ -190,7 +193,10 @@ export function useSmartSummary() {
 export function useSmartDevice(device: string) {
   return useQuery({
     queryKey: ['smart', device],
-    queryFn: () => endpoints.smart.device(device),
+    queryFn: async () => {
+      const data = await endpoints.smart.device(device)
+      return data as any
+    },
     enabled: !!device,
     staleTime: 10_000,
     retry: 1,

@@ -216,12 +216,12 @@ export function Storage() {
     setTimeout(() => setIsRefreshing(false), 500)
   }
 
-  const handleStartScrub = async (poolId: string) => {
+  const handleStartScrub = async (_poolId: string) => {
     await startScrub.mutateAsync()
     refetchScrub()
   }
 
-  const handleStartBalance = async (poolId: string) => {
+  const handleStartBalance = async (_poolId: string) => {
     await startBalance.mutateAsync()
     refetchBalance()
   }
@@ -538,7 +538,7 @@ export function Storage() {
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium">Attributes</h4>
                       <div className="space-y-1">
-                        {smartData.attributes.map((attr) => (
+                        {smartData.attributes.map((attr: any) => (
                           <div 
                             key={attr.id}
                             className="flex items-center justify-between p-2 rounded hover:bg-muted/50"

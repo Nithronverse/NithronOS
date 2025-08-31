@@ -471,10 +471,10 @@ export function Remote() {
   }
 
   // Calculate stats from real data
-  const totalBackupSize = stats?.totalBackupSize || 0
-  const successRate = stats?.successRate || 0
-  const activeJobs = jobs.filter((j: any) => j.status === 'running').length
-  const activeDestinations = destinations.filter((d: any) => d.status === 'active').length
+  const totalBackupSize = (stats as any)?.totalBackupSize || 0
+  const successRate = (stats as any)?.successRate || 0
+  const activeJobs = (jobs as any[]).filter((j: any) => j.status === 'running').length
+  const activeDestinations = (destinations as any[]).filter((d: any) => d.status === 'active').length
 
   // Enhanced columns with actions
   const enhancedDestinationColumns = [
@@ -576,14 +576,14 @@ export function Remote() {
         <Card>
           <Metric
             label="Total Destinations"
-            value={destinations.length}
+            value={(destinations as any[]).length}
             sublabel={`${activeDestinations} active`}
           />
         </Card>
         <Card>
           <Metric
             label="Backup Jobs"
-            value={jobs.length}
+            value={(jobs as any[]).length}
             sublabel={`${activeJobs} running`}
           />
         </Card>
@@ -609,10 +609,10 @@ export function Remote() {
         description="Remote storage locations for your backups"
         isLoading={destinationsLoading}
       >
-        {destinations.length > 0 ? (
+        {(destinations as any[]).length > 0 ? (
           <DataTable
             columns={enhancedDestinationColumns}
-            data={destinations}
+            data={destinations as any[]}
             searchKey="name"
           />
         ) : (
@@ -638,10 +638,10 @@ export function Remote() {
         description="Scheduled backup and replication tasks"
         isLoading={jobsLoading}
       >
-        {jobs.length > 0 ? (
+        {(jobs as any[]).length > 0 ? (
           <DataTable
             columns={enhancedJobColumns}
-            data={jobs}
+            data={jobs as any[]}
             searchKey="name"
           />
         ) : (

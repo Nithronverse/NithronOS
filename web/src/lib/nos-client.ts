@@ -113,8 +113,7 @@ const client: AxiosInstance = axios.create({
 // Request interceptor: add CSRF header if cookie exists
 client.interceptors.request.use((config) => {
   const csrf = readCookie('nos_csrf') || readCookie('csrf_token');
-  if (csrf) {
-    if (!config.headers) config.headers = {};
+  if (csrf && config.headers) {
     config.headers['X-CSRF-Token'] = csrf;
   }
   // Guard path correctness for relative URLs

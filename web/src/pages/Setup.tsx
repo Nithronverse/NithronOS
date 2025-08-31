@@ -188,21 +188,18 @@ export default function Setup() {
             
             {step === 'system' && setupToken && (
               <StepSystemConfig
-                token={setupToken}
                 onSuccess={() => setStep('network')}
               />
             )}
             
             {step === 'network' && setupToken && (
               <StepNetworkConfig
-                token={setupToken}
                 onSuccess={() => setStep('telemetry')}
               />
             )}
             
             {step === 'telemetry' && setupToken && (
               <StepTelemetry
-                token={setupToken}
                 onSuccess={async () => {
                   if (enableTotp && adminCreds) {
                     setStep('totp')
@@ -661,19 +658,19 @@ function StepTOTPEnroll({
       })
       
       // Get TOTP enrollment data
-      const enrollData = await api.auth.totp.enroll()
+      const enrollData = await api.auth.totp.enroll() as any
       
       // Generate QR code
-      if (enrollData.qr_png_base64) {
+      if (enrollData?.qr_png_base64) {
         setQrCode(`data:image/png;base64,${enrollData.qr_png_base64}`)
-      } else if (enrollData.otpauth_url) {
+      } else if (enrollData?.otpauth_url) {
         const dataUrl = await QRCode.toDataURL(enrollData.otpauth_url)
         setQrCode(dataUrl)
       }
       
       // Extract secret from otpauth URL
       try {
-        const url = new URL(enrollData.otpauth_url)
+        const url = new URL(enrollData?.otpauth_url || '')
         const extractedSecret = url.searchParams.get('secret')
         if (extractedSecret) {
           setSecret(extractedSecret)
@@ -701,9 +698,9 @@ function StepTOTPEnroll({
       setLoading(true)
       setError(null)
       
-      const response = await api.auth.totp.verify(cleanCode)
+      const response = await api.auth.totp.verify(cleanCode) as any
       
-      if (response.recovery_codes) {
+      if (response?.recovery_codes) {
         setRecoveryCodes(response.recovery_codes)
       } else {
         // No recovery codes returned, just proceed
@@ -869,7 +866,7 @@ function StepDone({ onContinue }: { onContinue: () => void }) {
 // Step: System Configuration (Hostname, Timezone)
 // ============================================================================
 
-function StepSystemConfig({ token, onSuccess }: { token: string; onSuccess: () => void }) {
+function StepSystemConfig({ onSuccess }: { onSuccess: () => void }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hostname, setHostname] = useState('')
@@ -892,12 +889,12 @@ function StepSystemConfig({ token, onSuccess }: { token: string; onSuccess: () =
   const loadCurrentConfig = async () => {
     try {
       const [timezoneRes, ntpRes] = await Promise.all([
-        api.system.getTimezone(token),
-        api.system.getNTP(token),
+        api.system.getTimezone(),
+        api.system.getNTP(),
       ])
       
       // Don't pre-populate hostname during setup - let user choose
-      const currentTz = timezoneRes.timezone || 'UTC'
+      const currentTz = (timezoneRes as any).timezone || 'UTC'
       setTimezone(currentTz)
       
       // Find which region this timezone belongs to
@@ -906,7 +903,7 @@ function StepSystemConfig({ token, onSuccess }: { token: string; onSuccess: () =
         setSelectedRegion(tzInfo.region)
       }
       
-      setNtp(ntpRes.enabled)
+      setNtp((ntpRes as any).enabled)
     } catch (err) {
       console.error('Failed to load system config:', err)
     }
@@ -932,9 +929,9 @@ function StepSystemConfig({ token, onSuccess }: { token: string; onSuccess: () =
       setError(null)
       
       await Promise.all([
-        api.system.setHostname({ hostname }, token),
-        api.system.setTimezone({ timezone }, token),
-        api.system.setNTP({ enabled: ntp }, token),
+        api.system.setHostname({ hostname }),
+        api.system.setTimezone({ timezone }),
+        api.system.setNTP({ enabled: ntp }),
       ])
       
       toast.success('System configuration updated')
@@ -1033,7 +1030,7 @@ function StepSystemConfig({ token, onSuccess }: { token: string; onSuccess: () =
 // Step: Network Configuration
 // ============================================================================
 
-function StepNetworkConfig({ token, onSuccess }: { token: string; onSuccess: () => void }) {
+function StepNetworkConfig({ onSuccess }: { onSuccess: () => void }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [interfaces, setInterfaces] = useState<any[]>([])
@@ -1049,8 +1046,8 @@ function StepNetworkConfig({ token, onSuccess }: { token: string; onSuccess: () 
   
   const loadInterfaces = async () => {
     try {
-      const res = await api.network.getInterfaces(token)
-      const ifaces = res.interfaces || []
+      const res = await api.network.getInterfaces() as any
+      const ifaces = res?.interfaces || []
       setInterfaces(ifaces)
       
       // Auto-select first ethernet interface
@@ -1249,7 +1246,7 @@ function StepNetworkConfig({ token, onSuccess }: { token: string; onSuccess: () 
 // Step: Telemetry Consent
 // ============================================================================
 
-function StepTelemetry({ token, onSuccess }: { token: string; onSuccess: () => void }) {
+function StepTelemetry({ onSuccess }: { onSuccess: () => void }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [consent, setConsent] = useState(false)
