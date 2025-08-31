@@ -22,11 +22,43 @@ vi.mock('../lib/nos-client', () => ({
       },
     },
   },
+  api: {
+    setup: {
+      getState: vi.fn(),
+      verifyOTP: vi.fn(),
+      createAdmin: vi.fn(),
+    },
+    auth: {
+      totp: {
+        enroll: vi.fn(),
+        verify: vi.fn(),
+      },
+    },
+    system: {
+      setHostname: vi.fn(),
+      setTimezone: vi.fn(),
+      setNTP: vi.fn(),
+    },
+    network: {
+      getInterfaces: vi.fn(),
+      setInterface: vi.fn(),
+    },
+    telemetry: {
+      setConfig: vi.fn(),
+    },
+  },
   APIError: class APIError extends Error {
     constructor(public status: number, message: string) {
       super(message)
     }
   },
+  ProxyMisconfiguredError: class ProxyMisconfiguredError extends Error {
+    constructor(message: string) {
+      super(message)
+      this.name = 'ProxyMisconfiguredError'
+    }
+  },
+  getErrorMessage: (err: any) => err?.message || 'An error occurred',
 }))
 
 // Mock navigation

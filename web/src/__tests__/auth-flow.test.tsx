@@ -4,11 +4,24 @@ import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { Login } from '../pages/Login'
 import { AuthProvider } from '../lib/auth'
-import http, { APIError } from '../lib/nos-client'
+import http, { APIError, api } from '../lib/nos-client'
 
 // Mock the API client
 vi.mock('../lib/nos-client', () => ({
   default: {
+    auth: {
+      login: vi.fn(),
+      verifyTotp: vi.fn(),
+      logout: vi.fn(),
+      refresh: vi.fn(),
+      getSession: vi.fn(),
+      session: vi.fn().mockRejectedValue({ status: 401 }),
+    },
+    setup: {
+      getState: vi.fn(),
+    },
+  },
+  api: {
     auth: {
       login: vi.fn(),
       verifyTotp: vi.fn(),
@@ -27,6 +40,13 @@ vi.mock('../lib/nos-client', () => ({
       this.status = status
     }
   },
+  ProxyMisconfiguredError: class ProxyMisconfiguredError extends Error {
+    constructor(message: string) {
+      super(message)
+      this.name = 'ProxyMisconfiguredError'
+    }
+  },
+  getErrorMessage: (err: any) => err?.message || 'An error occurred',
 }))
 
 // Mock navigation
@@ -54,6 +74,7 @@ describe('Login Flow', () => {
     mockNavigate.mockClear()
     // Default: setup is complete
     ;(http.setup.getState as any).mockRejectedValue({ status: 410, message: 'Setup complete' })
+    ;(api.setup.getState as any).mockRejectedValue({ status: 410, message: 'Setup complete' })
   })
 
   const renderLogin = () => {
