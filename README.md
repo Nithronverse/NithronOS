@@ -1,18 +1,26 @@
 # NithronOS (nOS)
 ![NithronOS](./assets/brand/nithronos-readme-banner.svg)
 
-[![CI](https://github.com/NotTekk/NithronOS/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/NotTekk/NithronOS/actions/workflows/ci.yml)
+[![CI](https://github.com/Nithronverse/NithronOS/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Nithronverse/NithronOS/actions/workflows/ci.yml)
 [![Snapshots On Update](https://img.shields.io/badge/Snapshots%20On%20Update-Enabled%20by%20default-2D7FF9)](docs/updates.md)
-[![Release](https://img.shields.io/badge/NithronOS-v0.9.5--pre--alpha-yellow)](https://github.com/NotTekk/NithronOS/releases/tag/v0.9.5-pre-alpha)
+[![Release](https://img.shields.io/badge/NithronOS-v0.9.5--pre--alpha-yellow)](https://github.com/Nithronverse/NithronOS/releases/tag/v0.9.5-pre-alpha)
 [![Discord](https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/qzB37WS5AT)
 [![Patreon](https://img.shields.io/badge/Support%20on-Patreon-F96854?logo=patreon&logoColor=white)](https://patreon.com/Nithron)
 
 **Open-source Linux-based OS for NAS & homelabs.**  
 Local-first storage management (Btrfs/ZFS*), snapshots, shares, backups, and a modern web dashboard with an optional app catalog — all without cloud lock-in.
 
-> **Status:** v0.9.5 **pre-alpha** (public preview).
+> **Status:** v0.9.5 **pre-alpha** (public preview) - Real-time monitoring, health system, and Debian installer now available.
 
 * ZFS availability depends on platform licensing constraints.
+
+### ✨ What's New in v0.9.5-pre-alpha
+- **🚀 Real-time Dashboard**: Live updates every second with smooth animations
+- **📊 Health Monitoring**: System health, disk monitoring, and SMART status
+- **💾 Storage Management**: Live storage metrics and pool health monitoring
+- **🔧 Debian Installer**: Full working installation with automated setup
+- **🎨 UI Improvements**: Fixed crashes, better navigation, and modern styling
+- **📡 Remote & Monitoring**: Working backup system and monitoring dashboard
 
 ---
 
@@ -39,16 +47,18 @@ Local-first storage management (Btrfs/ZFS*), snapshots, shares, backups, and a m
 - **Btrfs-first** — snapshots, send/receive; optional ZFS via DKMS*.
 - **One-click apps** — Docker/Compose (Plex/Jellyfin, Nextcloud, Immich, etc.).
 - **Real safety features** — dry-run plans, pre-update snapshots, easy rollback.
-- **Clean UX** — React dashboard, clear health/status, sensible defaults.
+- **Clean UX** — React dashboard with real-time updates, clear health/status, sensible defaults.
+- **Live monitoring** — 1Hz refresh rates, system health, disk monitoring, and live activity feeds.
 
 ---
 
 ## Architecture
-- **`nosd`** (Go): REST API for disks, pools, snapshots, shares, jobs.
+- **`nosd`** (Go): REST API for disks, pools, snapshots, shares, jobs, and real-time health metrics.
 - **`nos-agent`** (Go, root): allow-listed helper for privileged actions.
-- **Web UI** (React + TypeScript): talks to `nosd` via OpenAPI client.
+- **Web UI** (React + TypeScript): talks to `nosd` via OpenAPI client with React Query for live updates.
 - **Reverse proxy** (Caddy): serves UI and proxies API. Pre-alpha default is HTTP-only on LAN (no TLS) with security headers; backend bound to loopback. Browsers will show “Not secure” — acceptable for local preview.
 - **Jobs**: systemd timers for snapshots/prune & scheduled maintenance.
+- **Real-time monitoring**: gopsutil integration for live system metrics, health endpoints, and dashboard aggregation.
 
 **Related docs:**  
 API/versioning & typed errors → [docs/api/versioning-and-errors.md](docs/api/versioning-and-errors.md)  
@@ -56,7 +66,8 @@ Config & safe hot reload → [docs/dev/config-and-reload.md](docs/dev/config-and
 Recovery mode (admin access) → [docs/dev/recovery-mode.md](docs/dev/recovery-mode.md)  
 Pre-Alpha Recovery Checklist → [RECOVERY-CHECKLIST.md](RECOVERY-CHECKLIST.md)  
 Storage pools (create/import/encrypt & device ops) → [docs/storage/pools.md](docs/storage/pools.md)  
-Storage health (SMART, scrub, schedules) → [docs/storage/health.md](docs/storage/health.md)
+Storage health (SMART, scrub, schedules) → [docs/storage/health.md](docs/storage/health.md)  
+Health monitoring → [docs/monitoring.md](docs/monitoring.md) (real-time system and disk metrics)  
 Observability → [docs/dev/observability.md](docs/dev/observability.md) (scrape combined metrics via `/metrics/all`)
 
 ---
@@ -65,7 +76,7 @@ Observability → [docs/dev/observability.md](docs/dev/observability.md) (scrape
 **Requires:** Go 1.23+, Node 20+, npm, make (optional), Docker (for app catalog dev)
 
     # clone
-    git clone https://github.com/NotTekk/NithronOS.git
+    git clone https://github.com/Nithronverse/NithronOS.git
     cd NithronOS
 
     # web deps
@@ -93,9 +104,12 @@ On first boot, `nosd` generates a **one-time OTP**, logs it, and prints it to th
 1. **OTP** — enter the 6-digit code (15-minute TTL).  
 2. **Admin** — create the first admin (strong password with real-time strength indicator).  
 3. **2FA (optional)** — TOTP QR + recovery codes.  
-4. **Done** — sign in at `/login`.
+4. **Telemetry** — opt-in/opt-out for system improvement data collection.
+5. **Done** — sign in at `/login`.
 
 After the first admin is created, `/api/setup/*` returns **410 Gone** and normal login applies.
+
+> **Improved Setup Experience**: The welcome screen is now properly centered with step-by-step navigation and visual progress indicators.
 
 **Frontend Features**
 - **Smart error handling** — Specific messages for rate limiting, invalid credentials, TOTP required
@@ -146,7 +160,7 @@ Build a bootable ISO (Debian live) with NithronOS preinstalled.
 
 At first boot the system prints the UI URL + one-time OTP to the console.
 
-Boot menu provides **NithronOS Live**, **Install NithronOS (Debian Installer)**, and **failsafe** entries. The installer is functional but lightly branded; full nOS installer UX will come later.
+Boot menu provides **NithronOS Live**, **Install NithronOS (Debian Installer)**, and **failsafe** entries. The Debian Installer is now fully functional with preseed automation and service auto-enablement.
 
 > **Hyper-V:** Use “NithronOS Live”. The “Kernel fallback (no ACPI)” entry is **not** for Hyper-V; use “safe graphics” instead if you only need to disable GPU modesetting.
 
@@ -165,7 +179,7 @@ This:
 - Allows TCP **443** (web UI) and **22** (SSH) **from LAN only**  
   (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`)
 
-> **Remote access is opt-in.** For Internet access (VPN/Tunnel/Direct), use the **Remote** wizard (coming soon): enforce 2FA, add rate limits, update firewall atomically, keep rollback backups.
+> **Remote access is opt-in.** For Internet access (VPN/Tunnel/Direct), use the **Remote** wizard: enforce 2FA, add rate limits, update firewall atomically, keep rollback backups.
 
 Revert manually:
 
@@ -190,6 +204,13 @@ Filters/jails under `deploy/fail2ban/`; see comments inside for enabling.
 ---
 
 ## Roadmap
+
+### v0.9.5-pre-alpha ✅ (Current Release)
+- **Real-time Dashboard**: Live 1Hz updates, system health, storage monitoring, disk health, recent activity
+- **Health Monitoring System**: Dedicated health pages with real-time metrics and SMART monitoring
+- **Debian Installer**: Full working installation flow with preseed automation
+- **UI/UX Improvements**: Fixed all major crashes, improved button styles, better navigation
+- **Remote & Monitoring**: Working remote backup system and monitoring dashboard
 
 ### Pos-v1 / Alpha
 - [ ] **A1 — Reliability & Telemetry (opt-in)**: Crash reports (symbolized), perf traces, health pings; redaction; one-click diagnostics.
@@ -284,6 +305,6 @@ Colors align with Nithron’s palette (dark UI, electric blue `#2D7FF9`, lime `#
 ## Contact
 General: hello@nithron.com  
 Commercial: licensing@nithron.com  
-Security: security@nithron.com
-Community (Discord): https://discord.gg/qzB37WS5AT
-Patreon: https://patreon.com/Nithron
+Security: security@nithron.com  
+Community (Discord): https://discord.gg/qzB37WS5AT  
+Patreon: https://patreon.com/Nithron  
