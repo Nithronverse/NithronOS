@@ -14,10 +14,10 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { 
   useDashboard,
   useRefreshDashboard,
-  formatUptime,
   formatTimestamp,
   getHealthBadgeVariant
 } from '@/hooks/use-dashboard'
+import { useSystemVitals, formatUptime } from '@/hooks/use-system-vitals'
 import { bytesSafe, toFixedSafe } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { 
@@ -48,7 +48,18 @@ const itemVariants: any = {
 }
 
 // Widget components
-function SystemHealthWidget({ data, isLoading, error }: any) {
+function SystemHealthWidget() {
+  const { vitals, isLoading, error, isSSE } = useSystemVitals()
+  const data = vitals ? {
+    system: {
+      status: vitals.cpuPct > 80 ? 'critical' : vitals.cpuPct > 60 ? 'degraded' : 'ok',
+      cpuPct: vitals.cpuPct,
+      mem: { used: vitals.memUsed, total: vitals.memTotal },
+      swap: { used: vitals.swapUsed, total: vitals.swapTotal },
+      load1: vitals.load1,
+      uptimeSec: vitals.uptime,
+    }
+  } : null
   if (isLoading && !data) {
     return (
       <Card>
@@ -88,7 +99,26 @@ function SystemHealthWidget({ data, isLoading, error }: any) {
     )
   }
 
-  const system = data?.system || {}
+  if (!data) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5" />
+            System Health
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>Waiting for data...</AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const system = data.system
   const StatusIcon = system.status === 'critical' ? AlertTriangle :
                      system.status === 'degraded' ? AlertCircle : CheckCircle
 
@@ -99,8 +129,14 @@ function SystemHealthWidget({ data, isLoading, error }: any) {
           <CardTitle className="flex items-center gap-2">
             <Activity className="h-5 w-5" />
             System Health
+            {isSSE && (
+              <Badge variant="outline" className="ml-auto text-xs">
+                <Zap className="h-3 w-3 mr-1" />
+                Live
+              </Badge>
+            )}
           </CardTitle>
-          <Badge variant={getHealthBadgeVariant(system.status || 'ok')}>
+          <Badge variant={getHealthBadgeVariant(system.status as any)}>
             <StatusIcon className="h-3 w-3 mr-1" />
             {system.status || 'OK'}
           </Badge>
@@ -667,7 +703,7 @@ export function Dashboard() {
       >
         {/* System Health - spans 2 columns on large screens */}
         <motion.div variants={itemVariants} className="lg:col-span-2">
-          <SystemHealthWidget data={data} isLoading={isLoading} error={error} />
+          <SystemHealthWidget />
         </motion.div>
 
         {/* Storage */}

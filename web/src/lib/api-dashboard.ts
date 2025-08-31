@@ -78,122 +78,39 @@ export interface EventInfo {
 export const dashboardApi = {
   // Get all dashboard data
   getDashboard: async (): Promise<DashboardData> => {
-    try {
-      return await http.get<DashboardData>('/v1/dashboard')
-    } catch (error) {
-      console.warn('Failed to fetch dashboard data:', error)
-      // Return safe defaults
-      return {
-        system: {
-          status: 'ok',
-          cpuPct: 0,
-          load1: 0,
-          mem: { used: 0, total: 1 },
-          swap: { used: 0, total: 1 },
-          uptimeSec: 0
-        },
-        storage: {
-          totalBytes: 0,
-          usedBytes: 0,
-          poolsOnline: 0,
-          poolsTotal: 0
-        },
-        disks: {
-          total: 0,
-          healthy: 0,
-          warning: 0,
-          critical: 0,
-          lastScanISO: new Date().toISOString()
-        },
-        shares: [],
-        apps: [],
-        maintenance: {
-          scrub: { state: 'idle', nextISO: '' },
-          balance: { state: 'idle', nextISO: '' }
-        },
-        events: []
-      }
-    }
+    // Let errors bubble up - the UI will handle them
+    return await http.get<DashboardData>('/v1/dashboard')
   },
 
   // Individual endpoints for granular updates
   getSystemSummary: async (): Promise<SystemSummary> => {
-    try {
-      return await http.get<SystemSummary>('/v1/health/system')
-    } catch (error) {
-      return {
-        status: 'ok',
-        cpuPct: 0,
-        load1: 0,
-        mem: { used: 0, total: 1 },
-        swap: { used: 0, total: 1 },
-        uptimeSec: 0
-      }
-    }
+    return await http.get<SystemSummary>('/v1/health/system')
   },
 
   getStorageSummary: async (): Promise<StorageSummary> => {
-    try {
-      return await http.get<StorageSummary>('/v1/storage/summary')
-    } catch (error) {
-      return {
-        totalBytes: 0,
-        usedBytes: 0,
-        poolsOnline: 0,
-        poolsTotal: 0
-      }
-    }
+    return await http.get<StorageSummary>('/v1/storage/summary')
   },
 
   getDisksSummary: async (): Promise<DisksSummary> => {
-    try {
-      return await http.get<DisksSummary>('/v1/health/disks/summary')
-    } catch (error) {
-      return {
-        total: 0,
-        healthy: 0,
-        warning: 0,
-        critical: 0,
-        lastScanISO: new Date().toISOString()
-      }
-    }
+    return await http.get<DisksSummary>('/v1/health/disks/summary')
   },
 
   getShares: async (): Promise<ShareInfo[]> => {
-    try {
-      const response = await http.get<ShareInfo[]>('/v1/shares')
-      return Array.isArray(response) ? response : []
-    } catch (error) {
-      return []
-    }
+    const response = await http.get<ShareInfo[]>('/v1/shares')
+    return Array.isArray(response) ? response : []
   },
 
   getInstalledApps: async (): Promise<AppInfo[]> => {
-    try {
-      const response = await http.get<AppInfo[]>('/v1/apps/installed')
-      return Array.isArray(response) ? response : []
-    } catch (error) {
-      return []
-    }
+    const response = await http.get<AppInfo[]>('/v1/apps/installed')
+    return Array.isArray(response) ? response : []
   },
 
   getMaintenanceStatus: async (): Promise<MaintenanceStatus> => {
-    try {
-      return await http.get<MaintenanceStatus>('/v1/maintenance/status')
-    } catch (error) {
-      return {
-        scrub: { state: 'idle', nextISO: '' },
-        balance: { state: 'idle', nextISO: '' }
-      }
-    }
+    return await http.get<MaintenanceStatus>('/v1/maintenance/status')
   },
 
   getRecentEvents: async (limit = 10): Promise<EventInfo[]> => {
-    try {
-      const response = await http.get<EventInfo[]>(`/v1/events/recent?limit=${limit}`)
-      return Array.isArray(response) ? response : []
-    } catch (error) {
-      return []
-    }
+    const response = await http.get<EventInfo[]>(`/v1/events/recent?limit=${limit}`)
+    return Array.isArray(response) ? response : []
   }
 }

@@ -40,6 +40,31 @@ const data = await http.apps.myNewEndpoint('app-123');
 - Use `/setup/...`, `/auth/...` etc. for unversioned endpoints
 - The client will throw an error in development if you include `/api`
 
+### IMPORTANT: No Placeholders Policy
+
+**All data must come from real backend endpoints. No fake defaults!**
+
+❌ **DON'T** return fake data on error:
+```typescript
+// BAD - hides backend issues
+try {
+  return await http.get('/v1/metrics')
+} catch {
+  return { cpuPct: 0, memory: 0 } // DON'T DO THIS!
+}
+```
+
+✅ **DO** let errors bubble up:
+```typescript
+// GOOD - UI can show proper error state
+return await http.get('/v1/metrics')
+```
+
+If a backend endpoint doesn't exist yet:
+1. Show "Not available yet" in the UI
+2. Add a TODO comment with expected endpoint
+3. Never show fake zeros or placeholder data
+
 ### SSE and WebSocket
 
 For real-time data, use the helper functions:
