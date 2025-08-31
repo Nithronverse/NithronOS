@@ -19,7 +19,6 @@ import {
   formatTimestamp,
   getHealthBadgeVariant
 } from '@/hooks/use-dashboard'
-import { getErrorMessage } from '@/lib/api-client'
 import { cn } from '@/lib/utils'
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip
