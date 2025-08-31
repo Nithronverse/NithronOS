@@ -1,41 +1,25 @@
 #!/bin/sh
-# NithronOS Installer Branding Script
+# NithronOS Installer Branding Script - Non-blocking
 
 set -e
 
-# Source debconf library
-. /usr/share/debconf/confmodule || true
+# Source debconf library (if available)
+. /usr/share/debconf/confmodule 2>/dev/null || true
 
-# Set installer title
-db_set debian-installer/title "NithronOS Installer" || true
+# Set installer title (non-blocking)
+db_set debian-installer/title "NithronOS Installer" 2>/dev/null || true
 
 # Set organization name
-db_set debian-installer/organization "NithronOS Project" || true
+db_set debian-installer/organization "NithronOS Project" 2>/dev/null || true
 
 # Set logo if exists
 if [ -f /usr/share/graphics/nithronos-logo-mark.png ]; then
-    db_set debian-installer/logo /usr/share/graphics/nithronos-logo-mark.png || true
+    db_set debian-installer/logo /usr/share/graphics/nithronos-logo-mark.png 2>/dev/null || true
 fi
 
-# Custom banner text
-cat > /tmp/nithronos-banner << 'EOF'
-================================================================================
-     _   _ _ _   _                   ___  ____  
-    | \ | (_) |_| |__  _ __ ___  _ __/ _ \/ ___| 
-    |  \| | | __| '_ \| '__/ _ \| '_ \ | | \___ \ 
-    | |\  | | |_| | | | | | (_) | | | |_| |___) |
-    |_| \_|_|\__|_| |_|_|  \___/|_| |_\___/____/ 
-                                                  
-    NithronOS Installation System
-    Version 1.0 - Open Source NAS & HomeLab Platform
-================================================================================
-EOF
-
-# Display banner
-cat /tmp/nithronos-banner
-
 # Set default hostname
-db_set netcfg/get_hostname "nithronos" || true
-db_set netcfg/get_domain "local" || true
+db_set netcfg/get_hostname "nithronos" 2>/dev/null || true
+db_set netcfg/get_domain "local" 2>/dev/null || true
 
+# Exit immediately - no blocking operations, no banner display
 exit 0

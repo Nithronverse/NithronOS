@@ -14,6 +14,17 @@ PROFILE_DIR="$SCRIPT_DIR/debian"
 OUT_DIR="$SCRIPT_DIR/../../dist/iso"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
+# Fetch Debian Installer files
+echo "[iso] Fetching Debian Installer kernel and initrd..."
+if [ -x "$SCRIPT_DIR/scripts/fetch-di.sh" ]; then
+    bash "$SCRIPT_DIR/scripts/fetch-di.sh" || {
+        echo "::error::Failed to fetch Debian Installer files"
+        exit 1
+    }
+else
+    echo "::warning::fetch-di.sh not found or not executable, skipping d-i fetch"
+fi
+
 # --- begin logo wiring ---
 LOGO_SRC=""
 for p in \
