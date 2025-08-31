@@ -14,7 +14,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useSystemHealth, formatBytes, formatUptime, formatPercent, getHealthStatus } from '@/hooks/use-health'
 import { useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
-import { toFixedSafe, pctSafe, bytesSafe } from '@/lib/format'
+import { toFixedSafe, pctSafe } from '@/lib/format'
 
 // Animation variants
 const containerVariants: any = {
