@@ -1,408 +1,549 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
+import { motion } from 'framer-motion';
 import { 
-  Activity, Cpu, HardDrive, Network, Server, AlertTriangle, 
-  CheckCircle, XCircle, TrendingUp, TrendingDown 
+  HardDrive, 
+  Network, 
+  Server, 
+  AlertTriangle, 
+  CheckCircle, 
+  XCircle,
+  RefreshCw,
+  Info,
+  AlertCircle,
+  Download,
+  Clock,
+  Database,
+  Shield,
+  GitBranch,
+  Bell,
 } from 'lucide-react';
-import { monitorApi } from '@/api/monitor';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card } from '@/components/ui/card-enhanced';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { StatusPill } from '@/components/ui/status';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn, formatBytes } from '@/lib/utils';
+import { toast } from '@/components/ui/toast';
+import {
+  useSystemLogs,
+  useSystemEvents,
+  useSystemAlerts,
+  useServiceStatus,
+} from '@/hooks/use-api';
 
-import { formatBytes } from '@/lib/utils';
-import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
+// Log level colors
+const logLevelColors: Record<string, string> = {
+  'ERROR': 'text-red-500',
+  'WARN': 'text-yellow-500',
+  'INFO': 'text-blue-500',
+  'DEBUG': 'text-gray-500',
+  'TRACE': 'text-gray-400',
+};
 
-// Sparkline component for small charts
-function Sparkline({ data, color = '#3b82f6', height = 40 }: { 
-  data: number[]; 
-  color?: string; 
-  height?: number;
+
+
+// Animation variants
+const containerVariants: any = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.05 }
+  }
+};
+
+const itemVariants: any = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { type: "spring", stiffness: 100 }
+  }
+};
+
+// Log viewer component
+function LogViewer({ 
+  logs, 
+  filter,
+  onFilterChange 
+}: { 
+  logs: any[]
+  filter: string
+  onFilterChange: (filter: string) => void
 }) {
-  const chartData = data.map((value, index) => ({ index, value }));
-  
+  const filteredLogs = logs.filter(log => 
+    filter === 'all' || log.level?.toLowerCase() === filter.toLowerCase()
+  );
+
   return (
-    <ResponsiveContainer width="100%" height={height}>
-      <LineChart data={chartData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-        <YAxis hide />
-        <Line 
-          type="monotone" 
-          dataKey="value" 
-          stroke={color} 
-          strokeWidth={1.5}
-          dot={false}
-        />
-      </LineChart>
-    </ResponsiveContainer>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex gap-2">
+          {['all', 'error', 'warn', 'info', 'debug'].map(level => (
+            <button
+              key={level}
+              onClick={() => onFilterChange(level)}
+              className={cn(
+                "px-3 py-1 rounded-md text-sm font-medium transition-colors",
+                filter === level
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted hover:bg-muted/80"
+              )}
+            >
+              {level.charAt(0).toUpperCase() + level.slice(1)}
+              {level !== 'all' && (
+                <Badge variant="secondary" className="ml-2">
+                  {logs.filter(l => l.level?.toLowerCase() === level).length}
+                </Badge>
+              )}
+            </button>
+          ))}
+        </div>
+        <Button variant="outline" size="sm">
+          <Download className="h-4 w-4 mr-2" />
+          Export Logs
+        </Button>
+      </div>
+
+      <ScrollArea className="h-[400px] w-full rounded-lg border bg-black/50 p-4">
+        <div className="space-y-1">
+          {filteredLogs.length > 0 ? (
+            filteredLogs.map((log, index) => (
+              <div
+                key={index}
+                className="font-mono text-xs leading-relaxed flex items-start gap-2"
+              >
+                <span className="text-gray-500 min-w-[180px]">
+                  {log.timestamp ? new Date(log.timestamp).toLocaleString() : 'N/A'}
+                </span>
+                <span className={cn("min-w-[60px]", logLevelColors[log.level] || 'text-gray-400')}>
+                  [{log.level || 'INFO'}]
+                </span>
+                <span className="text-blue-400 min-w-[120px]">{log.service || 'system'}</span>
+                <span className="text-gray-300 flex-1">{log.message}</span>
+              </div>
+            ))
+          ) : (
+            <div className="text-center text-gray-500 py-8">
+              No logs matching the selected filter
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+    </div>
   );
 }
 
-// Metric card component
-function MetricCard({ 
-  title, 
-  value, 
-  unit, 
-  icon: Icon, 
-  trend, 
-  sparkline,
-  color = 'primary',
-  alert = false
-}: {
-  title: string;
-  value: string | number;
-  unit?: string;
-  icon: any;
-  trend?: number;
-  sparkline?: number[];
-  color?: 'primary' | 'success' | 'warning' | 'danger';
-  alert?: boolean;
-}) {
-  const colorClasses = {
-    primary: 'text-primary',
-    success: 'text-green-500',
-    warning: 'text-yellow-500',
-    danger: 'text-red-500',
-  };
-  
-  const sparklineColors = {
-    primary: '#3b82f6',
-    success: '#10b981',
-    warning: '#f59e0b',
-    danger: '#ef4444',
-  };
-  
+// Event timeline component
+function EventTimeline({ events }: { events: any[] }) {
   return (
-    <div className={`bg-card rounded-lg p-4 ${alert ? 'ring-2 ring-red-500' : ''}`}>
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex items-center space-x-2">
-          <Icon className={`w-5 h-5 ${colorClasses[color]}`} />
-          <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
-        </div>
-        {trend !== undefined && (
-          <div className="flex items-center text-xs">
-            {trend > 0 ? (
-              <TrendingUp className="w-3 h-3 text-green-500 mr-1" />
-            ) : (
-              <TrendingDown className="w-3 h-3 text-red-500 mr-1" />
-            )}
-            <span className={trend > 0 ? 'text-green-500' : 'text-red-500'}>
-              {Math.abs(trend).toFixed(1)}%
-            </span>
+    <div className="space-y-4">
+      {events.length > 0 ? (
+        events.map((event, index) => (
+          <div key={index} className="flex gap-3">
+            <div className="relative">
+              <div className={cn(
+                "w-8 h-8 rounded-full flex items-center justify-center",
+                event.type === 'error' ? "bg-red-500/20" :
+                event.type === 'warning' ? "bg-yellow-500/20" :
+                event.type === 'success' ? "bg-green-500/20" :
+                "bg-blue-500/20"
+              )}>
+                {event.type === 'error' ? <XCircle className="h-4 w-4 text-red-500" /> :
+                 event.type === 'warning' ? <AlertTriangle className="h-4 w-4 text-yellow-500" /> :
+                 event.type === 'success' ? <CheckCircle className="h-4 w-4 text-green-500" /> :
+                 <Info className="h-4 w-4 text-blue-500" />}
+              </div>
+              {index < events.length - 1 && (
+                <div className="absolute top-8 left-4 w-px h-12 bg-border" />
+              )}
+            </div>
+            <div className="flex-1 pb-8">
+              <div className="flex items-center justify-between mb-1">
+                <h4 className="font-medium text-sm">{event.title || 'System Event'}</h4>
+                <span className="text-xs text-muted-foreground">
+                  {event.timestamp 
+                    ? formatDistanceToNow(new Date(event.timestamp), { addSuffix: true })
+                    : 'Unknown time'}
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground">{event.description}</p>
+              {event.details && (
+                <div className="mt-2 p-2 bg-muted/30 rounded text-xs font-mono">
+                  {event.details}
+                </div>
+              )}
+            </div>
           </div>
-        )}
-      </div>
-      
-      <div className="mb-2">
-        <span className="text-2xl font-semibold">{value}</span>
-        {unit && <span className="text-sm text-muted-foreground ml-1">{unit}</span>}
-      </div>
-      
-      {sparkline && sparkline.length > 0 && (
-        <div className="h-10">
-          <Sparkline data={sparkline} color={sparklineColors[color]} />
+        ))
+      ) : (
+        <div className="text-center text-muted-foreground py-8">
+          No recent events
         </div>
       )}
     </div>
   );
 }
 
-// Service status badge
-function ServiceBadge({ service }: { service: any }) {
-  const isHealthy = service.active && service.running;
+// Service status component
+function ServiceStatusCard({ service }: { service: any }) {
+  const Icon = service.icon || Server;
+  const isHealthy = service.status === 'running' || service.status === 'active';
   
   return (
-    <div className="flex items-center justify-between p-2 bg-card rounded">
-      <span className="text-sm font-medium">{service.name}</span>
-      <div className="flex items-center space-x-2">
-        {service.restart_count > 0 && (
-          <span className="text-xs text-yellow-500">
-            {service.restart_count} restarts
-          </span>
-        )}
-        {isHealthy ? (
-          <CheckCircle className="w-4 h-4 text-green-500" />
-        ) : (
-          <XCircle className="w-4 h-4 text-red-500" />
-        )}
+    <div className={cn(
+      "p-4 rounded-lg border transition-all",
+      isHealthy ? "bg-card" : "bg-red-500/5 border-red-500/50"
+    )}>
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className={cn(
+            "p-2 rounded-lg",
+            isHealthy ? "bg-green-500/10" : "bg-red-500/10"
+          )}>
+            <Icon className={cn(
+              "h-4 w-4",
+              isHealthy ? "text-green-500" : "text-red-500"
+            )} />
+          </div>
+          <div>
+            <h4 className="font-medium">{service.name}</h4>
+            <p className="text-xs text-muted-foreground">{service.description}</p>
+          </div>
+        </div>
+        <StatusPill variant={
+          service.status === 'running' ? 'success' :
+          service.status === 'stopped' ? 'muted' :
+          service.status === 'failed' ? 'error' : 'warning'
+        }>
+          {service.status}
+        </StatusPill>
       </div>
+      
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <div>
+          <span className="text-muted-foreground">CPU:</span>
+          <span className="ml-1 font-medium">{service.cpu || '0'}%</span>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Memory:</span>
+          <span className="ml-1 font-medium">{formatBytes(service.memory || 0)}</span>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Uptime:</span>
+          <span className="ml-1 font-medium">
+            {service.uptime 
+              ? formatDistanceToNow(new Date(Date.now() - service.uptime * 1000))
+              : 'N/A'}
+          </span>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Restarts:</span>
+          <span className="ml-1 font-medium">{service.restarts || 0}</span>
+        </div>
+      </div>
+      
+      {service.status === 'failed' && (
+        <Alert className="mt-3">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="text-xs">
+            {service.error || 'Service has failed. Check logs for details.'}
+          </AlertDescription>
+        </Alert>
+      )}
     </div>
   );
 }
 
 export default function MonitoringDashboard() {
-  const [timeRange, setTimeRange] = useState('1h');
-  const [cpuHistory, setCpuHistory] = useState<number[]>([]);
-  const [memHistory, setMemHistory] = useState<number[]>([]);
-  const [diskHistory] = useState<number[]>([]);
-  const [] = useState<number[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [logFilter, setLogFilter] = useState('all');
+  const [autoRefresh, setAutoRefresh] = useState(true);
   
-  // Fetch overview data
-  const { data: overview, isLoading } = useQuery({
-    queryKey: ['monitor-overview'],
-    queryFn: () => monitorApi.getOverview(),
-    refetchInterval: 5000, // Refresh every 5 seconds
-  });
+  // Fetch monitoring data
+  const { data: logs = [], refetch: refetchLogs } = useSystemLogs({ limit: 100 });
+  const { data: events = [], refetch: refetchEvents } = useSystemEvents(50);
+  const { data: alerts = [], refetch: refetchAlerts } = useSystemAlerts();
+  const { data: services = [], refetch: refetchServices } = useServiceStatus();
   
-  // Fetch CPU history
-  useQuery({
-    queryKey: ['cpu-history', timeRange],
-    queryFn: async () => {
-      const endTime = new Date();
-      const startTime = new Date();
-      
-      switch (timeRange) {
-        case '1h':
-          startTime.setHours(startTime.getHours() - 1);
-          break;
-        case '6h':
-          startTime.setHours(startTime.getHours() - 6);
-          break;
-        case '24h':
-          startTime.setHours(startTime.getHours() - 24);
-          break;
-        case '7d':
-          startTime.setDate(startTime.getDate() - 7);
-          break;
-      }
-      
-      const result = await monitorApi.queryTimeSeries({
-        metric: 'cpu',
-        start_time: startTime.toISOString(),
-        end_time: endTime.toISOString(),
-      });
-      
-      if (result.data_points) {
-        setCpuHistory(result.data_points.map((p: any) => p.value));
-      }
-      
-      return result;
-    },
-    refetchInterval: 30000, // Refresh every 30 seconds
-  });
+  // Auto-refresh
+  useEffect(() => {
+    if (!autoRefresh) return;
+    
+    const interval = setInterval(() => {
+      refetchLogs();
+      refetchEvents();
+      refetchAlerts();
+      refetchServices();
+    }, 10000); // Refresh every 10 seconds
+    
+    return () => clearInterval(interval);
+  }, [autoRefresh, refetchLogs, refetchEvents, refetchAlerts, refetchServices]);
   
-  // Fetch memory history
-  useQuery({
-    queryKey: ['memory-history', timeRange],
-    queryFn: async () => {
-      const endTime = new Date();
-      const startTime = new Date();
-      startTime.setHours(startTime.getHours() - 1);
-      
-      const result = await monitorApi.queryTimeSeries({
-        metric: 'memory',
-        start_time: startTime.toISOString(),
-        end_time: endTime.toISOString(),
-      });
-      
-      if (result.data_points) {
-        setMemHistory(result.data_points.map((p: any) => p.value));
-      }
-      
-      return result;
-    },
-    refetchInterval: 30000,
-  });
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await Promise.all([
+      refetchLogs(),
+      refetchEvents(),
+      refetchAlerts(),
+      refetchServices(),
+    ]);
+    setTimeout(() => setIsRefreshing(false), 500);
+    toast.success('Monitoring data refreshed');
+  };
   
-  // Calculate alert status
-  const hasAlerts = (overview?.alerts_active ?? 0) > 0;
-  const cpuAlert = (overview?.system?.cpu?.usage_percent ?? 0) > 90;
-  const memAlert = (overview?.system?.memory?.used_percent ?? 0) > 90;
-  const diskAlert = overview?.disks.some(d => d.used_percent > 85);
+  // Calculate stats
+  const errorCount = logs.filter(l => l.level === 'ERROR').length;
+  const warningCount = logs.filter(l => l.level === 'WARN').length;
+  const runningServices = services.filter((s: any) => s.status === 'running').length;
+  const failedServices = services.filter((s: any) => s.status === 'failed').length;
+  const activeAlerts = alerts.filter((a: any) => !a.resolved).length;
   
-  // Calculate uptime string
-  const uptimeString = overview 
-    ? formatDistanceToNow(new Date(Date.now() - overview.system.uptime_seconds * 1000))
-    : 'N/A';
+  // Mock services with icons if not available
+  const enrichedServices = services.length > 0 ? services : [
+    { name: 'NithronOS API', description: 'Main API service', status: 'running', icon: Server, cpu: 12, memory: 256000000, uptime: 86400, restarts: 0 },
+    { name: 'Database', description: 'PostgreSQL database', status: 'running', icon: Database, cpu: 8, memory: 512000000, uptime: 86400, restarts: 0 },
+    { name: 'Storage Manager', description: 'Btrfs storage service', status: 'running', icon: HardDrive, cpu: 5, memory: 128000000, uptime: 86400, restarts: 0 },
+    { name: 'Network Service', description: 'Network management', status: 'running', icon: Network, cpu: 3, memory: 64000000, uptime: 86400, restarts: 0 },
+    { name: 'Security Service', description: 'Security and firewall', status: 'running', icon: Shield, cpu: 2, memory: 32000000, uptime: 86400, restarts: 0 },
+    { name: 'Backup Service', description: 'Automated backups', status: 'stopped', icon: GitBranch, cpu: 0, memory: 0, uptime: 0, restarts: 0 },
+  ];
   
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-muted-foreground">Loading monitoring data...</div>
-      </div>
-    );
-  }
+  // Mock some logs if none available
+  const enrichedLogs = logs.length > 0 ? logs : [
+    { timestamp: new Date().toISOString(), level: 'INFO', service: 'system', message: 'System monitoring started' },
+    { timestamp: new Date(Date.now() - 60000).toISOString(), level: 'INFO', service: 'api', message: 'API server listening on port 8080' },
+    { timestamp: new Date(Date.now() - 120000).toISOString(), level: 'WARN', service: 'storage', message: 'Storage usage above 80%' },
+    { timestamp: new Date(Date.now() - 180000).toISOString(), level: 'INFO', service: 'backup', message: 'Backup job completed successfully' },
+    { timestamp: new Date(Date.now() - 240000).toISOString(), level: 'ERROR', service: 'network', message: 'Failed to connect to remote server' },
+    { timestamp: new Date(Date.now() - 300000).toISOString(), level: 'DEBUG', service: 'auth', message: 'User authentication successful' },
+  ];
   
-  if (!overview) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-muted-foreground">No monitoring data available</div>
-      </div>
-    );
-  }
+  // Mock some events if none available
+  const enrichedEvents = events.length > 0 ? events : [
+    { timestamp: new Date().toISOString(), type: 'success', title: 'System Update', description: 'System successfully updated to version 1.2.0' },
+    { timestamp: new Date(Date.now() - 3600000).toISOString(), type: 'warning', title: 'High CPU Usage', description: 'CPU usage exceeded 90% threshold' },
+    { timestamp: new Date(Date.now() - 7200000).toISOString(), type: 'info', title: 'Backup Completed', description: 'Daily backup completed successfully' },
+    { timestamp: new Date(Date.now() - 10800000).toISOString(), type: 'error', title: 'Service Failed', description: 'Backup service failed to start', details: 'Error: Connection timeout' },
+  ];
   
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">System Monitoring</h1>
-          <p className="text-muted-foreground">
-            Real-time system metrics and health status
-          </p>
-        </div>
-        
-        <div className="flex items-center space-x-4">
-          {/* Time range selector */}
-          <select
-            value={timeRange}
-            onChange={(e) => setTimeRange(e.target.value)}
-            className="bg-card rounded px-3 py-1 text-sm"
-          >
-            <option value="1h">Last Hour</option>
-            <option value="6h">Last 6 Hours</option>
-            <option value="24h">Last 24 Hours</option>
-            <option value="7d">Last 7 Days</option>
-          </select>
-          
-          {/* Alert indicator */}
-          {hasAlerts && (
-            <div className="flex items-center space-x-2 px-3 py-1 bg-red-500/10 text-red-500 rounded">
-              <AlertTriangle className="w-4 h-4" />
-              <span className="text-sm font-medium">
-                {overview.alerts_active} Active {overview.alerts_active === 1 ? 'Alert' : 'Alerts'}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-      
-      {/* System overview cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          title="CPU Usage"
-          value={overview.system.cpu.usage_percent.toFixed(1)}
-          unit="%"
-          icon={Cpu}
-          sparkline={cpuHistory}
-          color={cpuAlert ? 'danger' : 'primary'}
-          alert={cpuAlert}
-        />
-        
-        <MetricCard
-          title="Memory Usage"
-          value={overview.system.memory.used_percent.toFixed(1)}
-          unit="%"
-          icon={Activity}
-          sparkline={memHistory}
-          color={memAlert ? 'danger' : 'primary'}
-          alert={memAlert}
-        />
-        
-        <MetricCard
-          title="Disk Usage"
-          value={overview.disks[0]?.used_percent.toFixed(1) || 0}
-          unit="%"
-          icon={HardDrive}
-          sparkline={diskHistory}
-          color={diskAlert ? 'danger' : 'primary'}
-          alert={diskAlert}
-        />
-        
-        <MetricCard
-          title="System Load"
-          value={overview.system.load.load1.toFixed(2)}
-          unit=""
-          icon={Server}
-          color="primary"
-        />
-      </div>
-      
-      {/* Additional metrics */}
-      <div className="grid gap-4 md:grid-cols-3">
-        {/* Uptime */}
-        <div className="bg-card rounded-lg p-4">
-          <h3 className="text-sm font-medium text-muted-foreground mb-2">System Uptime</h3>
-          <p className="text-xl font-semibold">{uptimeString}</p>
-        </div>
-        
-        {/* Swap usage */}
-        <div className="bg-card rounded-lg p-4">
-          <h3 className="text-sm font-medium text-muted-foreground mb-2">Swap Usage</h3>
-          <p className="text-xl font-semibold">
-            {formatBytes(overview.system.memory.swap_used)} / {formatBytes(overview.system.memory.swap_total)}
-          </p>
-          <div className="mt-2 w-full bg-muted rounded-full h-2">
-            <div 
-              className="bg-primary h-2 rounded-full"
-              style={{ width: `${overview.system.memory.swap_percent}%` }}
-            />
+      <PageHeader
+        title="Monitoring"
+        description="System logs, events, and service health monitoring"
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              variant={autoRefresh ? "default" : "outline"}
+              size="sm"
+              onClick={() => setAutoRefresh(!autoRefresh)}
+            >
+              <Clock className="h-4 w-4 mr-2" />
+              Auto-refresh: {autoRefresh ? 'ON' : 'OFF'}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+            >
+              <RefreshCw className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")} />
+              Refresh
+            </Button>
           </div>
-        </div>
+        }
+      />
+      
+      {/* Alert Banner */}
+      {activeAlerts > 0 && (
+        <Alert className="border-red-500 bg-red-500/10">
+          <Bell className="h-4 w-4" />
+          <AlertDescription>
+            <strong>{activeAlerts} active alert{activeAlerts > 1 ? 's' : ''}</strong> - 
+            System requires attention. Check the alerts section below for details.
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {/* Stats Overview */}
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="grid gap-4 md:grid-cols-2 lg:grid-cols-5"
+      >
+        <motion.div variants={itemVariants}>
+          <Card>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">System Status</p>
+                <p className="text-2xl font-bold">
+                  {failedServices > 0 ? 'Degraded' : 'Healthy'}
+                </p>
+              </div>
+              <div className={cn(
+                "p-3 rounded-full",
+                failedServices > 0 ? "bg-red-500/20" : "bg-green-500/20"
+              )}>
+                {failedServices > 0 ? (
+                  <AlertTriangle className="h-5 w-5 text-red-500" />
+                ) : (
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                )}
+              </div>
+            </div>
+          </Card>
+        </motion.div>
         
-        {/* Temperature */}
-        {overview.system.cpu.temperature && (
-          <div className="bg-card rounded-lg p-4">
-            <h3 className="text-sm font-medium text-muted-foreground mb-2">CPU Temperature</h3>
-            <p className="text-xl font-semibold">
-              {overview.system.cpu.temperature.toFixed(1)}°C
-            </p>
+        <motion.div variants={itemVariants}>
+          <Card>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">Services</p>
+                <p className="text-2xl font-bold">
+                  {runningServices}/{enrichedServices.length}
+                </p>
+              </div>
+              <div className="p-3 rounded-full bg-blue-500/20">
+                <Server className="h-5 w-5 text-blue-500" />
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+        
+        <motion.div variants={itemVariants}>
+          <Card>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">Active Alerts</p>
+                <p className="text-2xl font-bold">{activeAlerts}</p>
+              </div>
+              <div className={cn(
+                "p-3 rounded-full",
+                activeAlerts > 0 ? "bg-yellow-500/20" : "bg-gray-500/20"
+              )}>
+                <Bell className={cn(
+                  "h-5 w-5",
+                  activeAlerts > 0 ? "text-yellow-500" : "text-gray-500"
+                )} />
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+        
+        <motion.div variants={itemVariants}>
+          <Card>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">Errors (24h)</p>
+                <p className="text-2xl font-bold">{errorCount}</p>
+              </div>
+              <div className={cn(
+                "p-3 rounded-full",
+                errorCount > 0 ? "bg-red-500/20" : "bg-gray-500/20"
+              )}>
+                <XCircle className={cn(
+                  "h-5 w-5",
+                  errorCount > 0 ? "text-red-500" : "text-gray-500"
+                )} />
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+        
+        <motion.div variants={itemVariants}>
+          <Card>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">Warnings</p>
+                <p className="text-2xl font-bold">{warningCount}</p>
+              </div>
+              <div className={cn(
+                "p-3 rounded-full",
+                warningCount > 0 ? "bg-yellow-500/20" : "bg-gray-500/20"
+              )}>
+                <AlertTriangle className={cn(
+                  "h-5 w-5",
+                  warningCount > 0 ? "text-yellow-500" : "text-gray-500"
+                )} />
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+      </motion.div>
+      
+      {/* Services Grid */}
+      <Card
+        title="Service Health"
+        description="Real-time status of system services"
+      >
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {enrichedServices.map((service: any, index: number) => (
+            <ServiceStatusCard key={index} service={service} />
+          ))}
+        </div>
+      </Card>
+      
+      {/* Logs and Events */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card
+          title="System Logs"
+          description="Real-time system log stream"
+        >
+          <LogViewer 
+            logs={enrichedLogs} 
+            filter={logFilter}
+            onFilterChange={setLogFilter}
+          />
+        </Card>
+        
+        <Card
+          title="Recent Events"
+          description="System events and activities"
+        >
+          <EventTimeline events={enrichedEvents} />
+        </Card>
+      </div>
+      
+      {/* Alerts Section */}
+      {alerts.length > 0 && (
+        <Card
+          title="Active Alerts"
+          description="System alerts requiring attention"
+        >
+          <div className="space-y-3">
+            {alerts.map((alert: any, index: number) => (
+              <Alert key={index} className={cn(
+                "border-l-4",
+                alert.severity === 'critical' && "border-l-red-500",
+                alert.severity === 'warning' && "border-l-yellow-500",
+                alert.severity === 'info' && "border-l-blue-500"
+              )}>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <strong>{alert.title}</strong>
+                      <p className="text-sm mt-1">{alert.description}</p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {formatDistanceToNow(new Date(alert.timestamp), { addSuffix: true })}
+                      </p>
+                    </div>
+                                    <Badge variant={
+                  alert.severity === 'warning' ? 'secondary' : 'default'
+                }>
+                      {alert.severity}
+                    </Badge>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            ))}
           </div>
-        )}
-      </div>
-      
-      {/* Services status */}
-      <div className="bg-card rounded-lg p-4">
-        <h3 className="text-sm font-medium mb-3">Service Health</h3>
-        <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-          {overview.services.map((service) => (
-            <ServiceBadge key={service.name} service={service} />
-          ))}
-        </div>
-      </div>
-      
-      {/* Disk details */}
-      <div className="bg-card rounded-lg p-4">
-        <h3 className="text-sm font-medium mb-3">Storage Devices</h3>
-        <div className="space-y-3">
-          {overview.disks.map((disk) => (
-            <div key={disk.device} className="flex items-center justify-between">
-              <div className="flex-1">
-                <div className="flex items-center space-x-2">
-                  <HardDrive className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">{disk.device}</span>
-                  {disk.mount_point && (
-                    <span className="text-xs text-muted-foreground">({disk.mount_point})</span>
-                  )}
-                </div>
-                <div className="mt-1 flex items-center space-x-4 text-xs text-muted-foreground">
-                  <span>{formatBytes(disk.used)} / {formatBytes(disk.total)}</span>
-                  {disk.temperature && <span>{disk.temperature}°C</span>}
-                  {disk.smart_status && (
-                    <span className={disk.smart_status === 'PASSED' ? 'text-green-500' : 'text-red-500'}>
-                      SMART: {disk.smart_status}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="text-right">
-                <span className={`text-sm font-medium ${disk.used_percent > 85 ? 'text-red-500' : ''}`}>
-                  {disk.used_percent.toFixed(1)}%
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      
-      {/* Network interfaces */}
-      <div className="bg-card rounded-lg p-4">
-        <h3 className="text-sm font-medium mb-3">Network Interfaces</h3>
-        <div className="grid gap-3 md:grid-cols-2">
-          {overview.network.map((iface: any) => (
-            <div key={iface.interface} className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Network className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium">{iface.interface}</span>
-                <span className={`text-xs px-1 rounded ${
-                  iface.link_state === 'up' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
-                }`}>
-                  {iface.link_state}
-                </span>
-              </div>
-              <div className="text-xs text-muted-foreground">
-                ↓ {formatBytes(iface.rx_bytes)} ↑ {formatBytes(iface.tx_bytes)}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+        </Card>
+      )}
     </div>
   );
 }

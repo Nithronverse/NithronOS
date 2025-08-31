@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
+import { formatDistanceToNow } from 'date-fns'
 import { 
   Cloud,
   Plus,
@@ -16,7 +17,11 @@ import {
   Key,
   FileText,
   Globe,
-  Lock
+  Lock,
+  RefreshCw,
+  AlertCircle,
+  HardDrive,
+  Database,
 } from 'lucide-react'
 import { ColumnDef } from '@tanstack/react-table'
 import { PageHeader } from '@/components/ui/page-header'
@@ -26,56 +31,18 @@ import { StatusPill, Metric } from '@/components/ui/status'
 import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/ui/data-table'
 import { SlideOver } from '@/components/ui/slide-over'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
 import { toast } from '@/components/ui/toast'
-
-// Mock data
-const mockDestinations = [
-  {
-    id: '1',
-    name: 'AWS S3 Backup',
-    type: 's3',
-    endpoint: 's3.amazonaws.com',
-    bucket: 'nithronos-backup',
-    lastRun: '2024-01-15T10:30:00Z',
-    status: 'active',
-    encrypted: true
-  },
-  {
-    id: '2',
-    name: 'Offsite NAS',
-    type: 'ssh',
-    endpoint: '192.168.2.100',
-    path: '/backup/nithronos',
-    lastRun: '2024-01-15T08:00:00Z',
-    status: 'active',
-    encrypted: false
-  }
-]
-
-const mockJobs = [
-  {
-    id: 'j1',
-    name: 'Daily Documents Backup',
-    destination: 'AWS S3 Backup',
-    schedule: '0 2 * * *',
-    lastResult: 'success',
-    nextRun: '2024-01-16T02:00:00Z',
-    status: 'idle',
-    size: 1500000000
-  },
-  {
-    id: 'j2',
-    name: 'Hourly Database Sync',
-    destination: 'Offsite NAS',
-    schedule: '0 * * * *',
-    lastResult: 'success',
-    nextRun: '2024-01-15T11:00:00Z',
-    status: 'running',
-    progress: 67,
-    size: 250000000
-  }
-]
+import {
+  useRemoteDestinations,
+  useCreateDestination,
+  useDeleteDestination,
+  useBackupJobs,
+  useStartBackupJob,
+  useStopBackupJob,
+  useBackupStats,
+} from '@/hooks/use-api'
 
 // Destination columns
 const destinationColumns: ColumnDef<any>[] = [
@@ -87,7 +54,8 @@ const destinationColumns: ColumnDef<any>[] = [
         <div className="p-2 rounded-lg bg-muted">
           {row.original.type === 's3' ? <Cloud className="h-4 w-4 text-muted-foreground" /> :
            row.original.type === 'ssh' ? <Server className="h-4 w-4 text-muted-foreground" /> :
-           <Globe className="h-4 w-4 text-muted-foreground" />}
+           row.original.type === 'webdav' ? <Globe className="h-4 w-4 text-muted-foreground" /> :
+           <Database className="h-4 w-4 text-muted-foreground" />}
         </div>
         <div>
           <div className="font-medium">{row.original.name}</div>
@@ -125,6 +93,20 @@ const destinationColumns: ColumnDef<any>[] = [
     ),
   },
   {
+    accessorKey: 'lastSync',
+    header: 'Last Sync',
+    cell: ({ row }) => {
+      const lastSync = row.original.lastSync
+      return lastSync ? (
+        <div className="text-sm">
+          {formatDistanceToNow(new Date(lastSync), { addSuffix: true })}
+        </div>
+      ) : (
+        <span className="text-sm text-muted-foreground">Never</span>
+      )
+    },
+  },
+  {
     accessorKey: 'status',
     header: 'Status',
     cell: ({ row }) => {
@@ -132,26 +114,13 @@ const destinationColumns: ColumnDef<any>[] = [
       return (
         <StatusPill variant={
           status === 'active' ? 'success' :
-          status === 'error' ? 'error' : 'muted'
+          status === 'error' ? 'error' : 
+          status === 'testing' ? 'warning' : 'muted'
         }>
           {status}
         </StatusPill>
       )
     },
-  },
-  {
-    id: 'actions',
-    header: 'Actions',
-    cell: () => (
-      <div className="flex items-center gap-1">
-        <Button variant="ghost" size="sm">
-          <Edit className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="sm" className="text-destructive">
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
-    ),
   },
 ]
 
@@ -163,7 +132,9 @@ const jobColumns: ColumnDef<any>[] = [
     cell: ({ row }) => (
       <div>
         <div className="font-medium">{row.original.name}</div>
-        <div className="text-xs text-muted-foreground">{row.original.destination}</div>
+        <div className="text-xs text-muted-foreground">
+          {row.original.source} → {row.original.destination}
+        </div>
       </div>
     ),
   },
@@ -173,7 +144,7 @@ const jobColumns: ColumnDef<any>[] = [
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
         <Calendar className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm font-mono">{row.original.schedule}</span>
+        <span className="text-sm font-mono">{row.original.schedule || 'Manual'}</span>
       </div>
     ),
   },
@@ -182,7 +153,7 @@ const jobColumns: ColumnDef<any>[] = [
     header: 'Status',
     cell: ({ row }) => {
       const { status, progress } = row.original
-      if (status === 'running' && progress) {
+      if (status === 'running' && progress !== undefined) {
         return (
           <div className="space-y-1">
             <StatusPill variant="info">Running</StatusPill>
@@ -197,7 +168,12 @@ const jobColumns: ColumnDef<any>[] = [
         )
       }
       return (
-        <StatusPill variant={status === 'idle' ? 'muted' : 'info'}>
+        <StatusPill variant={
+          status === 'idle' ? 'muted' : 
+          status === 'running' ? 'info' :
+          status === 'completed' ? 'success' :
+          status === 'failed' ? 'error' : 'warning'
+        }>
           {status}
         </StatusPill>
       )
@@ -208,14 +184,24 @@ const jobColumns: ColumnDef<any>[] = [
     header: 'Last Result',
     cell: ({ row }) => {
       const result = row.original.lastResult
+      const lastRun = row.original.lastRun
       return result ? (
-        <div className="flex items-center gap-2">
-          {result === 'success' ? (
-            <CheckCircle className="h-4 w-4 text-green-500" />
-          ) : (
-            <XCircle className="h-4 w-4 text-red-500" />
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            {result === 'success' ? (
+              <CheckCircle className="h-4 w-4 text-green-500" />
+            ) : result === 'failed' ? (
+              <XCircle className="h-4 w-4 text-red-500" />
+            ) : (
+              <AlertCircle className="h-4 w-4 text-yellow-500" />
+            )}
+            <span className="text-sm capitalize">{result}</span>
+          </div>
+          {lastRun && (
+            <div className="text-xs text-muted-foreground">
+              {formatDistanceToNow(new Date(lastRun), { addSuffix: true })}
+            </div>
           )}
-          <span className="text-sm capitalize">{result}</span>
         </div>
       ) : (
         <span className="text-sm text-muted-foreground">-</span>
@@ -230,44 +216,35 @@ const jobColumns: ColumnDef<any>[] = [
       return date ? (
         <div className="flex items-center gap-2 text-sm">
           <Clock className="h-4 w-4 text-muted-foreground" />
-          <span>{date.toLocaleString()}</span>
+          <span>{formatDistanceToNow(date, { addSuffix: true })}</span>
         </div>
       ) : (
         <span className="text-sm text-muted-foreground">-</span>
       )
     },
   },
-  {
-    id: 'actions',
-    header: 'Actions',
-    cell: ({ row }) => {
-      const isRunning = row.original.status === 'running'
-      return (
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => toast.success(isRunning ? 'Stopping job...' : 'Starting job...')}
-          >
-            {isRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-          </Button>
-          <Button variant="ghost" size="sm">
-            <FileText className="h-4 w-4" />
-          </Button>
-        </div>
-      )
-    },
-  },
 ]
 
-// Simple destination form
-function DestinationForm({ onSubmit, onCancel }: { onSubmit: (data: any) => void; onCancel: () => void }) {
+// Destination form component
+function DestinationForm({ 
+  onSubmit, 
+  onCancel,
+  destination = null 
+}: { 
+  onSubmit: (data: any) => void
+  onCancel: () => void
+  destination?: any
+}) {
   const [formData, setFormData] = useState({
-    name: '',
-    type: 's3',
-    endpoint: '',
-    bucket: '',
-    encrypted: true,
+    name: destination?.name || '',
+    type: destination?.type || 's3',
+    endpoint: destination?.endpoint || '',
+    bucket: destination?.bucket || '',
+    path: destination?.path || '',
+    accessKey: destination?.accessKey || '',
+    secretKey: '',
+    encrypted: destination?.encrypted ?? true,
+    compression: destination?.compression ?? true,
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -291,67 +268,131 @@ function DestinationForm({ onSubmit, onCancel }: { onSubmit: (data: any) => void
 
       <div>
         <label className="block text-sm font-medium mb-2">Type</label>
-        <div className="grid grid-cols-3 gap-2">
-          {['s3', 'ssh', 'webdav'].map(type => (
+        <div className="grid grid-cols-2 gap-2">
+          {['s3', 'ssh', 'webdav', 'local'].map(type => (
             <button
               key={type}
               type="button"
               onClick={() => setFormData({ ...formData, type })}
               className={cn(
-                "p-2 rounded-lg border transition-colors",
+                "p-3 rounded-lg border transition-all flex items-center gap-2",
                 formData.type === type
                   ? "border-primary bg-primary/10"
                   : "border-border hover:bg-muted/50"
               )}
             >
-              {type.toUpperCase()}
+              {type === 's3' && <Cloud className="h-4 w-4" />}
+              {type === 'ssh' && <Server className="h-4 w-4" />}
+              {type === 'webdav' && <Globe className="h-4 w-4" />}
+              {type === 'local' && <HardDrive className="h-4 w-4" />}
+              <span className="uppercase text-sm font-medium">{type}</span>
             </button>
           ))}
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium mb-2">Endpoint</label>
-        <input
-          type="text"
-          value={formData.endpoint}
-          onChange={(e) => setFormData({ ...formData, endpoint: e.target.value })}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          placeholder="s3.amazonaws.com"
-          required
-        />
-      </div>
-
-      {formData.type === 's3' && (
+      {formData.type !== 'local' && (
         <div>
-          <label className="block text-sm font-medium mb-2">Bucket</label>
+          <label className="block text-sm font-medium mb-2">Endpoint</label>
           <input
             type="text"
-            value={formData.bucket}
-            onChange={(e) => setFormData({ ...formData, bucket: e.target.value })}
+            value={formData.endpoint}
+            onChange={(e) => setFormData({ ...formData, endpoint: e.target.value })}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            placeholder="my-backup-bucket"
+            placeholder={
+              formData.type === 's3' ? 's3.amazonaws.com' :
+              formData.type === 'ssh' ? '192.168.1.100:22' :
+              'https://webdav.example.com'
+            }
             required
           />
         </div>
       )}
 
-      <label className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          checked={formData.encrypted}
-          onChange={(e) => setFormData({ ...formData, encrypted: e.target.checked })}
-          className="rounded"
-        />
-        <span className="text-sm">Enable encryption</span>
-      </label>
+      {formData.type === 's3' && (
+        <>
+          <div>
+            <label className="block text-sm font-medium mb-2">Bucket</label>
+            <input
+              type="text"
+              value={formData.bucket}
+              onChange={(e) => setFormData({ ...formData, bucket: e.target.value })}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              placeholder="my-backup-bucket"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Access Key</label>
+            <input
+              type="text"
+              value={formData.accessKey}
+              onChange={(e) => setFormData({ ...formData, accessKey: e.target.value })}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              placeholder="AKIAIOSFODNN7EXAMPLE"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Secret Key</label>
+            <input
+              type="password"
+              value={formData.secretKey}
+              onChange={(e) => setFormData({ ...formData, secretKey: e.target.value })}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              placeholder="••••••••••••••••"
+              required={!destination}
+            />
+            {destination && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Leave blank to keep existing key
+              </p>
+            )}
+          </div>
+        </>
+      )}
+
+      {(formData.type === 'ssh' || formData.type === 'webdav' || formData.type === 'local') && (
+        <div>
+          <label className="block text-sm font-medium mb-2">Path</label>
+          <input
+            type="text"
+            value={formData.path}
+            onChange={(e) => setFormData({ ...formData, path: e.target.value })}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            placeholder="/backup/nithronos"
+            required
+          />
+        </div>
+      )}
+
+      <div className="space-y-3">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={formData.encrypted}
+            onChange={(e) => setFormData({ ...formData, encrypted: e.target.checked })}
+            className="rounded"
+          />
+          <span className="text-sm">Enable encryption</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={formData.compression}
+            onChange={(e) => setFormData({ ...formData, compression: e.target.checked })}
+            className="rounded"
+          />
+          <span className="text-sm">Enable compression</span>
+        </label>
+      </div>
 
       <div className="flex justify-end gap-2 pt-4 border-t">
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
         <Button type="submit">
-          Save Destination
+          {destination ? 'Update' : 'Create'} Destination
         </Button>
       </div>
     </form>
@@ -369,26 +410,160 @@ function formatBytes(bytes: number): string {
 
 export function Remote() {
   const [isDestinationOpen, setIsDestinationOpen] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [selectedDestination, setSelectedDestination] = useState<any>(null)
+  const [selectedJob, setSelectedJob] = useState<any>(null)
 
-  const handleCreateDestination = async (_data: any) => {
-    toast.success('Destination created successfully')
-    setIsDestinationOpen(false)
+  // Fetch data using real hooks
+  const { data: destinations = [], isLoading: destinationsLoading, refetch: refetchDestinations } = useRemoteDestinations()
+  const { data: jobs = [], isLoading: jobsLoading, refetch: refetchJobs } = useBackupJobs()
+  const { data: stats } = useBackupStats()
+  
+  // Mutations
+  const createDestination = useCreateDestination()
+  const deleteDestination = useDeleteDestination()
+  const startJob = useStartBackupJob()
+  const stopJob = useStopBackupJob()
+
+  const handleCreateDestination = async (data: any) => {
+    try {
+      await createDestination.mutateAsync(data)
+      toast.success('Destination created successfully')
+      setIsDestinationOpen(false)
+      setSelectedDestination(null)
+    } catch (error) {
+      toast.error('Failed to create destination')
+      console.error(error)
+    }
   }
 
-  // Calculate stats
-  const totalBackupSize = mockJobs.reduce((acc, job) => acc + (job.size || 0), 0)
-  const successfulJobs = mockJobs.filter(j => j.lastResult === 'success').length
+  const handleDeleteDestination = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this destination?')) return
+    
+    try {
+      await deleteDestination.mutateAsync(id)
+      toast.success('Destination deleted successfully')
+    } catch (error) {
+      toast.error('Failed to delete destination')
+      console.error(error)
+    }
+  }
+
+  const handleJobAction = async (jobId: string, action: 'start' | 'stop') => {
+    try {
+      if (action === 'start') {
+        await startJob.mutateAsync(jobId)
+        toast.success('Job started successfully')
+      } else {
+        await stopJob.mutateAsync(jobId)
+        toast.success('Job stopped successfully')
+      }
+    } catch (error) {
+      toast.error(`Failed to ${action} job`)
+      console.error(error)
+    }
+  }
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    await Promise.all([refetchDestinations(), refetchJobs()])
+    setTimeout(() => setIsRefreshing(false), 500)
+  }
+
+  // Calculate stats from real data
+  const totalBackupSize = stats?.totalBackupSize || 0
+  const successRate = stats?.successRate || 0
+  const activeJobs = jobs.filter((j: any) => j.status === 'running').length
+  const activeDestinations = destinations.filter((d: any) => d.status === 'active').length
+
+  // Enhanced columns with actions
+  const enhancedDestinationColumns = [
+    ...destinationColumns,
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: ({ row }: any) => (
+        <div className="flex items-center gap-1">
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => {
+              setSelectedDestination(row.original)
+              setIsDestinationOpen(true)
+            }}
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="text-destructive"
+            onClick={() => handleDeleteDestination(row.original.id)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ),
+    },
+  ]
+
+  const enhancedJobColumns = [
+    ...jobColumns,
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: ({ row }: any) => {
+        const isRunning = row.original.status === 'running'
+        return (
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleJobAction(row.original.id, isRunning ? 'stop' : 'start')}
+              disabled={startJob.isPending || stopJob.isPending}
+            >
+              {isRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => setSelectedJob(row.original)}
+            >
+              <FileText className="h-4 w-4" />
+            </Button>
+          </div>
+        )
+      },
+    },
+  ]
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Remote"
-        description="Backup destinations and replication jobs"
+        title="Remote Backup"
+        description="Manage backup destinations and replication jobs"
         actions={
-          <Button size="sm" onClick={() => setIsDestinationOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Destination
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+            >
+              <RefreshCw className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")} />
+              Refresh
+            </Button>
+            <Button 
+              size="sm" 
+              onClick={() => {
+                setSelectedDestination(null)
+                setIsDestinationOpen(true)
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Destination
+            </Button>
+          </div>
         }
       />
 
@@ -401,21 +576,21 @@ export function Remote() {
         <Card>
           <Metric
             label="Total Destinations"
-            value={mockDestinations.length}
-            sublabel={`${mockDestinations.filter(d => d.status === 'active').length} active`}
+            value={destinations.length}
+            sublabel={`${activeDestinations} active`}
           />
         </Card>
         <Card>
           <Metric
             label="Backup Jobs"
-            value={mockJobs.length}
-            sublabel={`${mockJobs.filter(j => j.status === 'running').length} running`}
+            value={jobs.length}
+            sublabel={`${activeJobs} running`}
           />
         </Card>
         <Card>
           <Metric
             label="Success Rate"
-            value={`${Math.round((successfulJobs / mockJobs.length) * 100)}%`}
+            value={`${Math.round(successRate)}%`}
             sublabel="Last 24 hours"
           />
         </Card>
@@ -432,22 +607,26 @@ export function Remote() {
       <Card
         title="Backup Destinations"
         description="Remote storage locations for your backups"
+        isLoading={destinationsLoading}
       >
-        {mockDestinations.length > 0 ? (
+        {destinations.length > 0 ? (
           <DataTable
-            columns={destinationColumns}
-            data={mockDestinations}
-            searchKey="destinations"
+            columns={enhancedDestinationColumns}
+            data={destinations}
+            searchKey="name"
           />
         ) : (
           <EmptyState
             variant="no-data"
             icon={Cloud}
             title="No destinations configured"
-            description="Add a backup destination to get started"
+            description="Add a backup destination to get started with remote backups"
             action={{
               label: "Add Destination",
-              onClick: () => setIsDestinationOpen(true)
+              onClick: () => {
+                setSelectedDestination(null)
+                setIsDestinationOpen(true)
+              }
             }}
           />
         )}
@@ -457,55 +636,142 @@ export function Remote() {
       <Card
         title="Backup Jobs"
         description="Scheduled backup and replication tasks"
+        isLoading={jobsLoading}
       >
-        {mockJobs.length > 0 ? (
+        {jobs.length > 0 ? (
           <DataTable
-            columns={jobColumns}
-            data={mockJobs}
-            searchKey="jobs"
+            columns={enhancedJobColumns}
+            data={jobs}
+            searchKey="name"
           />
         ) : (
           <EmptyState
             variant="no-data"
+            icon={Calendar}
             title="No backup jobs"
             description="Create a backup job to start protecting your data"
+            action={{
+              label: "Create Job",
+              onClick: () => toast.info('Job creation coming soon!')
+            }}
           />
         )}
       </Card>
 
       {/* Encryption settings */}
       <Card
-        title="Encryption Settings"
-        description="Manage backup encryption"
+        title="Security Settings"
+        description="Manage backup encryption and authentication"
       >
-        <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/30">
-          <Shield className="h-5 w-5 text-primary mt-0.5" />
-          <div className="flex-1">
-            <h4 className="font-medium">End-to-End Encryption</h4>
-            <p className="text-sm text-muted-foreground mt-1">
-              All backups are encrypted before leaving your system using AES-256 encryption.
-            </p>
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/30">
+            <Shield className="h-5 w-5 text-primary mt-0.5" />
+            <div className="flex-1">
+              <h4 className="font-medium">End-to-End Encryption</h4>
+              <p className="text-sm text-muted-foreground mt-1">
+                All backups are encrypted before leaving your system using AES-256 encryption.
+                Your encryption keys never leave your device.
+              </p>
+            </div>
+            <Button variant="outline" size="sm">
+              <Key className="h-4 w-4 mr-2" />
+              Manage Keys
+            </Button>
           </div>
-          <Button variant="outline" size="sm">
-            <Key className="h-4 w-4 mr-2" />
-            Manage Keys
-          </Button>
+          
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Important:</strong> Store your encryption keys safely. Lost keys cannot be recovered,
+              and encrypted backups cannot be restored without them.
+            </AlertDescription>
+          </Alert>
         </div>
       </Card>
 
-      {/* Add Destination SlideOver */}
+      {/* Add/Edit Destination SlideOver */}
       <SlideOver
         isOpen={isDestinationOpen}
-        onClose={() => setIsDestinationOpen(false)}
-        title="Add Backup Destination"
-        description="Configure a remote storage location"
+        onClose={() => {
+          setIsDestinationOpen(false)
+          setSelectedDestination(null)
+        }}
+        title={selectedDestination ? "Edit Backup Destination" : "Add Backup Destination"}
+        description={selectedDestination ? "Update remote storage configuration" : "Configure a new remote storage location"}
         size="md"
       >
         <DestinationForm
+          destination={selectedDestination}
           onSubmit={handleCreateDestination}
-          onCancel={() => setIsDestinationOpen(false)}
+          onCancel={() => {
+            setIsDestinationOpen(false)
+            setSelectedDestination(null)
+          }}
         />
       </SlideOver>
+
+      {/* Job Details SlideOver */}
+      {selectedJob && (
+        <SlideOver
+          isOpen={!!selectedJob}
+          onClose={() => setSelectedJob(null)}
+          title="Job Details"
+          description={selectedJob.name}
+          size="md"
+        >
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-muted-foreground">Status</p>
+                <p className="font-medium">{selectedJob.status}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Schedule</p>
+                <p className="font-medium">{selectedJob.schedule || 'Manual'}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Source</p>
+                <p className="font-medium">{selectedJob.source}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Destination</p>
+                <p className="font-medium">{selectedJob.destination}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Last Run</p>
+                <p className="font-medium">
+                  {selectedJob.lastRun 
+                    ? formatDistanceToNow(new Date(selectedJob.lastRun), { addSuffix: true })
+                    : 'Never'}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Next Run</p>
+                <p className="font-medium">
+                  {selectedJob.nextRun 
+                    ? formatDistanceToNow(new Date(selectedJob.nextRun), { addSuffix: true })
+                    : 'Not scheduled'}
+                </p>
+              </div>
+            </div>
+            
+            {selectedJob.logs && (
+              <div>
+                <h4 className="font-medium mb-2">Recent Logs</h4>
+                <div className="bg-muted rounded-lg p-3 max-h-64 overflow-y-auto">
+                  <pre className="text-xs font-mono">{selectedJob.logs}</pre>
+                </div>
+              </div>
+            )}
+            
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button variant="outline" onClick={() => setSelectedJob(null)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </SlideOver>
+      )}
     </div>
   )
 }

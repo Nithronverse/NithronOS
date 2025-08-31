@@ -133,8 +133,8 @@ export default function Setup() {
   }
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center">
-      <div className="relative w-full max-w-md p-6 pt-20">
+    <div className="min-h-screen w-full overflow-y-auto py-8">
+      <div className="relative w-full max-w-md mx-auto p-6">
         <BrandHeader />
         <h1 className="mb-4 text-center text-2xl font-semibold">First-time Setup</h1>
         
@@ -291,70 +291,42 @@ function StepWelcome({ onContinue }: { onContinue: () => void }) {
         <h3 className="font-medium">Getting Your One-Time Password (OTP)</h3>
         <p className="text-sm text-muted-foreground">
           To begin setup, you'll need the OTP that was generated when the system started.
-          The OTP is available in two locations for your convenience.
         </p>
         
         <div className="space-y-2">
           <div className="bg-card rounded p-3">
-            <p className="text-xs text-muted-foreground mb-1">Primary OTP Location (accessible by all users):</p>
-            <code className="block bg-background rounded p-2 text-sm font-mono">
-              /tmp/nos-otp
-            </code>
-          </div>
-          
-          <div className="bg-card rounded p-3">
-            <p className="text-xs text-muted-foreground mb-1">Alternative OTP Locations:</p>
-            <code className="block bg-background rounded p-2 text-sm font-mono">
-              /etc/nos/otp
-            </code>
-            <code className="block bg-background rounded p-2 text-sm font-mono mt-1">
-              /run/nos/firstboot-otp
-            </code>
-          </div>
-          
-          <div className="bg-card rounded p-3">
-            <p className="text-xs text-muted-foreground mb-1">To view the OTP via SSH:</p>
-            <code className="block bg-background rounded p-2 text-sm font-mono">
+            <p className="text-xs text-muted-foreground mb-1">View OTP via SSH:</p>
+            <code className="block bg-background rounded p-2 text-xs font-mono">
               ssh user@your-server-ip "cat /tmp/nos-otp"
             </code>
           </div>
           
           <div className="bg-card rounded p-3">
-            <p className="text-xs text-muted-foreground mb-1">Or if you have console access:</p>
-            <code className="block bg-background rounded p-2 text-sm font-mono">
+            <p className="text-xs text-muted-foreground mb-1">Or console access:</p>
+            <code className="block bg-background rounded p-2 text-xs font-mono">
               cat /tmp/nos-otp
             </code>
           </div>
         </div>
         
         <div className="text-xs text-muted-foreground">
-          <strong>Note:</strong> The OTP is valid for 10 minutes after generation. 
-          If it expires, restart the nosd service to generate a new one.
+          <strong>Note:</strong> OTP is valid for 10 minutes. If expired, restart nosd service.
         </div>
       </div>
       
-      <div className="border border-muted rounded p-4">
-        <h3 className="font-medium mb-2">Documentation & Support</h3>
-        <div className="space-y-2 text-sm">
-          <div>
-            📚 <a href="https://docs.nithron.com" target="_blank" rel="noopener noreferrer" 
-                className="text-primary hover:underline">
-              Documentation
-            </a>
-          </div>
-          <div>
-            💬 <a href="https://github.com/Nithronverse/NithronOS/discussions" target="_blank" rel="noopener noreferrer" 
-                className="text-primary hover:underline">
-              Community Forum
-            </a>
-          </div>
-          <div>
-            🐛 <a href="https://github.com/Nithronverse/NithronOS/issues" target="_blank" rel="noopener noreferrer" 
-                className="text-primary hover:underline">
-              Report Issues
-            </a>
-          </div>
-        </div>
+      <div className="flex gap-2 text-xs">
+        <a href="https://docs.nithron.com" target="_blank" rel="noopener noreferrer" 
+           className="text-primary hover:underline flex-1 text-center">
+          📚 Documentation
+        </a>
+        <a href="https://github.com/Nithronverse/NithronOS/discussions" target="_blank" rel="noopener noreferrer" 
+           className="text-primary hover:underline flex-1 text-center">
+          💬 Community
+        </a>
+        <a href="https://github.com/Nithronverse/NithronOS/issues" target="_blank" rel="noopener noreferrer" 
+           className="text-primary hover:underline flex-1 text-center">
+          🐛 Issues
+        </a>
       </div>
       
       <button

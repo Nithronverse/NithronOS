@@ -9,17 +9,23 @@ import type { CreateShareRequest, UpdateShareRequest } from '@/api/client'
 export function ShareDetails() {
 	const { name } = useParams<{ name: string }>()
 	const navigate = useNavigate()
-	const isNew = name === 'new'
+	const isNew = !name || name === 'new'
 	
 	const { data: share, isLoading } = useShare(isNew ? undefined : name)
 	const updateShare = useUpdateShare()
 	const createShare = useCreateShare()
 
 	const handleSubmit = async (data: CreateShareRequest | UpdateShareRequest) => {
-		if (isNew) {
-			await createShare.mutateAsync(data as CreateShareRequest)
-		} else if (name) {
-			await updateShare.mutateAsync({ name, data: data as UpdateShareRequest })
+		try {
+			if (isNew) {
+				await createShare.mutateAsync(data as CreateShareRequest)
+				navigate('/shares')
+			} else if (name) {
+				await updateShare.mutateAsync({ name, data: data as UpdateShareRequest })
+				navigate('/shares')
+			}
+		} catch (err) {
+			console.error('Failed to save share:', err)
 		}
 	}
 
@@ -35,7 +41,7 @@ export function ShareDetails() {
 		)
 	}
 
-	if (!isNew && !share) {
+	if (!isNew && !share && !isLoading) {
 		return (
 			<div className="flex flex-col h-full">
 				<PageHeader

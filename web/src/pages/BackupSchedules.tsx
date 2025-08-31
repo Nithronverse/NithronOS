@@ -108,7 +108,7 @@ export default function BackupSchedules() {
         </div>
         <button
           onClick={() => setShowCreateDialog(true)}
-          className="btn bg-primary text-primary-foreground"
+          className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
         >
           <Plus className="w-4 h-4 mr-2" />
           Create Schedule
@@ -127,8 +127,9 @@ export default function BackupSchedules() {
             <p className="text-muted-foreground mb-4">No backup schedules configured</p>
             <button
               onClick={() => setShowCreateDialog(true)}
-              className="btn bg-primary text-primary-foreground"
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
             >
+              <Plus className="w-4 h-4 mr-2" />
               Create First Schedule
             </button>
           </div>

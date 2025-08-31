@@ -3,15 +3,18 @@
 
 set -e
 
+# Source debconf library
+. /usr/share/debconf/confmodule || true
+
 # Set installer title
-db_set debian-installer/title "NithronOS Installer"
+db_set debian-installer/title "NithronOS Installer" || true
 
 # Set organization name
-db_set debian-installer/organization "NithronOS Project"
+db_set debian-installer/organization "NithronOS Project" || true
 
 # Set logo if exists
 if [ -f /usr/share/graphics/nithronos-logo-mark.png ]; then
-    db_set debian-installer/logo /usr/share/graphics/nithronos-logo-mark.png
+    db_set debian-installer/logo /usr/share/graphics/nithronos-logo-mark.png || true
 fi
 
 # Custom banner text
@@ -32,7 +35,7 @@ EOF
 cat /tmp/nithronos-banner
 
 # Set default hostname
-db_set netcfg/get_hostname "nithronos"
-db_set netcfg/get_domain "local"
+db_set netcfg/get_hostname "nithronos" || true
+db_set netcfg/get_domain "local" || true
 
 exit 0

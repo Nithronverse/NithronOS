@@ -22,6 +22,9 @@ import Setup from './pages/Setup'
 import Snapshots from './pages/Snapshots'
 import BackupSchedules from './pages/BackupSchedules'
 import MonitoringDashboard from './pages/MonitoringDashboard'
+import { Health } from './pages/Health'
+import { SystemHealth } from './pages/health/SystemHealth'
+import { DiskHealth } from './pages/health/DiskHealth'
 import { GlobalNoticeProvider, useGlobalNotice } from './lib/globalNotice'
 import Banner from './components/Banner'
 import HelpProxy from './pages/HelpProxy'
@@ -137,6 +140,14 @@ const router = createBrowserRouter([
           { path: 'apps', element: <AppCatalog /> },
           { path: 'apps/install/:id', element: <AppInstallWizard /> },
           { path: 'apps/:id', element: <AppDetails /> },
+          { 
+            path: 'health', 
+            element: <Health />,
+            children: [
+              { path: 'system', element: <SystemHealth /> },
+              { path: 'disk', element: <DiskHealth /> },
+            ]
+          },
           { path: 'settings', element: <Settings /> },
           { path: 'settings/users', element: <Users /> },
           { path: 'settings/schedules', element: <SettingsSchedules /> },

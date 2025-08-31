@@ -9,6 +9,7 @@ import {
   Camera,
   Calendar,
   Activity,
+  Heart,
   LucideIcon,
 } from 'lucide-react'
 
@@ -32,6 +33,12 @@ export const navItems: NavItem[] = [
     label: 'Storage',
     icon: HardDrive,
     path: '/storage',
+  },
+  {
+    id: 'health',
+    label: 'Health',
+    icon: Heart,
+    path: '/health/system',
   },
   {
     id: 'shares',

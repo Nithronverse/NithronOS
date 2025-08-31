@@ -361,6 +361,7 @@ export const endpoints = {
   system: {
     info: () => api.get<SystemInfo>('/v1/system/info'),
     services: () => api.get<Service[]>('/v1/system/services'),
+    metrics: () => api.get<any>('/v1/system/metrics'),
   },
 
   // Storage Pools (M1)
@@ -387,7 +388,11 @@ export const endpoints = {
   smart: {
     summary: () => api.get<SmartSummary>('/v1/health/smart/summary'),
     device: (device: string) => api.get<SmartData>(`/v1/health/smart/${device}`),
+    devices: () => api.get<any[]>('/v1/health/smart/devices'),
     scan: () => api.post('/v1/health/smart/scan'),
+    test: (device: string) => api.get<any>(`/v1/health/smart/${device}/test`),
+    runTest: (device: string, type: 'short' | 'long' | 'conveyance') => 
+      api.post(`/v1/health/smart/${device}/test`, { type }),
   },
 
   // Scrub (M1)
@@ -452,6 +457,26 @@ export const endpoints = {
   auth: {
     refresh: () => api.post('/auth/refresh'),
     logout: () => api.post('/auth/logout'),
+  },
+
+  // Remote Backup
+  remote: {
+    listDestinations: () => api.get<any[]>('/v1/remote/destinations'),
+    createDestination: (data: any) => api.post('/v1/remote/destinations', data),
+    deleteDestination: (id: string) => api.del(`/v1/remote/destinations/${id}`),
+    listJobs: () => api.get<any[]>('/v1/remote/jobs'),
+    createJob: (data: any) => api.post('/v1/remote/jobs', data),
+    startJob: (id: string) => api.post(`/v1/remote/jobs/${id}/start`),
+    stopJob: (id: string) => api.post(`/v1/remote/jobs/${id}/stop`),
+    getStats: () => api.get<any>('/v1/remote/stats'),
+  },
+
+  // Monitoring
+  monitoring: {
+    getLogs: (filter?: any) => api.get<any[]>('/v1/monitoring/logs', filter),
+    getEvents: (limit?: number) => api.get<any[]>('/v1/monitoring/events', { limit }),
+    getAlerts: () => api.get<any[]>('/v1/monitoring/alerts'),
+    getServiceStatus: () => api.get<any[]>('/v1/monitoring/services'),
   },
 }
 

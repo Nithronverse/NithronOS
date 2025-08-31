@@ -36,6 +36,16 @@ export function useSystemInfo() {
   })
 }
 
+export function useSystemMetrics() {
+  return useQuery({
+    queryKey: ['system', 'metrics'],
+    queryFn: endpoints.system.metrics,
+    staleTime: 5_000,
+    refetchInterval: 5_000,
+    retry: 1,
+  })
+}
+
 export function useServices() {
   return useQuery({
     queryKey: ['system', 'services'],
@@ -150,6 +160,37 @@ export function useSmartScan() {
   
   return useMutation({
     mutationFn: endpoints.smart.scan,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['smart'] })
+    },
+  })
+}
+
+export function useSmartDevices() {
+  return useQuery({
+    queryKey: ['smart', 'devices'],
+    queryFn: endpoints.smart.devices,
+    staleTime: 10_000,
+    retry: 1,
+  })
+}
+
+export function useSmartTest(device: string) {
+  return useQuery({
+    queryKey: ['smart', 'test', device],
+    queryFn: () => endpoints.smart.test(device),
+    enabled: !!device,
+    staleTime: 5_000,
+    retry: 1,
+  })
+}
+
+export function useRunSmartTest() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: ({ device, type }: { device: string; type: 'short' | 'long' | 'conveyance' }) =>
+      endpoints.smart.runTest(device, type),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['smart'] })
     },
@@ -505,5 +546,141 @@ export function useApiStatus() {
     },
     staleTime: 30_000,
     retry: false,
+  })
+}
+
+// ============================================================================
+// Remote Backup Queries
+// ============================================================================
+
+export function useRemoteDestinations() {
+  return useQuery({
+    queryKey: ['remote', 'destinations'],
+    queryFn: endpoints.remote?.listDestinations || (() => Promise.resolve([])),
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useCreateDestination() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: endpoints.remote?.createDestination || (() => Promise.resolve()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['remote', 'destinations'] })
+    },
+  })
+}
+
+export function useDeleteDestination() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: endpoints.remote?.deleteDestination || (() => Promise.resolve()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['remote', 'destinations'] })
+    },
+  })
+}
+
+export function useBackupJobs() {
+  return useQuery({
+    queryKey: ['remote', 'jobs'],
+    queryFn: endpoints.remote?.listJobs || (() => Promise.resolve([])),
+    staleTime: 10_000,
+    refetchInterval: 10_000,
+    retry: 1,
+  })
+}
+
+export function useCreateBackupJob() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: endpoints.remote?.createJob || (() => Promise.resolve()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['remote', 'jobs'] })
+    },
+  })
+}
+
+export function useStartBackupJob() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: endpoints.remote?.startJob || (() => Promise.resolve()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['remote', 'jobs'] })
+    },
+  })
+}
+
+export function useStopBackupJob() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: endpoints.remote?.stopJob || (() => Promise.resolve()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['remote', 'jobs'] })
+    },
+  })
+}
+
+export function useBackupStats() {
+  return useQuery({
+    queryKey: ['remote', 'stats'],
+    queryFn: endpoints.remote?.getStats || (() => Promise.resolve({ 
+      totalDestinations: 0,
+      activeJobs: 0,
+      totalBackupSize: 0,
+      successRate: 0
+    })),
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+// ============================================================================
+// Monitoring Queries
+// ============================================================================
+
+export function useSystemLogs(filter?: { level?: string; service?: string; limit?: number }) {
+  return useQuery({
+    queryKey: ['monitoring', 'logs', filter],
+    queryFn: () => endpoints.monitoring?.getLogs?.(filter) || Promise.resolve([]),
+    staleTime: 5_000,
+    refetchInterval: 5_000,
+    retry: 1,
+  })
+}
+
+export function useSystemEvents(limit = 100) {
+  return useQuery({
+    queryKey: ['monitoring', 'events', limit],
+    queryFn: () => endpoints.monitoring?.getEvents?.(limit) || Promise.resolve([]),
+    staleTime: 5_000,
+    refetchInterval: 5_000,
+    retry: 1,
+  })
+}
+
+export function useSystemAlerts() {
+  return useQuery({
+    queryKey: ['monitoring', 'alerts'],
+    queryFn: endpoints.monitoring?.getAlerts || (() => Promise.resolve([])),
+    staleTime: 5_000,
+    refetchInterval: 10_000,
+    retry: 1,
+  })
+}
+
+export function useServiceStatus() {
+  return useQuery({
+    queryKey: ['monitoring', 'services'],
+    queryFn: endpoints.monitoring?.getServiceStatus || (() => Promise.resolve([])),
+    staleTime: 5_000,
+    refetchInterval: 10_000,
+    retry: 1,
   })
 }
