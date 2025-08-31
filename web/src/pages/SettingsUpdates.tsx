@@ -21,7 +21,7 @@ export function SettingsUpdates(){
     try{
       const p = await http.updates.check() as unknown as CheckResp
       setPlan(p)
-      const rec = await http.snapshots.recent()
+      const rec = await http.snapshots.recent() as any[]
       setRecent(rec||[])
     }catch(e:any){ setError(e?.message||'Failed to load updates') }
     finally{ setLoading(false) }
@@ -67,9 +67,9 @@ export function SettingsUpdates(){
     setPruning(true)
     setError('')
     try{
-      const resp = await http.snapshots.prune({ keep_per_target: 5 })
-      if (!resp.ok) throw new Error(await resp.text())
-      const data = await resp.json()
+      const resp = await http.snapshots.prune({ keep_per_target: 5 }) as any
+      if (!resp?.ok) throw new Error(resp?.message || 'Prune failed')
+      const data = resp
       setPruneResult(data)
       toast.success('Prune completed')
     }catch(e:any){

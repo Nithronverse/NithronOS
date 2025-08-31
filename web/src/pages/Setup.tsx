@@ -377,9 +377,9 @@ function StepOTP({
       setLoading(true)
       setError(null)
       
-      const response = await api.setup.verifyOTP(cleanOtp)
+      const response = await api.setup.verifyOTP(cleanOtp) as any
       
-      if (response.token) {
+      if (response?.token) {
         toast.success('OTP verified successfully')
         onSuccess(response.token)
       }
@@ -1110,7 +1110,7 @@ function StepNetworkConfig({ token, onSuccess }: { token: string; onSuccess: () 
         ipv4_address: dhcp ? undefined : ipAddress,
         ipv4_gateway: dhcp ? undefined : gateway,
         dns: dhcp ? undefined : dns.filter(d => d),
-      }, token)
+      })
       
       toast.success('Network configuration updated')
       onSuccess()
@@ -1273,7 +1273,7 @@ function StepTelemetry({ token, onSuccess }: { token: string; onSuccess: () => v
       await api.telemetry.setConsent({
         enabled: consent,
         data_types: consent ? selectedTypes : [],
-      }, token)
+      })
       
       toast.success(
         consent 

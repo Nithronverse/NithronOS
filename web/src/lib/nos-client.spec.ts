@@ -87,7 +87,7 @@ describe('nos-client', () => {
         { withCredentials: true }
       );
       
-      window.location = originalLocation;
+      (window as any).location = originalLocation;
     });
   });
 
@@ -109,7 +109,7 @@ describe('nos-client', () => {
         'ws://localhost:3000/api/v1/apps/123/logs'
       );
       
-      window.location = originalLocation;
+      (window as any).location = originalLocation;
     });
 
     it('should create WebSocket with correct URL for HTTPS', () => {
@@ -129,7 +129,7 @@ describe('nos-client', () => {
         'wss://app.example.com/api/v1/apps/123/logs'
       );
       
-      window.location = originalLocation;
+      (window as any).location = originalLocation;
     });
   });
 

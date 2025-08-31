@@ -217,12 +217,12 @@ export function Storage() {
   }
 
   const handleStartScrub = async (poolId: string) => {
-    await startScrub.mutateAsync(poolId)
+    await startScrub.mutateAsync()
     refetchScrub()
   }
 
   const handleStartBalance = async (poolId: string) => {
-    await startBalance.mutateAsync(poolId)
+    await startBalance.mutateAsync()
     refetchBalance()
   }
 

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { PoolSnapshots } from './PoolSnapshots'
-import http from '@/lib/nos-client'
+import http, { api } from '@/lib/nos-client'
+import type { TxLogResponse } from '@/types/api'
 
 export function PoolDetails() {
   const { id } = useParams()
@@ -10,7 +11,7 @@ export function PoolDetails() {
   const [tab, setTab] = useState<'overview'|'snapshots'|'devices'>('overview')
 
   useEffect(() => {
-    http.pools.listUnversioned().then(setPools)
+    http.pools.listUnversioned().then((data: any) => setPools(data))
   }, [])
 
   if (!id) return <div className="p-4">Missing id</div>
@@ -230,7 +231,7 @@ function DevicesWizards({ id }: { id: string }) {
     let t: any
     async function poll() {
       if (!tx) return
-      const r = await http.pools.txLog(tx, log.length, 1000).catch(()=>null)
+      const r = await http.pools.txLog(tx, log.length, 1000).catch(()=>null) as TxLogResponse | null
       if (r && Array.isArray(r.lines) && typeof r.nextCursor === 'number') {
         setLog(prev => [...prev, ...r.lines])
       }

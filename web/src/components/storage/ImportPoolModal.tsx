@@ -15,7 +15,7 @@ export function ImportPoolModal({ open, onClose, onImported }: { open: boolean; 
     api.pools.candidates().then(setCandidates).catch(async () => {
       // Fallback: derive candidates from disks (minimal)
       try {
-        const disks = await http.disks.list()
+        const disks = await http.disks.list() as any
         const list = (disks?.disks || []).filter((d: any) => d.fstype === 'btrfs' && d.mountpoint).map((d: any) => ({ id: d.mountpoint, label: d.mountpoint, uuid: '', devices: [d.path], size: d.size }))
         setCandidates(list)
       } catch { setCandidates([]) }

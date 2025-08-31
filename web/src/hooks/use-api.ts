@@ -28,6 +28,11 @@ export interface Share {
   path: string;
   protocol: string;
   enabled: boolean;
+  description?: string;
+  guestOk?: boolean;
+  readOnly?: boolean;
+  users?: string[];
+  groups?: string[];
 }
 
 // ============================================================================
@@ -58,7 +63,10 @@ export function useMarketplace() {
 export function useSystemInfo() {
   return useQuery({
     queryKey: ['system', 'info'],
-    queryFn: endpoints.system.info,
+    queryFn: async () => {
+      const data = await endpoints.system.info()
+      return data as any
+    },
     staleTime: 10_000,
     retry: 1,
   })
@@ -90,7 +98,10 @@ export function useServices() {
 export function usePools() {
   return useQuery({
     queryKey: ['pools'],
-    queryFn: endpoints.pools.list,
+    queryFn: async () => {
+      const data = await endpoints.pools.list()
+      return (data as any[]) || []
+    },
     staleTime: 10_000,
     retry: 1,
   })
@@ -154,7 +165,10 @@ export function useUpdatePoolMountOptions() {
 export function useDevices() {
   return useQuery({
     queryKey: ['devices'],
-    queryFn: endpoints.devices.list,
+    queryFn: async () => {
+      const data = await endpoints.devices.list()
+      return (data as any[]) || []
+    },
     staleTime: 10_000,
     retry: 1,
   })
@@ -232,7 +246,10 @@ export function useRunSmartTest() {
 export function useScrubStatus() {
   return useQuery({
     queryKey: ['scrub', 'status'],
-    queryFn: endpoints.scrub.status,
+    queryFn: async () => {
+      const data = await endpoints.scrub.status()
+      return (data as ScrubStatus[]) || []
+    },
     staleTime: 5_000,
     retry: 1,
     refetchInterval: (data) => {
@@ -272,7 +289,10 @@ export function useCancelScrub() {
 export function useBalanceStatus() {
   return useQuery({
     queryKey: ['balance', 'status'],
-    queryFn: endpoints.balance.status,
+    queryFn: async () => {
+      const data = await endpoints.balance.status()
+      return (data as BalanceStatus[]) || []
+    },
     staleTime: 5_000,
     retry: 1,
     refetchInterval: (data) => {
@@ -372,7 +392,10 @@ export function useRecentJobs(limit = 10) {
 export function useShares() {
   return useQuery({
     queryKey: ['shares'],
-    queryFn: endpoints.shares.list,
+    queryFn: async () => {
+      const data = await endpoints.shares.list()
+      return (data as Share[]) || []
+    },
     staleTime: 10_000,
     retry: 1,
   })
@@ -439,7 +462,7 @@ export function useAppCatalog() {
     queryKey: ['apps', 'catalog'],
     queryFn: async () => {
       const data = await endpoints.apps.catalog()
-      return data.entries
+      return (data as any).entries || []
     },
     staleTime: 60_000,
     retry: 1,
@@ -451,7 +474,7 @@ export function useInstalledApps() {
     queryKey: ['apps', 'installed'],
     queryFn: async () => {
       const data = await endpoints.apps.installed()
-      return data.items
+      return (data as any).items || []
     },
     staleTime: 10_000,
     retry: 1,
@@ -676,7 +699,7 @@ export function useBackupStats() {
 export function useSystemLogs(filter?: { level?: string; service?: string; limit?: number }) {
   return useQuery({
     queryKey: ['monitoring', 'logs', filter],
-    queryFn: () => endpoints.monitoring?.getLogs?.(filter) || Promise.resolve([]),
+    queryFn: () => endpoints.monitoring?.getLogs?.() || Promise.resolve([]),
     staleTime: 5_000,
     refetchInterval: 5_000,
     retry: 1,
@@ -686,7 +709,7 @@ export function useSystemLogs(filter?: { level?: string; service?: string; limit
 export function useSystemEvents(limit = 100) {
   return useQuery({
     queryKey: ['monitoring', 'events', limit],
-    queryFn: () => endpoints.monitoring?.getEvents?.(limit) || Promise.resolve([]),
+    queryFn: () => endpoints.monitoring?.getEvents?.() || Promise.resolve([]),
     staleTime: 5_000,
     refetchInterval: 5_000,
     retry: 1,

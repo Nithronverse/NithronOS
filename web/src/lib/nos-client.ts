@@ -14,6 +14,7 @@ export interface AuthSession {
     id: string;
     username: string;
     isAdmin?: boolean;
+    roles?: string[];
   };
   expiresAt?: string;
 }
@@ -113,7 +114,8 @@ const client: AxiosInstance = axios.create({
 client.interceptors.request.use((config) => {
   const csrf = readCookie('nos_csrf') || readCookie('csrf_token');
   if (csrf) {
-    (config.headers ||= {})['X-CSRF-Token'] = csrf;
+    if (!config.headers) config.headers = {};
+    config.headers['X-CSRF-Token'] = csrf;
   }
   // Guard path correctness for relative URLs
   const url = (config.url || '');
@@ -233,16 +235,16 @@ export const http = {
     info: () => httpCore.get('/v1/system/info'),
     metrics: () => httpCore.get('/v1/system/metrics'),
     services: () => httpCore.get('/v1/system/services'),
-    getTimezone: (token?: string) => httpCore.get('/v1/system/timezone'),
-    getNTP: (token?: string) => httpCore.get('/v1/system/ntp'),
-    setHostname: (data: any, token?: string) => httpCore.post('/v1/system/hostname', data),
-    setTimezone: (data: any, token?: string) => httpCore.post('/v1/system/timezone', data),
-    setNTP: (data: any, token?: string) => httpCore.post('/v1/system/ntp', data),
+    getTimezone: () => httpCore.get('/v1/system/timezone'),
+    getNTP: () => httpCore.get('/v1/system/ntp'),
+    setHostname: (data: any) => httpCore.post('/v1/system/hostname', data),
+    setTimezone: (data: any) => httpCore.post('/v1/system/timezone', data),
+    setNTP: (data: any) => httpCore.post('/v1/system/ntp', data),
   },
   
   // Network endpoints
   network: {
-    getInterfaces: (token?: string) => httpCore.get('/v1/network/interfaces'),
+    getInterfaces: () => httpCore.get('/v1/network/interfaces'),
     configureInterface: (iface: string, config: any) => httpCore.post(`/v1/network/interfaces/${iface}`, config),
   },
   

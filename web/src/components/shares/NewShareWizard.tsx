@@ -13,9 +13,9 @@ export default function NewShareWizard({ open, onClose }:{open:boolean; onClose:
   const schema = useMemo(()=>ShareForm(roots),[roots]);
   const { register, reset, formState:{errors}, watch, setValue, getValues } = useForm<ShareFormInput>({ resolver:zodResolver(schema), defaultValues:{ type:'smb', ro:false, users:[] } });
 
-  useEffect(()=>{ if(open){ (async()=>{ const roots = await http.pools.roots(); setRoots(roots); })(); } },[open]);
+  useEffect(()=>{ if(open){ (async()=>{ const roots = await http.pools.roots() as string[]; setRoots(roots); })(); } },[open]);
   const type = watch('type');
-  useEffect(()=>{ (async()=>{ if(open && type==='smb'){ const list = await http.smb.usersList(); setAvailable(list); } })(); },[open, type]);
+  useEffect(()=>{ (async()=>{ if(open && type==='smb'){ const list = await http.smb.usersList() as string[]; setAvailable(list); } })(); },[open, type]);
 
   const next = ()=> {
     setStep(s => {
@@ -101,7 +101,7 @@ export default function NewShareWizard({ open, onClose }:{open:boolean; onClose:
                 await http.smb.userCreate({username:newU, password:newP||undefined});
                 // refresh from server to reflect any normalization
                 const list = await http.smb.usersList();
-                setAvailable(list);
+                setAvailable(list as string[]);
                 setValue('users', Array.from(new Set([...(watch('users')||[]), newU])));
                 setNewU(''); setNewP('');
               }}>Add</button>

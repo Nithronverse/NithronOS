@@ -13,7 +13,7 @@ export function PoolSnapshots({ id }: { id: string }) {
   }, [id])
 
   async function refresh() {
-    const j = await http.pools.snapshotsUnversioned(id)
+    const j = await http.pools.snapshotsUnversioned(id) as any[]
     setSnaps(j)
   }
 

@@ -65,7 +65,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       
       // Check auth session
-      const authSession = await api.auth.session()
+      const authSession = await api.auth.session() as AuthSession
       setSession(authSession)
       
       // If we have a session but we're on login/setup, redirect to dashboard
@@ -109,7 +109,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       })
       
       // Fetch session after successful login
-      const authSession = await api.auth.session()
+      const authSession = await api.auth.session() as AuthSession
       setSession(authSession)
       
       // Navigate to dashboard
