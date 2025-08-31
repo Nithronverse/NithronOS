@@ -160,7 +160,12 @@ Build a bootable ISO (Debian live) with NithronOS preinstalled.
 
 At first boot the system prints the UI URL + one-time OTP to the console.
 
-Boot menu provides **NithronOS Live**, **Install NithronOS (Debian Installer)**, and **failsafe** entries. The Debian Installer is now fully functional with preseed automation and service auto-enablement.
+Boot menu provides:
+- **NithronOS Live** (default)
+- **Install NithronOS (Debian Installer - Text)** — text frontend, `fb=false nomodeset` to avoid KMS blank screens
+- **Install NithronOS (Safe graphics)** — text frontend, `nomodeset` fallback
+- **Install NithronOS (Serial console @ttyS0)** — text frontend on serial
+The Debian Installer is fully functional with preseed automation and service auto-enablement.
 
 > **Hyper-V:** Use “NithronOS Live”. The “Kernel fallback (no ACPI)” entry is **not** for Hyper-V; use “safe graphics” instead if you only need to disable GPU modesetting.
 

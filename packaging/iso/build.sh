@@ -221,4 +221,54 @@ mv -v "$ISO_SRC" "$ISO_DST"
 popd >/dev/null
 echo "[iso] built $ISO_DST"
 
+# Post-build smoke test: verify d-i payloads and boot entries/flags
+echo "[iso] Running post-build smoke test..."
+MNT_DIR="$(mktemp -d)"
+trap 'umount "$MNT_DIR" >/dev/null 2>&1 || true; rmdir "$MNT_DIR" >/dev/null 2>&1 || true' EXIT
+${SUDO_CMD} mount -o loop "$ISO_DST" "$MNT_DIR"
 
+missing=0
+for f in install.amd/vmlinuz install.amd/initrd.gz; do
+  if [ ! -f "$MNT_DIR/$f" ]; then
+    echo "::error::Missing $f in ISO"
+    missing=1
+  fi
+done
+
+# Check GRUB UEFI includes.binary config
+GRUB_CFG="$(find "$MNT_DIR" -maxdepth 4 -type f -name grub.cfg | head -n1)"
+if [ -f "$GRUB_CFG" ]; then
+  echo "[iso] Checking GRUB config at $GRUB_CFG"
+  grep -q 'DEBIAN_FRONTEND=text' "$GRUB_CFG" || { echo "::error::GRUB entries missing DEBIAN_FRONTEND=text"; missing=1; }
+  grep -q 'fb=false' "$GRUB_CFG" || { echo "::error::GRUB entries missing fb=false"; missing=1; }
+  grep -q 'nomodeset' "$GRUB_CFG" || { echo "::error::GRUB entries missing nomodeset"; missing=1; }
+  if grep -qE 'quiet|splash' "$GRUB_CFG"; then
+    echo "::error::Installer entries must not include quiet/splash"
+    missing=1
+  fi
+else
+  echo "::warning::Could not locate GRUB config inside ISO; skipping GRUB checks"
+fi
+
+# Check BIOS isolinux config if present
+for CFG in $(find "$MNT_DIR" -type f -name 'isolinux.cfg' -o -name 'txt.cfg'); do
+  echo "[iso] Checking BIOS config at $CFG"
+  grep -q 'DEBIAN_FRONTEND=text' "$CFG" || { echo "::error::BIOS entries missing DEBIAN_FRONTEND=text"; missing=1; }
+  grep -q 'fb=false' "$CFG" || { echo "::error::BIOS entries missing fb=false"; missing=1; }
+  grep -q 'nomodeset' "$CFG" || { echo "::error::BIOS entries missing nomodeset"; missing=1; }
+  if grep -qE 'quiet|splash' "$CFG"; then
+    echo "::error::Installer BIOS entries must not include quiet/splash"
+    missing=1
+  fi
+done
+
+${SUDO_CMD} umount "$MNT_DIR" || true
+rmdir "$MNT_DIR" || true
+trap - EXIT
+
+if [ "$missing" -ne 0 ]; then
+  echo "[iso] Post-build smoke test FAILED"
+  exit 1
+fi
+
+echo "[iso] Post-build smoke test PASSED"

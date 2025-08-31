@@ -1,6 +1,6 @@
 #!/bin/bash
 # Fetch Debian Installer kernel and initrd for NithronOS ISO
-# Uses Debian bookworm netboot installer
+# Uses Debian bookworm cdrom installer images (text frontend)
 
 set -e
 
@@ -12,7 +12,9 @@ WORK_DIR="${ISO_DIR}/debian/config/includes.binary"
 DEBIAN_MIRROR="${DEBIAN_MIRROR:-http://deb.debian.org/debian}"
 DI_VERSION="${DI_VERSION:-bookworm}"
 DI_ARCH="${DI_ARCH:-amd64}"
-DI_BASE_URL="${DEBIAN_MIRROR}/dists/${DI_VERSION}/main/installer-${DI_ARCH}/current/images/netboot/debian-installer/${DI_ARCH}"
+# Use cdrom images rather than netboot to avoid network dependency during install
+# Example: https://deb.debian.org/debian/dists/bookworm/main/installer-amd64/current/images/cdrom/
+DI_BASE_URL="${DEBIAN_MIRROR}/dists/${DI_VERSION}/main/installer-${DI_ARCH}/current/images/cdrom"
 
 # Target paths
 INSTALL_DIR="${WORK_DIR}/install.amd"
@@ -70,7 +72,7 @@ download_file() {
 if [ -f "${VMLINUZ_TARGET}" ]; then
     log_info "Kernel already exists at ${VMLINUZ_TARGET}, skipping download"
 else
-    download_file "${DI_BASE_URL}/linux" "${VMLINUZ_TARGET}" || exit 1
+    download_file "${DI_BASE_URL}/vmlinuz" "${VMLINUZ_TARGET}" || exit 1
 fi
 
 # Download initrd

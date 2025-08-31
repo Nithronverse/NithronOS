@@ -6,11 +6,13 @@ This document describes the Debian Installer integration for NithronOS ISO.
 
 ### 1. Debian Installer Files
 
-The installer uses official Debian bookworm netboot kernel and initrd:
+The installer uses official Debian bookworm cdrom kernel and initrd (text-capable):
 - **Kernel**: `/install.amd/vmlinuz` - Debian installer kernel
 - **Initrd**: `/install.amd/initrd.gz` - Debian installer initramfs
 
 These files are fetched by `scripts/fetch-di.sh` during the ISO build process.
+The script is idempotent, uses a configurable mirror via `DEBIAN_MIRROR`, and
+fails the build if either file is missing.
 
 ### 2. Preseed Configuration
 
@@ -26,11 +28,11 @@ The installer uses a preseed file at `/preseed/nithronos.cfg` with:
 
 ### 3. Boot Menu Entries
 
-Both BIOS (ISOLINUX) and UEFI (GRUB) boot menus provide:
-- **Install NithronOS**: Automated installation with preseed
-- **Expert Mode**: Manual installation for advanced users
-- **Rescue Mode**: System recovery environment
-- **Live System**: Try NithronOS without installing
+Both BIOS (ISOLINUX) and UEFI (GRUB) boot menus provide three installer entries designed to avoid blank screens on VMs/KMS:
+- **Install NithronOS (Debian Installer - Text)** → text frontend, disables KMS (`fb=false nomodeset`)
+- **Install NithronOS (Safe graphics)** → text frontend with `nomodeset` fallback
+- **Install NithronOS (Serial console @ttyS0)** → text frontend with serial console
+Live entry remains default with a 5s timeout. No `quiet`/`splash` on installer entries.
 
 ### 4. Non-blocking Banner
 
