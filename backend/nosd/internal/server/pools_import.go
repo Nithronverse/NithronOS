@@ -104,8 +104,24 @@ func handlePoolsImport(cfg config.Config) http.HandlerFunc {
 			MountOptions string `json:"mountOptions"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
-		if strings.TrimSpace(body.UUID) == "" || !filepath.IsAbs(body.Mountpoint) {
-			httpx.WriteError(w, http.StatusBadRequest, "uuid and absolute mountpoint required")
+		// Accept either UUID or label; derive mountpoint if not provided
+		uuid := strings.TrimSpace(body.UUID)
+		label := strings.TrimSpace(body.Label)
+		if uuid == "" && label == "" {
+			httpx.WriteError(w, http.StatusBadRequest, "uuid or label required")
+			return
+		}
+		if strings.TrimSpace(body.Mountpoint) == "" {
+			name := label
+			if name == "" {
+				name = uuid
+			}
+			if name == "" {
+				name = "pool"
+			}
+			body.Mountpoint = filepath.Join("/mnt", strings.ReplaceAll(strings.ToLower(name), " ", "_"))
+		} else if !filepath.IsAbs(body.Mountpoint) {
+			httpx.WriteError(w, http.StatusBadRequest, "mountpoint must be absolute or omitted")
 			return
 		}
 		// Busy check: use UUID as pool ID key
