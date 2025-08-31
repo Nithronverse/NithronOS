@@ -1,173 +1,284 @@
-import { useState, useEffect } from 'react'
-import { motion, Variants } from 'framer-motion'
-import {
-  HardDrive,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  RefreshCw,
-  Activity,
-  Thermometer,
-  Play,
-  AlertCircle,
-} from 'lucide-react'
-import { Card } from '@/components/ui/card-enhanced'
-import { StatusPill, HealthBadge } from '@/components/ui/status'
-import { Button } from '@/components/ui/button'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Progress } from '@/components/ui/progress'
+import { motion } from 'framer-motion'
 import { 
-  useSmartDevices,
-  useSmartSummary,
-  useRunSmartTest,
-} from '@/hooks/use-api'
+  Activity, AlertCircle, CheckCircle, Database,
+  HardDrive, Info, RefreshCw, Thermometer, Play,
+  AlertTriangle
+} from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useDiskHealth, formatBytes, getDiskHealthColor } from '@/hooks/use-health'
+import { useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
-import { formatDistanceToNow } from 'date-fns'
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-} from 'recharts'
-
-// Helper functions
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
-}
-
-function getHealthStatus(smartStatus: string): 'healthy' | 'degraded' | 'critical' {
-  if (smartStatus === 'PASSED' || smartStatus === 'OK') return 'healthy'
-  if (smartStatus === 'WARNING') return 'degraded'
-  return 'critical'
-}
-
-function getTemperatureColor(temp: number): string {
-  if (temp >= 60) return 'text-red-500'
-  if (temp >= 50) return 'text-yellow-500'
-  return 'text-green-500'
-}
+import type { DiskHealth } from '@/lib/api-health'
 
 // Animation variants
-const containerVariants: Variants = {
+const containerVariants: any = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: { staggerChildren: 0.05 }
+    transition: {
+      staggerChildren: 0.1
+    }
   }
 }
 
-const itemVariants: Variants = {
+const itemVariants: any = {
   hidden: { opacity: 0, y: 20 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { type: "spring", stiffness: 100 }
-  }
-}
-
-interface SmartDevice {
-  device: string
-  model: string
-  serial: string
-  capacity: number
-  temperature: number
-  powerOnHours: number
-  smartStatus: string
-  attributes: Array<{
-    id: number
-    name: string
-    value: number
-    worst: number
-    threshold: number
-    raw: string
-    status: string
-  }>
-  testHistory: Array<{
-    type: string
-    status: string
-    completedAt: string
-    duration: number
-  }>
-}
-
-export function DiskHealth() {
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [autoRefresh, setAutoRefresh] = useState(true)
-  const [selectedDevice, setSelectedDevice] = useState<string | null>(null)
-  const [lastScanTime, setLastScanTime] = useState<Date>(new Date())
-  const [runningTests, setRunningTests] = useState<Set<string>>(new Set())
-  
-  // Fetch real data (with type assertions for mock data)
-  const { data: devicesData, isLoading, refetch: refetchDevices } = useSmartDevices()
-  const { data: summary, refetch: refetchSummary } = useSmartSummary()
-  const runSmartTest = useRunSmartTest()
-  
-  const devices = devicesData as SmartDevice[] | undefined
-  
-  // Auto-refresh every 30 seconds
-  useEffect(() => {
-    if (!autoRefresh) return
-    
-    const interval = setInterval(() => {
-      refetchDevices()
-      refetchSummary()
-      setLastScanTime(new Date())
-    }, 30000)
-    
-    return () => clearInterval(interval)
-  }, [autoRefresh, refetchDevices, refetchSummary])
-  
-  // Live updating time since last scan
-  const [, setTick] = useState(0)
-  useEffect(() => {
-    const timer = setInterval(() => setTick(t => t + 1), 1000)
-    return () => clearInterval(timer)
-  }, [])
-  
-  const handleRefresh = async () => {
-    setIsRefreshing(true)
-    setLastScanTime(new Date())
-    await Promise.all([refetchDevices(), refetchSummary()])
-    setTimeout(() => setIsRefreshing(false), 500)
-  }
-  
-  const handleRunTest = async (device: string, testType: 'short' | 'long' | 'conveyance') => {
-    setRunningTests(prev => new Set(prev).add(device))
-    try {
-      await runSmartTest.mutateAsync({ device, type: testType })
-      // Refresh after starting test
-      setTimeout(() => {
-        refetchDevices()
-        setRunningTests(prev => {
-          const next = new Set(prev)
-          next.delete(device)
-          return next
-        })
-      }, 2000)
-    } catch (error) {
-      console.error('Failed to start SMART test:', error)
-      setRunningTests(prev => {
-        const next = new Set(prev)
-        next.delete(device)
-        return next
-      })
+    transition: {
+      type: "spring",
+      stiffness: 100
     }
   }
+}
+
+// Health status component
+function HealthStatus({ state }: { state: string }) {
+  const Icon = state === 'critical' ? AlertTriangle :
+               state === 'warning' ? AlertCircle : CheckCircle
   
-  // Calculate health distribution
-  const healthDistribution = summary ? [
-    { name: 'Healthy', value: summary.healthyDevices, fill: 'hsl(var(--chart-3))' },
-    { name: 'Warning', value: summary.warningDevices, fill: 'hsl(var(--chart-2))' },
-    { name: 'Critical', value: summary.criticalDevices, fill: 'hsl(var(--destructive))' },
-  ].filter(item => item.value > 0) : []
+  const color = getDiskHealthColor(state)
   
-  const selectedDeviceData = devices?.find((d: SmartDevice) => d.device === selectedDevice)
-  
+  return (
+    <div className={cn("flex items-center gap-1", color)}>
+      <Icon className="h-4 w-4" />
+      <span className="capitalize">{state}</span>
+    </div>
+  )
+}
+
+// Disk card component
+function DiskCard({ 
+  disk, 
+  isSelected, 
+  onClick 
+}: { 
+  disk: DiskHealth
+  isSelected: boolean
+  onClick: () => void 
+}) {
+  const usageColor = disk.usagePct > 90 ? 'bg-red-500' :
+                    disk.usagePct > 80 ? 'bg-yellow-500' : ''
+
+  return (
+    <motion.div variants={itemVariants}>
+      <Card 
+        className={cn(
+          "cursor-pointer transition-all hover:shadow-md",
+          isSelected && "ring-2 ring-primary"
+        )}
+        onClick={onClick}
+      >
+        <CardHeader className="pb-3">
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <CardTitle className="text-base flex items-center gap-2">
+                <HardDrive className="h-4 w-4" />
+                {disk.name}
+              </CardTitle>
+              <CardDescription className="text-xs">
+                {disk.model || 'Unknown Model'} • {formatBytes(disk.sizeBytes)}
+              </CardDescription>
+            </div>
+            <HealthStatus state={disk.state} />
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Usage</span>
+              <span className="font-medium">{Math.round(disk.usagePct)}%</span>
+            </div>
+            <Progress 
+              value={disk.usagePct} 
+              className="h-2"
+              indicatorClassName={cn("transition-all", usageColor)}
+            />
+          </div>
+          
+          {disk.tempC !== undefined && (
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-muted-foreground flex items-center gap-1">
+                <Thermometer className="h-3 w-3" />
+                Temperature
+              </span>
+              <span className={cn(
+                "font-medium",
+                disk.tempC > 50 ? 'text-red-500' : disk.tempC > 40 ? 'text-yellow-500' : ''
+              )}>
+                {disk.tempC.toFixed(0)}°C
+              </span>
+            </div>
+          )}
+
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-muted-foreground">SMART</span>
+            <Badge variant={disk.smart.passed ? "default" : "destructive"} className="text-xs">
+              {disk.smart.passed ? 'Passed' : 'Failed'}
+            </Badge>
+          </div>
+
+          <div className="pt-2 border-t">
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <p className="text-muted-foreground">Filesystem</p>
+                <p className="font-medium">{disk.filesystem || 'Unknown'}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Mount</p>
+                <p className="font-medium truncate" title={disk.mountPoint}>
+                  {disk.mountPoint || 'Not mounted'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  )
+}
+
+export default function DiskHealth() {
+  const queryClient = useQueryClient()
+  const { data: rawDisks, isLoading, error, refetch } = useDiskHealth()
+  const [selectedDisk, setSelectedDisk] = useState<string | null>(null)
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false)
+  const [runningTests, setRunningTests] = useState<Set<string>>(new Set())
+
+  // Ensure disks is always an array
+  const disks = useMemo(() => {
+    if (!rawDisks) return []
+    return Array.isArray(rawDisks) ? rawDisks : []
+  }, [rawDisks])
+
+  // Calculate summary statistics
+  const summary = useMemo(() => {
+    if (!disks || disks.length === 0) return null
+
+    const totalCapacity = disks.reduce((sum, disk) => sum + disk.sizeBytes, 0)
+    const totalUsed = disks.reduce((sum, disk) => sum + (disk.sizeBytes * disk.usagePct / 100), 0)
+    const healthyDisks = disks.filter(d => d.state === 'healthy').length
+    const warningDisks = disks.filter(d => d.state === 'warning').length
+    const criticalDisks = disks.filter(d => d.state === 'critical').length
+    const avgTemp = disks.filter(d => d.tempC !== undefined).reduce((sum, d) => sum + (d.tempC || 0), 0) / 
+                   (disks.filter(d => d.tempC !== undefined).length || 1)
+
+    return {
+      totalDisks: disks.length,
+      totalCapacity,
+      totalUsed,
+      usagePercent: (totalUsed / totalCapacity) * 100,
+      healthyDisks,
+      warningDisks,
+      criticalDisks,
+      avgTemp: disks.some(d => d.tempC !== undefined) ? avgTemp : undefined
+    }
+  }, [disks])
+
+  const selectedDiskData = useMemo(() => {
+    if (!selectedDisk || !disks) return null
+    return disks.find((d: DiskHealth) => d.id === selectedDisk) || null
+  }, [selectedDisk, disks])
+
+  const handleManualRefresh = async () => {
+    setIsManualRefreshing(true)
+    await queryClient.invalidateQueries({ queryKey: ['health', 'disks'] })
+    await refetch()
+    setTimeout(() => setIsManualRefreshing(false), 1000)
+  }
+
+  const handleRunTest = async (diskId: string, testType: 'short' | 'long' | 'conveyance') => {
+    setRunningTests(prev => new Set(prev).add(diskId))
+    
+    // Simulate test execution
+    setTimeout(() => {
+      setRunningTests(prev => {
+        const next = new Set(prev)
+        next.delete(diskId)
+        return next
+      })
+    }, testType === 'short' ? 5000 : testType === 'conveyance' ? 10000 : 30000)
+  }
+
+  if (isLoading && !disks) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold">Disk Health</h2>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[...Array(3)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardHeader className="pb-3">
+                <div className="h-4 bg-muted rounded w-32"></div>
+                <div className="h-3 bg-muted rounded w-48 mt-2"></div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="h-2 bg-muted rounded"></div>
+                  <div className="h-4 bg-muted rounded w-20"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Failed to load disk health data. 
+            <Button 
+              variant="link" 
+              className="px-2"
+              onClick={() => refetch()}
+            >
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+
+  if (!disks || disks.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold">Disk Health</h2>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleManualRefresh}
+            disabled={isManualRefreshing}
+          >
+            <RefreshCw className={cn("h-4 w-4 mr-2", isManualRefreshing && "animate-spin")} />
+            Refresh
+          </Button>
+        </div>
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            No disks detected. Make sure disks are properly connected and the system has necessary permissions.
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+
   return (
     <motion.div
       variants={containerVariants}
@@ -175,404 +286,238 @@ export function DiskHealth() {
       animate="visible"
       className="space-y-6"
     >
-      {/* Controls */}
+      {/* Header */}
       <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-          >
-            <RefreshCw className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")} />
-            Refresh
-          </Button>
-          <Button
-            variant={autoRefresh ? "default" : "outline"}
-            size="sm"
-            onClick={() => setAutoRefresh(!autoRefresh)}
-          >
-            Auto-refresh: {autoRefresh ? 'On' : 'Off'}
-          </Button>
-        </div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-muted-foreground">
-            Last scan: {formatDistanceToNow(lastScanTime, { addSuffix: true })}
-          </span>
-          <StatusPill status={autoRefresh ? 'running' : 'stopped'} />
-        </div>
-      </div>
-      
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <motion.div variants={itemVariants}>
-          <Card
-            title="Disk Health Summary"
-            isLoading={isLoading}
-          >
-            {summary ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Overall Status</p>
-                    <div className="mt-1">
-                      <HealthBadge 
-                        status={
-                          summary.criticalDevices > 0 ? 'critical' :
-                          summary.warningDevices > 0 ? 'degraded' : 'healthy'
-                        }
-                      />
-                    </div>
-                  </div>
-                  {healthDistribution.length > 0 && (
-                    <div className="h-[80px] w-[80px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={healthDistribution}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={25}
-                            outerRadius={35}
-                            dataKey="value"
-                            strokeWidth={0}
-                          >
-                            {healthDistribution.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.fill} />
-                            ))}
-                          </Pie>
-                          <Tooltip />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div>
-                    <div className="text-2xl font-bold text-green-500">
-                      {summary.healthyDevices}
-                    </div>
-                    <p className="text-xs text-muted-foreground">Healthy</p>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-yellow-500">
-                      {summary.warningDevices}
-                    </div>
-                    <p className="text-xs text-muted-foreground">Warning</p>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-red-500">
-                      {summary.criticalDevices}
-                    </div>
-                    <p className="text-xs text-muted-foreground">Critical</p>
-                  </div>
-                </div>
-                
-                <div className="pt-2 border-t text-xs text-muted-foreground">
-                  Total: {summary.totalDevices} device{summary.totalDevices !== 1 ? 's' : ''}
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <HardDrive className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-sm text-muted-foreground">No disk data available</p>
-              </div>
-            )}
-          </Card>
-        </motion.div>
-        
-        <motion.div variants={itemVariants}>
-          <Card
-            title="Temperature Overview"
-            isLoading={isLoading}
-          >
-            {devices && devices.length > 0 ? (
-              <div className="space-y-3">
-                {devices.slice(0, 4).map((device: SmartDevice) => (
-                  <div key={device.device} className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm truncate">{device.device}</span>
-                      <span className={cn(
-                        "text-sm font-medium",
-                        getTemperatureColor(device.temperature)
-                      )}>
-                        {device.temperature}°C
-                      </span>
-                    </div>
-                    <Progress 
-                      value={(device.temperature / 70) * 100} 
-                      className="h-1"
-                    />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <Thermometer className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-xs text-muted-foreground">No temperature data</p>
-              </div>
-            )}
-          </Card>
-        </motion.div>
-        
-        <motion.div variants={itemVariants}>
-          <Card
-            title="Recent Tests"
-            isLoading={isLoading}
-          >
-            {devices && devices.some((d: SmartDevice) => d.testHistory?.length > 0) ? (
-              <div className="space-y-2">
-                {devices
-                  .flatMap((d: SmartDevice) => 
-                    (d.testHistory || []).map((test: any) => ({ ...test, device: d.device }))
-                  )
-                  .sort((a: any, b: any) => 
-                    new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
-                  )
-                  .slice(0, 3)
-                  .map((test: any, idx: number) => (
-                    <div key={idx} className="flex items-start gap-2 text-sm">
-                      <div className={cn(
-                        "mt-1 h-2 w-2 rounded-full",
-                        test.status === 'completed' && "bg-green-500",
-                        test.status === 'running' && "bg-blue-500 animate-pulse",
-                        test.status === 'failed' && "bg-red-500"
-                      )} />
-                      <div className="flex-1">
-                        <p className="truncate">{test.device}: {test.type}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(test.completedAt), { addSuffix: true })}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <Activity className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-xs text-muted-foreground">No recent tests</p>
-              </div>
-            )}
-          </Card>
-        </motion.div>
-      </div>
-      
-      {/* Device List */}
-      <motion.div variants={itemVariants}>
-        <Card
-          title="Storage Devices"
-          description="Click on a device to view detailed SMART attributes"
-          isLoading={isLoading}
-        >
-          {devices && devices.length > 0 ? (
-            <div className="space-y-2">
-              {devices.map((device: SmartDevice) => (
-                <div
-                  key={device.device}
-                  className={cn(
-                    "p-4 rounded-lg border cursor-pointer transition-colors",
-                    selectedDevice === device.device
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:bg-muted/50"
-                  )}
-                  onClick={() => setSelectedDevice(
-                    selectedDevice === device.device ? null : device.device
-                  )}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <HardDrive className="h-5 w-5 text-muted-foreground" />
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{device.device}</p>
-                          <HealthBadge 
-                            status={getHealthStatus(device.smartStatus)}
-                          />
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {device.model} • {formatBytes(device.capacity)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="text-sm">
-                          <span className={getTemperatureColor(device.temperature)}>
-                            {device.temperature}°C
-                          </span>
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {Math.floor(device.powerOnHours / 24)} days
-                        </p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleRunTest(device.device, 'short')
-                        }}
-                        disabled={runningTests.has(device.device)}
-                      >
-                        {runningTests.has(device.device) ? (
-                          <>
-                            <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                            Testing...
-                          </>
-                        ) : (
-                          <>
-                            <Play className="h-3 w-3 mr-1" />
-                            Quick Test
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <HardDrive className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">No storage devices found</p>
-            </div>
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-bold">Disk Health</h2>
+          {summary && (
+            <Badge variant="outline" className="gap-1">
+              <Database className="h-3 w-3" />
+              {summary.totalDisks} {summary.totalDisks === 1 ? 'Disk' : 'Disks'}
+            </Badge>
           )}
-        </Card>
-      </motion.div>
-      
-      {/* Selected Device Details */}
-      {selectedDeviceData && (
-        <motion.div 
-          variants={itemVariants}
-          initial="hidden"
-          animate="visible"
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleManualRefresh}
+          disabled={isManualRefreshing}
         >
-          <Card
-            title={`SMART Attributes - ${selectedDeviceData.device}`}
-            description={`${selectedDeviceData.model} (S/N: ${selectedDeviceData.serial})`}
-          >
-            <div className="space-y-6">
-              {/* Critical Attributes */}
-              <div>
-                <h4 className="text-sm font-medium mb-3">Critical Attributes</h4>
-                <div className="space-y-2">
-                  {selectedDeviceData.attributes
-                    .filter((attr: any) => 
-                      ['Reallocated_Sector_Ct', 'Current_Pending_Sector', 
-                       'Offline_Uncorrectable', 'UDMA_CRC_Error_Count',
-                       'Reallocated_Event_Count'].includes(attr.name)
-                    )
-                    .map((attr: any) => (
-                      <div key={attr.id} className="flex items-center justify-between p-2 rounded bg-muted/50">
-                        <div className="flex items-center gap-2">
-                          {attr.status === 'FAILING' ? (
-                            <XCircle className="h-4 w-4 text-red-500" />
-                          ) : attr.value < attr.threshold + 10 ? (
-                            <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                          ) : (
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                          )}
-                          <span className="text-sm">{attr.name.replace(/_/g, ' ')}</span>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-medium">{attr.value}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Threshold: {attr.threshold}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+          <RefreshCw className={cn("h-4 w-4 mr-2", isManualRefreshing && "animate-spin")} />
+          Refresh
+        </Button>
+      </div>
+
+      {/* Summary stats */}
+      {summary && (
+        <motion.div variants={itemVariants}>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Storage Overview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Capacity</p>
+                  <p className="text-xl font-bold">{formatBytes(summary.totalCapacity)}</p>
                 </div>
-              </div>
-              
-              {/* All Attributes Table */}
-              <div>
-                <h4 className="text-sm font-medium mb-3">All Attributes</h4>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-2">ID</th>
-                        <th className="text-left py-2">Attribute</th>
-                        <th className="text-right py-2">Value</th>
-                        <th className="text-right py-2">Worst</th>
-                        <th className="text-right py-2">Threshold</th>
-                        <th className="text-right py-2">Raw</th>
-                        <th className="text-right py-2">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedDeviceData.attributes.map((attr: any) => (
-                        <tr key={attr.id} className="border-b">
-                          <td className="py-2">{attr.id}</td>
-                          <td className="py-2">{attr.name.replace(/_/g, ' ')}</td>
-                          <td className="text-right py-2">{attr.value}</td>
-                          <td className="text-right py-2">{attr.worst}</td>
-                          <td className="text-right py-2">{attr.threshold}</td>
-                          <td className="text-right py-2 font-mono text-xs">{attr.raw}</td>
-                          <td className="text-right py-2">
-                            <StatusPill 
-                              status={
-                                attr.status === 'FAILING' ? 'error' :
-                                attr.value < attr.threshold + 10 ? 'warning' : 'active'
-                              }
-                              size="sm"
-                            />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div>
+                  <p className="text-sm text-muted-foreground">Used Space</p>
+                  <p className="text-xl font-bold">{formatBytes(summary.totalUsed)}</p>
+                  <p className="text-xs text-muted-foreground">{Math.round(summary.usagePercent)}% used</p>
                 </div>
-              </div>
-              
-              {/* Test Options */}
-              <div>
-                <h4 className="text-sm font-medium mb-3">Run SMART Test</h4>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleRunTest(selectedDeviceData.device, 'short')}
-                    disabled={runningTests.has(selectedDeviceData.device)}
-                  >
-                    Short Test (~2 min)
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleRunTest(selectedDeviceData.device, 'conveyance')}
-                    disabled={runningTests.has(selectedDeviceData.device)}
-                  >
-                    Conveyance Test (~5 min)
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleRunTest(selectedDeviceData.device, 'long')}
-                    disabled={runningTests.has(selectedDeviceData.device)}
-                  >
-                    Extended Test (~60+ min)
-                  </Button>
+                <div>
+                  <p className="text-sm text-muted-foreground">Disk Status</p>
+                  <div className="flex gap-2 mt-1">
+                    {summary.healthyDisks > 0 && (
+                      <Badge variant="default" className="text-xs">
+                        {summary.healthyDisks} Healthy
+                      </Badge>
+                    )}
+                    {summary.warningDisks > 0 && (
+                      <Badge variant="secondary" className="text-xs bg-yellow-100">
+                        {summary.warningDisks} Warning
+                      </Badge>
+                    )}
+                    {summary.criticalDisks > 0 && (
+                      <Badge variant="destructive" className="text-xs">
+                        {summary.criticalDisks} Critical
+                      </Badge>
+                    )}
+                  </div>
                 </div>
+                {summary.avgTemp !== undefined && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Avg Temperature</p>
+                    <p className="text-xl font-bold flex items-center gap-1">
+                      <Thermometer className="h-4 w-4" />
+                      {summary.avgTemp.toFixed(0)}°C
+                    </p>
+                  </div>
+                )}
               </div>
-            </div>
+            </CardContent>
           </Card>
         </motion.div>
       )}
-      
-      {/* Alerts */}
-      {summary && summary.criticalDevices > 0 && (
+
+      {/* Disk cards grid */}
+      <motion.div 
+        variants={containerVariants}
+        className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+      >
+        {disks.map((disk) => (
+          <DiskCard
+            key={disk.id}
+            disk={disk}
+            isSelected={selectedDisk === disk.id}
+            onClick={() => setSelectedDisk(disk.id === selectedDisk ? null : disk.id)}
+          />
+        ))}
+      </motion.div>
+
+      {/* Selected disk details */}
+      {selectedDiskData && (
         <motion.div variants={itemVariants}>
-          <Alert className="border-destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              {summary.criticalDevices} disk{summary.criticalDevices !== 1 ? 's' : ''} 
-              {summary.criticalDevices === 1 ? ' is' : ' are'} in critical condition. 
-              Immediate backup and replacement recommended.
-            </AlertDescription>
-          </Alert>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <HardDrive className="h-4 w-4" />
+                {selectedDiskData.name} Details
+              </CardTitle>
+              <CardDescription>
+                Detailed information and SMART attributes
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="info" className="space-y-4">
+                <TabsList>
+                  <TabsTrigger value="info">Information</TabsTrigger>
+                  <TabsTrigger value="smart">SMART Data</TabsTrigger>
+                  <TabsTrigger value="tests">Tests</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="info" className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Model</p>
+                      <p className="font-medium">{selectedDiskData.model || 'Unknown'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Serial Number</p>
+                      <p className="font-medium">{selectedDiskData.serial || 'Unknown'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Capacity</p>
+                      <p className="font-medium">{formatBytes(selectedDiskData.sizeBytes)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Filesystem</p>
+                      <p className="font-medium">{selectedDiskData.filesystem || 'Unknown'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Mount Point</p>
+                      <p className="font-medium">{selectedDiskData.mountPoint || 'Not mounted'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Usage</p>
+                      <p className="font-medium">{Math.round(selectedDiskData.usagePct)}%</p>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="smart" className="space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">SMART Status</span>
+                      <Badge variant={selectedDiskData.smart.passed ? "default" : "destructive"}>
+                        {selectedDiskData.smart.passed ? 'PASSED' : 'FAILED'}
+                      </Badge>
+                    </div>
+                    
+                    {selectedDiskData.smart.attrs && Object.keys(selectedDiskData.smart.attrs).length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Attribute</TableHead>
+                            <TableHead>Value</TableHead>
+                            <TableHead>Threshold</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {Object.entries(selectedDiskData.smart.attrs).map(([key, value]: [string, any]) => (
+                            <TableRow key={key}>
+                              <TableCell className="font-medium">{key}</TableCell>
+                              <TableCell>{value.value || '-'}</TableCell>
+                              <TableCell>{value.threshold || '-'}</TableCell>
+                              <TableCell>
+                                <Badge variant={value.status === 'ok' ? 'default' : 'destructive'} className="text-xs">
+                                  {value.status || 'Unknown'}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <Alert>
+                        <Info className="h-4 w-4" />
+                        <AlertDescription>
+                          No SMART attributes available for this disk.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="tests" className="space-y-4">
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Run SMART self-tests to check disk health
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleRunTest(selectedDiskData.id, 'short')}
+                        disabled={runningTests.has(selectedDiskData.id)}
+                      >
+                        <Play className="h-3 w-3 mr-1" />
+                        Short Test (~2 min)
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleRunTest(selectedDiskData.id, 'conveyance')}
+                        disabled={runningTests.has(selectedDiskData.id)}
+                      >
+                        <Play className="h-3 w-3 mr-1" />
+                        Conveyance Test (~5 min)
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleRunTest(selectedDiskData.id, 'long')}
+                        disabled={runningTests.has(selectedDiskData.id)}
+                      >
+                        <Play className="h-3 w-3 mr-1" />
+                        Extended Test (~30 min)
+                      </Button>
+                    </div>
+                    {runningTests.has(selectedDiskData.id) && (
+                      <Alert>
+                        <Activity className="h-4 w-4 animate-spin" />
+                        <AlertDescription>
+                          Test is running... This may take several minutes.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
         </motion.div>
       )}
     </motion.div>
