@@ -235,30 +235,43 @@ for f in install.amd/vmlinuz install.amd/initrd.gz; do
   fi
 done
 
-# Check GRUB UEFI includes.binary config
+## Check GRUB UEFI config — scope checks to installer kernel lines only
 GRUB_CFG="$(find "$MNT_DIR" -maxdepth 4 -type f -name grub.cfg | head -n1)"
 if [ -f "$GRUB_CFG" ]; then
   echo "[iso] Checking GRUB config at $GRUB_CFG"
-  grep -q 'DEBIAN_FRONTEND=text' "$GRUB_CFG" || { echo "::error::GRUB entries missing DEBIAN_FRONTEND=text"; missing=1; }
-  grep -q 'fb=false' "$GRUB_CFG" || { echo "::error::GRUB entries missing fb=false"; missing=1; }
-  grep -q 'nomodeset' "$GRUB_CFG" || { echo "::error::GRUB entries missing nomodeset"; missing=1; }
-  if grep -qE 'quiet|splash' "$GRUB_CFG"; then
-    echo "::error::Installer entries must not include quiet/splash"
+  # Extract only installer linux lines
+  installer_linux_lines="$(grep -E '^\s*linux\s+/install\.amd/vmlinuz' "$GRUB_CFG" || true)"
+  if [ -z "$installer_linux_lines" ]; then
+    echo "::error::No installer linux lines found in GRUB config"
     missing=1
+  else
+    echo "$installer_linux_lines" | grep -q 'DEBIAN_FRONTEND=text' || { echo "::error::GRUB installer missing DEBIAN_FRONTEND=text"; missing=1; }
+    echo "$installer_linux_lines" | grep -q 'fb=false' || { echo "::error::GRUB installer missing fb=false"; missing=1; }
+    echo "$installer_linux_lines" | grep -q 'nomodeset' || { echo "::error::GRUB installer missing nomodeset"; missing=1; }
+    if echo "$installer_linux_lines" | grep -qE 'quiet|splash'; then
+      echo "::error::Installer entries must not include quiet/splash"
+      missing=1
+    fi
   fi
 else
   echo "::warning::Could not locate GRUB config inside ISO; skipping GRUB checks"
 fi
 
-# Check BIOS isolinux config if present
+# Check BIOS isolinux config if present (scope to installer APPEND lines)
 for CFG in $(find "$MNT_DIR" -type f -name 'isolinux.cfg' -o -name 'txt.cfg'); do
   echo "[iso] Checking BIOS config at $CFG"
-  grep -q 'DEBIAN_FRONTEND=text' "$CFG" || { echo "::error::BIOS entries missing DEBIAN_FRONTEND=text"; missing=1; }
-  grep -q 'fb=false' "$CFG" || { echo "::error::BIOS entries missing fb=false"; missing=1; }
-  grep -q 'nomodeset' "$CFG" || { echo "::error::BIOS entries missing nomodeset"; missing=1; }
-  if grep -qE 'quiet|splash' "$CFG"; then
-    echo "::error::Installer BIOS entries must not include quiet/splash"
+  installer_append_lines="$(grep -E '^\s*APPEND\s+.*initrd=/install\.amd/initrd\.gz' "$CFG" || true)"
+  if [ -z "$installer_append_lines" ]; then
+    echo "::error::No installer APPEND lines found in BIOS config"
     missing=1
+  else
+    echo "$installer_append_lines" | grep -q 'DEBIAN_FRONTEND=text' || { echo "::error::BIOS installer missing DEBIAN_FRONTEND=text"; missing=1; }
+    echo "$installer_append_lines" | grep -q 'fb=false' || { echo "::error::BIOS installer missing fb=false"; missing=1; }
+    echo "$installer_append_lines" | grep -q 'nomodeset' || { echo "::error::BIOS installer missing nomodeset"; missing=1; }
+    if echo "$installer_append_lines" | grep -qE 'quiet|splash'; then
+      echo "::error::Installer BIOS entries must not include quiet/splash"
+      missing=1
+    fi
   fi
 done
 
