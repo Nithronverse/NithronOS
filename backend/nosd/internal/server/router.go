@@ -19,6 +19,7 @@ import (
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 
+	"nithronos/backend/nosd/internal/api"
 	"nithronos/backend/nosd/internal/apps"
 	pwhash "nithronos/backend/nosd/internal/auth/hash"
 	"nithronos/backend/nosd/internal/auth/session"
@@ -268,6 +269,13 @@ func NewRouter(cfg config.Config) http.Handler {
 	r.Get("/api/health/system", handleSystemHealth(cfg))
 	r.Get("/api/health/disks", handleDiskHealth(cfg))
 	r.Get("/api/monitor/system", handleSystemHealth(cfg)) // Reuse system health for monitoring
+	
+	// Dashboard endpoints
+	r.Get("/api/dashboard", api.HandleDashboard)
+	r.Get("/api/storage/summary", api.HandleStorageSummary)
+	r.Get("/api/disks/summary", api.HandleDisksSummary)
+	r.Get("/api/events/recent", api.HandleRecentEvents)
+	r.Get("/api/maintenance/status", api.HandleMaintenanceStatus)
 
 	// Storage: block device inventory
 	r.Get("/api/v1/storage/devices", handleListDevices)
@@ -1951,17 +1959,17 @@ func dirPermInfo(path string) string {
 
 // SystemHealthResponse represents system health metrics
 type SystemHealthResponse struct {
-	CPU       float64            `json:"cpu"`        
-	Load1     float64            `json:"load1"`      
-	Load5     float64            `json:"load5"`      
-	Load15    float64            `json:"load15"`     
-	Memory    MemoryInfo         `json:"memory"`     
-	Swap      SwapInfo           `json:"swap"`       
-	Uptime    int64              `json:"uptimeSec"`  
-	TempCPU   *float64           `json:"tempCpu"`    
-	Timestamp int64              `json:"timestamp"`  
-	Network   NetworkInfo        `json:"network"`    
-	DiskIO    DiskIOStats        `json:"diskIO"`     
+	CPU       float64     `json:"cpu"`
+	Load1     float64     `json:"load1"`
+	Load5     float64     `json:"load5"`
+	Load15    float64     `json:"load15"`
+	Memory    MemoryInfo  `json:"memory"`
+	Swap      SwapInfo    `json:"swap"`
+	Uptime    int64       `json:"uptimeSec"`
+	TempCPU   *float64    `json:"tempCpu"`
+	Timestamp int64       `json:"timestamp"`
+	Network   NetworkInfo `json:"network"`
+	DiskIO    DiskIOStats `json:"diskIO"`
 }
 
 // MemoryInfo represents memory usage
@@ -1989,8 +1997,8 @@ type NetworkInfo struct {
 	BytesSent   uint64 `json:"bytesSent"`
 	PacketsRecv uint64 `json:"packetsRecv"`
 	PacketsSent uint64 `json:"packetsSent"`
-	RxSpeed     uint64 `json:"rxSpeed"` 
-	TxSpeed     uint64 `json:"txSpeed"` 
+	RxSpeed     uint64 `json:"rxSpeed"`
+	TxSpeed     uint64 `json:"txSpeed"`
 }
 
 // DiskIOStats represents disk I/O statistics
@@ -1999,8 +2007,8 @@ type DiskIOStats struct {
 	WriteBytes uint64 `json:"writeBytes"`
 	ReadOps    uint64 `json:"readOps"`
 	WriteOps   uint64 `json:"writeOps"`
-	ReadSpeed  uint64 `json:"readSpeed"`  
-	WriteSpeed uint64 `json:"writeSpeed"` 
+	ReadSpeed  uint64 `json:"readSpeed"`
+	WriteSpeed uint64 `json:"writeSpeed"`
 }
 
 // DiskHealthResponse represents a disk's health information
@@ -2010,7 +2018,7 @@ type DiskHealthResponse struct {
 	Model      string      `json:"model"`
 	Serial     string      `json:"serial"`
 	SizeBytes  uint64      `json:"sizeBytes"`
-	State      string      `json:"state"` 
+	State      string      `json:"state"`
 	TempC      *float64    `json:"tempC"`
 	UsagePct   float64     `json:"usagePct"`
 	Smart      SmartStatus `json:"smart"`
@@ -2084,7 +2092,7 @@ func handleSystemHealth(cfg config.Config) http.HandlerFunc {
 		if netStats, err := net.IOCounters(false); err == nil && len(netStats) > 0 {
 			current := netStats[0]
 			now := time.Now()
-			
+
 			health.Network = NetworkInfo{
 				BytesRecv:   current.BytesRecv,
 				BytesSent:   current.BytesSent,
@@ -2100,7 +2108,7 @@ func handleSystemHealth(cfg config.Config) http.HandlerFunc {
 					health.Network.TxSpeed = uint64(float64(current.BytesSent-lastNetStats.BytesSent) / duration)
 				}
 			}
-			
+
 			lastNetStats = current
 			lastNetStatsTime = now
 		}
@@ -2114,7 +2122,7 @@ func handleSystemHealth(cfg config.Config) http.HandlerFunc {
 				totalReadOps += stat.ReadCount
 				totalWriteOps += stat.WriteCount
 			}
-			
+
 			now := time.Now()
 			health.DiskIO = DiskIOStats{
 				ReadBytes:  totalRead,
@@ -2131,7 +2139,7 @@ func handleSystemHealth(cfg config.Config) http.HandlerFunc {
 					health.DiskIO.WriteSpeed = uint64(float64(totalWrite-lastDiskStats.WriteBytes) / duration)
 				}
 			}
-			
+
 			lastDiskStats = disk.IOCountersStat{
 				ReadBytes:  totalRead,
 				WriteBytes: totalWrite,
