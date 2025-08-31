@@ -21,7 +21,7 @@ vi.mock('../lib/nos-client', () => ({
       getState: vi.fn(),
     },
   },
-  ApiError: class ApiError extends Error {
+  APIError: class APIError extends Error {
     constructor(message: string, public status: number) {
       super(message)
       this.status = status
