@@ -58,17 +58,7 @@ export const appsApi = {
 
   // WebSocket for logs
   streamLogs: (id: string, options: LogStreamOptions = {}) => {
-    const params = new URLSearchParams();
-    if (options.follow) params.append('follow', '1');
-    if (options.tail) params.append('tail', options.tail.toString());
-    if (options.timestamps) params.append('timestamps', 'true');
-    if (options.container) params.append('container', options.container);
-
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host;
-    const url = `${protocol}//${host}/api/v1/apps/${id}/logs?${params}`;
-    
-    return new WebSocket(url);
+    return http.apps.streamLogs(id, options);
   },
 
   // Get logs (non-streaming)
@@ -89,10 +79,7 @@ export async function loadAppSchema(catalogEntry: CatalogEntry): Promise<any> {
   // In production, schemas would be loaded from the server
   // For now, we'll parse them from the catalog
   try {
-    const response = await fetch(`/api/v1/apps/schema/${catalogEntry.id}`);
-    if (response.ok) {
-      return await response.json();
-    }
+    return await http.apps.schema(catalogEntry.id);
   } catch (error) {
     console.error('Failed to load schema:', error);
   }

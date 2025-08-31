@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { apiPost } from '../api/http'
+// import { apiPost } from '../api/http' // TODO: Replace with nos-client
+import http from '@/lib/nos-client'
 
 export function PoolSnapshots({ id }: { id: string }) {
   const [snaps, setSnaps] = useState<any[]>([])
@@ -12,15 +13,14 @@ export function PoolSnapshots({ id }: { id: string }) {
   }, [id])
 
   async function refresh() {
-    const r = await fetch(`/api/pools/${encodeURIComponent(id)}/snapshots`)
-    const j = await r.json()
+    const j = await http.pools.snapshotsUnversioned(id)
     setSnaps(j)
   }
 
   async function createSnap() {
     setError(null)
     try {
-      await apiPost(`/api/pools/${encodeURIComponent(id)}/snapshots`, { subvol, name })
+      await http.post(`/pools/${id}/snapshots`, { subvol, name })
       await refresh()
     } catch (e: any) {
       setError(e.message)

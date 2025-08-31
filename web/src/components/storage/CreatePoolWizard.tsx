@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { api, type Disks } from '../../api/client'
+import http from '@/lib/nos-client'
 import { Steps } from '../ui/steps'
 import { Dialog, DialogHeader, DialogTitle } from '../ui/dialog'
 
@@ -143,7 +144,7 @@ export function CreatePoolWizard({ onCreated }: { onCreated?: () => void }) {
   function startSSE(id: string) {
     stopSSE()
     try {
-      const es = new EventSource(`/api/v1/pools/tx/${id}/stream`)
+      const es = http.pools.txStream(id)
       sseRef.current = es
       es.addEventListener('open', () => { stopPolling() })
       es.addEventListener('error', () => { startPolling(id) })

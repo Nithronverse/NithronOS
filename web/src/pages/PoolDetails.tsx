@@ -10,7 +10,7 @@ export function PoolDetails() {
   const [tab, setTab] = useState<'overview'|'snapshots'|'devices'>('overview')
 
   useEffect(() => {
-    fetch('/api/pools').then((r) => r.json()).then(setPools)
+    http.pools.listUnversioned().then(setPools)
   }, [])
 
   if (!id) return <div className="p-4">Missing id</div>
@@ -230,7 +230,7 @@ function DevicesWizards({ id }: { id: string }) {
     let t: any
     async function poll() {
       if (!tx) return
-      const r = await fetch(`/api/v1/pools/tx/${encodeURIComponent(tx)}/log?cursor=${log.length}&max=1000`).then(r=>r.json()).catch(()=>null)
+      const r = await http.pools.txLog(tx, log.length, 1000).catch(()=>null)
       if (r && Array.isArray(r.lines) && typeof r.nextCursor === 'number') {
         setLog(prev => [...prev, ...r.lines])
       }

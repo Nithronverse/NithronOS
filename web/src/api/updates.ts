@@ -56,7 +56,7 @@ export const updatesApi = {
 
   // Progress streaming (Server-Sent Events)
   streamProgress: (onProgress: (progress: UpdateProgress) => void) => {
-    const eventSource = new EventSource('/api/v1/updates/progress/stream');
+    const eventSource = http.updates.streamProgress();
     
     eventSource.onmessage = (event) => {
       try {

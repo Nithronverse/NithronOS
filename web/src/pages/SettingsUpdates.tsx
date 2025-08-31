@@ -21,7 +21,7 @@ export function SettingsUpdates(){
     try{
       const p = await http.updates.check() as unknown as CheckResp
       setPlan(p)
-      const rec = await fetch('/api/snapshots/recent',{credentials:'include'}).then(r=>r.json())
+      const rec = await http.snapshots.recent()
       setRecent(rec||[])
     }catch(e:any){ setError(e?.message||'Failed to load updates') }
     finally{ setLoading(false) }
@@ -67,10 +67,7 @@ export function SettingsUpdates(){
     setPruning(true)
     setError('')
     try{
-      const resp = await fetch('/api/snapshots/prune', {
-        method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ keep_per_target: 5 })
-      })
+      const resp = await http.snapshots.prune({ keep_per_target: 5 })
       if (!resp.ok) throw new Error(await resp.text())
       const data = await resp.json()
       setPruneResult(data)

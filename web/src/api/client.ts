@@ -143,11 +143,7 @@ export const api = {
 		rollback: () => http.post<PostResponse<'/api/firewall/rollback'>>('/v1/firewall/rollback'),
 	},
 	support: {
-		bundle: async (): Promise<Blob> => {
-			const res = await fetch('/api/support/bundle', { headers: { Accept: 'application/gzip' } })
-			if (!res.ok) throw new Error(`HTTP ${res.status}`)
-			return await res.blob()
-		},
+		bundle: () => http.support.bundle(),
 	},
 }
 

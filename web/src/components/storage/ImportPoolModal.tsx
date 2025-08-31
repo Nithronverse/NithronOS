@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Dialog, DialogHeader, DialogTitle } from '../ui/dialog'
 import { Badge } from '../ui/badge'
 import { api } from '../../api/client'
+import http from '@/lib/nos-client'
 
 export function ImportPoolModal({ open, onClose, onImported }: { open: boolean; onClose: () => void; onImported?: () => void }) {
   const [candidates, setCandidates] = useState<any[]>([])
@@ -14,7 +15,7 @@ export function ImportPoolModal({ open, onClose, onImported }: { open: boolean; 
     api.pools.candidates().then(setCandidates).catch(async () => {
       // Fallback: derive candidates from disks (minimal)
       try {
-        const disks = await fetch('/api/disks').then(r => r.json())
+        const disks = await http.disks.list()
         const list = (disks?.disks || []).filter((d: any) => d.fstype === 'btrfs' && d.mountpoint).map((d: any) => ({ id: d.mountpoint, label: d.mountpoint, uuid: '', devices: [d.path], size: d.size }))
         setCandidates(list)
       } catch { setCandidates([]) }

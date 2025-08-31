@@ -32,7 +32,7 @@ import {
 } from '@/hooks/use-api'
 import { cn } from '@/lib/utils'
 import { toast } from '@/components/ui/toast'
-import type { Share } from '@/lib/api'
+import type { Share } from '@/hooks/use-api'
 
 // Share form component
 function ShareForm({ 

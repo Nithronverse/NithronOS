@@ -1,6 +1,34 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { endpoints, type ScrubStatus, type BalanceStatus,
-         type Schedule, type Share } from '@/lib/api'
+import { endpoints } from '@/lib/api'
+
+// TODO: Move these types to a central types file
+export interface ScrubStatus {
+  running: boolean;
+  progress?: number;
+  eta?: string;
+  status?: string;
+}
+
+export interface BalanceStatus {
+  running: boolean;
+  progress?: number;
+  eta?: string;
+  status?: string;
+}
+
+export interface Schedule {
+  id: string;
+  name: string;
+  cron: string;
+  enabled: boolean;
+}
+
+export interface Share {
+  name: string;
+  path: string;
+  protocol: string;
+  enabled: boolean;
+}
 
 // ============================================================================
 // System Queries
