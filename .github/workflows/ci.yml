@@ -433,12 +433,19 @@ jobs:
           name: NithronOS - ISO - amd64 - ${{ github.event.release.tag_name || github.ref_name }}
           path: |
             dist/iso/*.iso
-            dist/iso/SHA256SUMS
+            dist/iso/SHA256SUMS*
           if-no-files-found: error
           retention-days: 7
 
       # DEB artifacts are already uploaded in the 'debs' job for non-release runs.
       # Avoid re-upload here to prevent 409 conflicts on the same workflow run.
+
+      - name: Rename checksum files for uniqueness (avoid asset name collision)
+        if: ${{ github.event_name == 'release' }}
+        run: |
+          set -euo pipefail
+          if [ -f dist/iso/SHA256SUMS ]; then mv -v dist/iso/SHA256SUMS dist/iso/SHA256SUMS-iso.txt; fi
+          if [ -f dist/deb/SHA256SUMS ]; then mv -v dist/deb/SHA256SUMS dist/deb/SHA256SUMS-deb.txt; fi
 
       - name: Upload release assets (ISO + DEBs + checksums)
         if: ${{ github.event_name == 'release' }}
@@ -446,11 +453,11 @@ jobs:
         with:
           files: |
             dist/iso/*.iso
-            dist/iso/SHA256SUMS
+            dist/iso/SHA256SUMS*
             dist/deb/*.deb
             dist/deb/*.changes
             dist/deb/*.buildinfo
-            dist/deb/SHA256SUMS
+            dist/deb/SHA256SUMS*
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -667,7 +674,7 @@ jobs:
   build-docs:
     name: Build Documentation
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    if: github.event_name == 'push' || github.event_name == 'release'
     steps:
       - uses: actions/checkout@v4
       
