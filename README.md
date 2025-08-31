@@ -3,12 +3,14 @@
 
 [![CI](https://github.com/NotTekk/NithronOS/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/NotTekk/NithronOS/actions/workflows/ci.yml)
 [![Snapshots On Update](https://img.shields.io/badge/Snapshots%20On%20Update-Enabled%20by%20default-2D7FF9)](docs/updates.md)
-[![Release](https://img.shields.io/badge/NithronOS-v0.1.0--pre--alpha-yellow)](https://github.com/NotTekk/NithronOS/releases/tag/v0.1.0-pre-alpha)
+[![Release](https://img.shields.io/badge/NithronOS-v0.9.5--pre--alpha-yellow)](https://github.com/NotTekk/NithronOS/releases/tag/v0.9.5-pre-alpha)
+[![Discord](https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/qzB37WS5AT)
+[![Patreon](https://img.shields.io/badge/Support%20on-Patreon-F96854?logo=patreon&logoColor=white)](https://patreon.com/Nithron)
 
 **Open-source Linux-based OS for NAS & homelabs.**  
 Local-first storage management (Btrfs/ZFS*), snapshots, shares, backups, and a modern web dashboard with an optional app catalog — all without cloud lock-in.
 
-> **Status:** v0 public preview (pre-alpha).
+> **Status:** v0.9.5 **pre-alpha** (public preview).
 
 * ZFS availability depends on platform licensing constraints.
 
@@ -189,34 +191,19 @@ Filters/jails under `deploy/fail2ban/`; see comments inside for enabling.
 
 ## Roadmap
 
-### Pre-M1 (Hardening & Quality)
-- [x] Run nosd as system user + hardened systemd unit (least-privilege).
-- [x] Robust auth storage (atomic writes / optional SQLite).
-- [x] Session/refresh hardening (server-side session IDs, rotate refresh, reuse detection).
-- [x] Rate limits persisted across restarts + proxy awareness (X-Forwarded-For when trusted).
-- [x] API versioning `/api/v1`, typed error shape, initial OpenAPI spec.
-- [x] Config system `/etc/nos/config.yaml` + env overrides + safe hot reload (SIGHUP).
-- [x] Observability: request IDs, structured logs, `/metrics` (Prometheus), gated `/debug/pprof`.
-- [x] Security headers (CSP, HSTS, Referrer-Policy, X-Content-Type-Options, COOP/COEP).
-- [x] Frontend resilience & a11y (CSRF/refresh guard, toasts, focus, contrast).
-- [x] CI upgrades (linters, govulncheck, TS check, stronger ISO smoke).
-- [x] Packaging polish (sysusers/tmpfiles/postinst/postrm, console OTP visibility).
-- [x] Agent ↔ daemon trust bootstrap (token/mTLS, rotation).
-- [x] Recovery paths (console/TUI: reset admin/2FA, `nos.recovery=1`).
-- [x] Threat model doc + fuzz/property tests.
+### Pos-v1 / Alpha
+- [ ] **A1 — Reliability & Telemetry (opt-in)**: Crash reports (symbolized), perf traces, health pings; redaction; one-click diagnostics.
+- [ ] **A2 — App Catalog v2 (Safety & Lifecycle)**: Per-app permissions, resource limits, atomic upgrades/rollbacks, health retries, hooks.
+- [ ] **A3 — Backup & Replication v2 (Cloud + Immutability)**: S3/Backblaze providers; seed/restore; snapshot locking/retention; verification; key mgmt.
+- [ ] **A4 — Directory Services & SSO**: LDAP/AD join; SMB ACL mapping; OIDC login for web UI; group-based share permissions.
+- [ ] **A5 — iSCSI & Advanced NFS/SMB**: iSCSI targets (CHAP); NFS v4.1 + Kerberos; SMB Time Machine polish; per-share recycle bin.
+- [ ] **A6 — Remote Access Plus**: WireGuard profiles + QR; optional reverse tunnel; dynamic DNS; device tokens; 2FA gating.
+- [ ] **A7 — Hardware, Power & UPS**: NUT integration; scheduled shutdown/wake; sensors/temps/fan; CPU governor controls.
+- [ ] **A8 — Observability & Alerts v2**: Prometheus exporter, ready-made Grafana dashboards; audit log shipping; more alert channels.
+- [ ] **A9 — Extensibility & SDK v2**: Signed app bundles; nosctl improvements; app lifecycle webhooks; review tools.
+- [ ] **A10 — Desktop Companion (Windows/macOS) stretch**: LAN discovery, share mapping, client backups to NithronOS, notifications.
 
-### Milestones to v1
-- [x] **M1 — Storage Foundation (Btrfs + Health)**: create/import, SMART, scrub/repair, schedules, device ops, destroy, support bundle. (complete)
-- [x] **M2 — Shares & Permissions**: SMB/NFS with simple ACLs, guest toggle, recycle bin, Time Machine (fruit). (complete)
-- [x] **M3 — App Catalog v1 (Docker/Compose)**: one-click apps, lifecycle, health checks, pre-snapshot + rollback. (complete)
-- [x] **M4 — Networking & Remote**: Remote Access Wizard (LAN-only, WireGuard, reverse tunnel), HTTPS (LE), plan/apply/rollback firewall with 2FA for non-LAN. (complete)
-- [x] **M5 — Updates & Releases**: signed packages, channels (stable/beta), atomic upgrades (snapshot safety net). (complete)
-- [x] **M6 — Installer & First-boot++**: guided disk install (Btrfs subvols), hostname/timezone/network, telemetry opt-in.
-- [x] **M7 — Backup & Replication**: scheduled snapshots + retention; send/receive (SSH), rclone, restore wizard.
-- [x] **M8 — Monitoring & Alerts**: dashboard (CPU/RAM/IO), SMART/temps, scrubs, service health, notifications (email/webhook/ntfy).
-- [x] **M9 — Security Hardening (User-facing)**: account mgmt UI, password reset, audit log UI, session list & revoke.
-- [x] **M10 — Extensibility & API**: `nosctl` CLI, scoped API tokens, app-template SDK.
-- [x] **M11 — QA, CI, Docs (v1 Gate)**: ISO boot + HTTP/SSH/Btrfs E2E, UI E2E (Playwright), N-1→N upgrade tests, full docs site.
+> Each milestone ships release notes, migration notes, E2E suite green (HTTP/UI/backup/upgrade), and no data-loss regressions.
 
 ---
 
@@ -228,16 +215,43 @@ Filters/jails under `deploy/fail2ban/`; see comments inside for enabling.
 ### Administration
 - API versioning & typed errors → [docs/api/versioning-and-errors.md](docs/api/versioning-and-errors.md)  
 - App Catalog user guide → [docs/apps/catalog.md](docs/apps/catalog.md)  
+- App implementation guide → [docs/apps/implementation.md](docs/apps/implementation.md)
 - App runtime architecture → [docs/apps/runtime.md](docs/apps/runtime.md)  
+- Backup system → [docs/backup.md](docs/backup.md)
 - Certificates & HTTPS configuration → [docs/admin/certificates.md](docs/admin/certificates.md)  
+- Configuration management → [docs/admin/config.md](docs/admin/config.md)
+- First boot experience → [docs/admin/first-boot.md](docs/admin/first-boot.md) / [docs/first-boot.md](docs/first-boot.md)
+- HTTPS setup → [docs/admin/https.md](docs/admin/https.md)
+- Login and sessions → [docs/admin/login-and-sessions.md](docs/admin/login-and-sessions.md)
+- Monitoring system → [docs/monitoring.md](docs/monitoring.md)
 - Network shares (SMB/NFS/Time Machine) → [docs/admin/shares.md](docs/admin/shares.md)  
 - Networking & Remote Access → [docs/networking.md](docs/networking.md)
-- Config & hot reload → [docs/dev/config-and-reload.md](docs/dev/config-and-reload.md)
-- Recovery mode → [docs/dev/recovery-mode.md](docs/dev/recovery-mode.md)
-- Updates & rollback → [docs/updates.md](docs/updates.md)
+- Recovery procedures → [docs/admin/recovery.md](docs/admin/recovery.md)
+- System installer → [docs/installer.md](docs/installer.md)
 - System Updates & Releases → [docs/updates.md](docs/updates.md)  
 - Storage pools (device add/remove/replace, destroy, mount options) → [docs/storage/pools.md](docs/storage/pools.md)  
 - Storage health (SMART alerts & thresholds, schedules, fstrim) → [docs/storage/health.md](docs/storage/health.md)  
+- Security model → [docs/security-model.md](docs/security-model.md)
+- System requirements → [docs/requirements.md](docs/requirements.md)
+
+### Development
+- API development → [docs/dev/api.md](docs/dev/api.md)
+- Branching & releases → [docs/dev/branching-release.md](docs/dev/branching-release.md)
+- Build & packaging → [docs/dev/build-and-packaging.md](docs/dev/build-and-packaging.md)
+- CI/CD pipeline → [docs/dev/ci.md](docs/dev/ci.md)
+- Config & hot reload → [docs/dev/config-and-reload.md](docs/dev/config-and-reload.md)
+- FS atomic operations → [docs/dev/fsatomic-verification.md](docs/dev/fsatomic-verification.md)
+- Observability → [docs/dev/observability.md](docs/dev/observability.md)
+- Rate limiting → [docs/dev/ratelimit-verification.md](docs/dev/ratelimit-verification.md)
+- Real data wiring → [docs/dev/real-data-wiring.md](docs/dev/real-data-wiring.md)
+- Recovery mode → [docs/dev/recovery-mode.md](docs/dev/recovery-mode.md)
+
+### Frontend
+- Authentication guide → [docs/frontend/authentication.md](docs/frontend/authentication.md)
+- Auth migration guide → [docs/frontend/auth-migration-guide.md](docs/frontend/auth-migration-guide.md)
+
+### QA & Testing
+- M1 milestone checklist → [docs/qa/m1-checklist.md](docs/qa/m1-checklist.md)
 - Pre-Alpha Recovery Checklist → [RECOVERY-CHECKLIST.md](RECOVERY-CHECKLIST.md)
 
 ---
@@ -271,3 +285,5 @@ Colors align with Nithron’s palette (dark UI, electric blue `#2D7FF9`, lime `#
 General: hello@nithron.com  
 Commercial: licensing@nithron.com  
 Security: security@nithron.com
+Community (Discord): https://discord.gg/qzB37WS5AT
+Patreon: https://patreon.com/Nithron

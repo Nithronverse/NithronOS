@@ -262,7 +262,7 @@ func NewRouter(cfg config.Config) http.Handler {
 	})
 
 	r.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, map[string]any{"ok": true, "version": "0.1.0"})
+		writeJSON(w, map[string]any{"ok": true, "version": "0.9.5-pre-alpha"})
 	})
 
 	// Health monitoring endpoints (for real-time data)
