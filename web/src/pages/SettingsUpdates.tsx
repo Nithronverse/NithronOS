@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api } from '@/lib/api-client'
+import http from '@/lib/nos-client'
 import { toast } from '@/components/ui/toast'
 
 type CheckResp = { plan:any; snapshot_roots:string[] }
@@ -19,7 +19,7 @@ export function SettingsUpdates(){
     setLoading(true)
     setError('')
     try{
-      const p = await api.updates.check() as unknown as CheckResp
+      const p = await http.updates.check() as unknown as CheckResp
       setPlan(p)
       const rec = await fetch('/api/snapshots/recent',{credentials:'include'}).then(r=>r.json())
       setRecent(rec||[])
@@ -32,7 +32,7 @@ export function SettingsUpdates(){
     setApplying(true)
     setError('')
     try{
-      const resp = await api.updates.apply({ snapshot, confirm:'yes' }) as unknown as ApplyResp
+      const resp = await http.updates.apply({ snapshot, confirm:'yes' }) as unknown as ApplyResp
       toast.success(`Updates applied (tx ${resp.tx_id})`)
       await load()
     }catch(e:any){
@@ -48,7 +48,7 @@ export function SettingsUpdates(){
     setApplying(true)
     setError('')
     try{
-      await api.updates.rollback({ tx_id, confirm:'yes' })
+      await http.updates.rollback({ tx_id, confirm:'yes' })
       toast.success('Rollback requested')
       await load()
     }catch(e:any){

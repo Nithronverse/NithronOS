@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { api, AuthSession, APIError, ProxyMisconfiguredError } from './api-client'
+import { api, AuthSession, APIError, ProxyMisconfiguredError } from './nos-client'
 import { toast } from '@/components/ui/toast'
 
 // ============================================================================

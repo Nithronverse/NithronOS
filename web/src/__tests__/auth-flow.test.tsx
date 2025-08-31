@@ -4,11 +4,11 @@ import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { Login } from '../pages/Login'
 import { AuthProvider } from '../lib/auth'
-import { api, APIError } from '../lib/api-client'
+import http, { ApiError } from '../lib/nos-client'
 
 // Mock the API client
-vi.mock('../lib/api-client', () => ({
-  api: {
+vi.mock('../lib/nos-client', () => ({
+  default: {
     auth: {
       login: vi.fn(),
       verifyTotp: vi.fn(),
@@ -21,18 +21,12 @@ vi.mock('../lib/api-client', () => ({
       getState: vi.fn(),
     },
   },
-  APIError: class APIError extends Error {
+  ApiError: class ApiError extends Error {
     constructor(message: string, public status: number) {
       super(message)
       this.status = status
     }
   },
-  ProxyMisconfiguredError: class ProxyMisconfiguredError extends Error {
-    constructor(message: string) {
-      super(message)
-    }
-  },
-  getErrorMessage: (err: any) => err.message || 'An error occurred',
 }))
 
 // Mock navigation
@@ -59,7 +53,7 @@ describe('Login Flow', () => {
     vi.clearAllMocks()
     mockNavigate.mockClear()
     // Default: setup is complete
-    ;(api.setup.getState as any).mockRejectedValue({ status: 410, message: 'Setup complete' })
+    ;(http.setup.getState as any).mockRejectedValue({ status: 410, message: 'Setup complete' })
   })
 
   const renderLogin = () => {
@@ -95,7 +89,7 @@ describe('Login Flow', () => {
   })
 
   it('should handle successful login', async () => {
-    vi.mocked(api.auth.login).mockResolvedValueOnce({
+    vi.mocked(http.auth.login).mockResolvedValueOnce({
       ok: true,
     })
     
@@ -107,7 +101,7 @@ describe('Login Flow', () => {
     await user.click(screen.getByRole('button', { name: /sign in/i }))
     
     await waitFor(() => {
-      expect(api.auth.login).toHaveBeenCalledWith({
+      expect(http.auth.login).toHaveBeenCalledWith({
         username: 'admin',
         password: 'password123',
         rememberMe: false,
@@ -119,8 +113,8 @@ describe('Login Flow', () => {
 
   it.skip('should handle login with TOTP', async () => {
     // First attempt returns requires_totp
-    const error = new APIError('code required', 401)
-    vi.mocked(api.auth.login).mockRejectedValueOnce(error)
+    const error = new ApiError('code required', 401)
+    vi.mocked(http.auth.login).mockRejectedValueOnce(error)
     
     renderLogin()
     const user = userEvent.setup()
@@ -135,7 +129,7 @@ describe('Login Flow', () => {
     })
     
     // Second attempt with TOTP
-    vi.mocked(api.auth.login).mockResolvedValueOnce({
+    vi.mocked(http.auth.login).mockResolvedValueOnce({
       ok: true,
     })
     
@@ -143,7 +137,7 @@ describe('Login Flow', () => {
     await user.click(screen.getByRole('button', { name: /verify/i }))
     
     await waitFor(() => {
-      expect(api.auth.login).toHaveBeenCalledWith({
+      expect(http.auth.login).toHaveBeenCalledWith({
         username: 'admin',
         password: 'password123',
         rememberMe: false,
@@ -154,8 +148,8 @@ describe('Login Flow', () => {
   })
 
   it('should handle invalid credentials error', async () => {
-    const error = new APIError('Invalid username or password', 401)
-    vi.mocked(api.auth.login).mockRejectedValueOnce(error)
+    const error = new ApiError('Invalid username or password', 401)
+    vi.mocked(http.auth.login).mockRejectedValueOnce(error)
     
     renderLogin()
     const user = userEvent.setup()
@@ -170,8 +164,8 @@ describe('Login Flow', () => {
   })
 
   it('should handle rate limiting error', async () => {
-    const error = new APIError('Too many attempts', 429)
-    vi.mocked(api.auth.login).mockRejectedValueOnce(error)
+    const error = new ApiError('Too many attempts', 429)
+    vi.mocked(http.auth.login).mockRejectedValueOnce(error)
     
     renderLogin()
     const user = userEvent.setup()
@@ -186,8 +180,8 @@ describe('Login Flow', () => {
   })
 
   it('should preserve username on failed attempts', async () => {
-    const error = new APIError('Invalid username or password', 401)
-    vi.mocked(api.auth.login).mockRejectedValueOnce(error)
+    const error = new ApiError('Invalid username or password', 401)
+    vi.mocked(http.auth.login).mockRejectedValueOnce(error)
     
     renderLogin()
     const user = userEvent.setup()
@@ -203,7 +197,7 @@ describe('Login Flow', () => {
   })
 
   it('should handle remember me checkbox', async () => {
-    vi.mocked(api.auth.login).mockResolvedValueOnce({
+    vi.mocked(http.auth.login).mockResolvedValueOnce({
       ok: true,
     })
     
@@ -216,7 +210,7 @@ describe('Login Flow', () => {
     await user.click(screen.getByRole('button', { name: /sign in/i }))
     
     await waitFor(() => {
-      expect(api.auth.login).toHaveBeenCalledWith({
+      expect(http.auth.login).toHaveBeenCalledWith({
         username: 'admin',
         password: 'password123',
         rememberMe: true,

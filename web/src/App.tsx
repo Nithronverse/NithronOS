@@ -32,7 +32,7 @@ import { NotFound } from './pages/NotFound'
 import { Toasts } from '@/components/ui/toast'
 import { AuthProvider, AuthGuard } from './lib/auth'
 import { useEffect, useState } from 'react'
-import { api, APIError, ProxyMisconfiguredError } from './lib/api-client'
+import http, { ApiError } from './lib/nos-client'
 
 // ============================================================================
 // Root Layout with Auth Provider
@@ -86,14 +86,15 @@ function SetupGuard({ children }: { children: React.ReactNode }) {
   
   const checkSetupState = async () => {
     try {
-      const state = await api.setup.getState()
+      const state = await http.get<{firstBoot: boolean}>('/v1/setup/state')
       setNeedsSetup(state.firstBoot)
     } catch (err) {
-      if (err instanceof APIError && err.status === 410) {
+      const error = err as ApiError
+      if (error.status === 410) {
         // Setup complete
         setNeedsSetup(false)
-      } else if (err instanceof ProxyMisconfiguredError) {
-        // Let global notice handle this
+      } else if (error.status === 502 || error.status === 503) {
+        // Proxy misconfigured or backend down
         setNeedsSetup(false)
       } else {
         console.error('Setup state check failed:', err)

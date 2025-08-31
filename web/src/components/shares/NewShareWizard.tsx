@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { api } from '@/lib/api-client';
+import http from '@/lib/nos-client';
 import { ShareForm, ShareFormInput } from '@/features/shares/schemas';
 
 export default function NewShareWizard({ open, onClose }:{open:boolean; onClose:(created:boolean)=>void}) {
@@ -13,9 +13,9 @@ export default function NewShareWizard({ open, onClose }:{open:boolean; onClose:
   const schema = useMemo(()=>ShareForm(roots),[roots]);
   const { register, reset, formState:{errors}, watch, setValue, getValues } = useForm<ShareFormInput>({ resolver:zodResolver(schema), defaultValues:{ type:'smb', ro:false, users:[] } });
 
-  useEffect(()=>{ if(open){ (async()=>{ const roots = await api.pools.roots(); setRoots(roots); })(); } },[open]);
+  useEffect(()=>{ if(open){ (async()=>{ const roots = await http.pools.roots(); setRoots(roots); })(); } },[open]);
   const type = watch('type');
-  useEffect(()=>{ (async()=>{ if(open && type==='smb'){ const list = await api.smb.usersList(); setAvailable(list); } })(); },[open, type]);
+  useEffect(()=>{ (async()=>{ if(open && type==='smb'){ const list = await http.smb.usersList(); setAvailable(list); } })(); },[open, type]);
 
   const next = ()=> {
     setStep(s => {
@@ -39,7 +39,7 @@ export default function NewShareWizard({ open, onClose }:{open:boolean; onClose:
       if (!confirm('No SMB users selected — continue?')) return
     }
     try {
-      await api.shares.create(vals)
+      await http.shares.create(vals)
       alert('Share created')
       close(true)
     } catch (err:any) {
@@ -98,9 +98,9 @@ export default function NewShareWizard({ open, onClose }:{open:boolean; onClose:
               <input className="input" placeholder="password (optional)" value={newP} onChange={e=>setNewP(e.target.value)} type="password"/>
               <button className="btn" onClick={async()=>{
                 if(!newU) return;
-                await api.smb.userCreate({username:newU, password:newP||undefined});
+                await http.smb.userCreate({username:newU, password:newP||undefined});
                 // refresh from server to reflect any normalization
-                const list = await api.smb.usersList();
+                const list = await http.smb.usersList();
                 setAvailable(list);
                 setValue('users', Array.from(new Set([...(watch('users')||[]), newU])));
                 setNewU(''); setNewP('');

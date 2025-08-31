@@ -1,5 +1,5 @@
 // Health API endpoints with proper types
-import { api } from './api'
+import http from './nos-client'
 
 // System health types
 export interface SystemHealth {
@@ -67,17 +67,17 @@ export const healthApi = {
   // Get system health metrics
   getSystemHealth: async (): Promise<SystemHealth> => {
     // Let errors propagate so UI can show an unreachable banner
-    return await api.get<SystemHealth>('/v1/health/system')
+    return await http.get<SystemHealth>('/v1/health/system')
   },
 
   // Get disk health information
   getDiskHealth: async (): Promise<DiskHealth[]> => {
-    const response = await api.get<DiskHealth[]>('/v1/health/disks')
+    const response = await http.get<DiskHealth[]>('/v1/health/disks')
     return Array.isArray(response) ? response : []
   },
 
   // Get monitoring data (reuses system health)
   getMonitoringData: async (): Promise<SystemHealth> => {
-    return await api.get<SystemHealth>('/v1/monitor/system')
+    return await http.get<SystemHealth>('/v1/monitor/system')
   }
 }

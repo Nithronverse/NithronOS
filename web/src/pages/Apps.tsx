@@ -25,7 +25,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useApps, useMarketplace } from '@/hooks/use-api'
 import { cn } from '@/lib/utils'
 import { toast } from '@/components/ui/toast'
-import type { App } from '@/lib/api-client'
+// import type { App } from '@/lib/api-client'
+type App = any
 
 // Mock marketplace apps
 const mockMarketplaceApps = [

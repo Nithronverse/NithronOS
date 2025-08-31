@@ -1,4 +1,4 @@
-import { get, post, patch, del } from '@/lib/api';
+import http from '@/lib/nos-client';
 import type {
   MonitorOverview,
   TimeSeries,
@@ -13,49 +13,49 @@ import type {
 
 export const monitorApi = {
   // Metrics
-  getOverview: () => get<MonitorOverview>('/api/v1/monitor/overview'),
+  getOverview: () => http.get<MonitorOverview>('/v1/monitor/overview'),
   
   queryTimeSeries: (query: TimeSeriesQuery) => 
-    post<TimeSeries>('/api/v1/monitor/timeseries', query),
+    http.post<TimeSeries>('/v1/monitor/timeseries', query),
   
-  getDevices: () => get<{ disks: DiskMetrics[] }>('/api/v1/monitor/devices'),
+  getDevices: () => http.get<{ disks: DiskMetrics[] }>('/v1/monitor/devices'),
   
-  getServices: () => get<{ services: ServiceMetrics[] }>('/api/v1/monitor/services'),
+  getServices: () => http.get<{ services: ServiceMetrics[] }>('/v1/monitor/services'),
   
-  getBtrfs: () => get<{ btrfs: BtrfsMetrics[] }>('/api/v1/monitor/btrfs'),
+  getBtrfs: () => http.get<{ btrfs: BtrfsMetrics[] }>('/v1/monitor/btrfs'),
   
   // Alert rules
   alerts: {
     rules: {
-      list: () => get<{ rules: AlertRule[] }>('/api/v1/monitor/alerts/rules'),
-      get: (id: string) => get<AlertRule>(`/api/v1/monitor/alerts/rules/${id}`),
+      list: () => http.get<{ rules: AlertRule[] }>('/v1/monitor/alerts/rules'),
+      get: (id: string) => http.get<AlertRule>(`/v1/monitor/alerts/rules/${id}`),
       create: (rule: Partial<AlertRule>) => 
-        post<AlertRule>('/api/v1/monitor/alerts/rules', rule),
+        http.post<AlertRule>('/v1/monitor/alerts/rules', rule),
       update: (id: string, rule: Partial<AlertRule>) => 
-        patch<AlertRule>(`/api/v1/monitor/alerts/rules/${id}`, rule),
+        http.patch<AlertRule>(`/v1/monitor/alerts/rules/${id}`, rule),
       delete: (id: string) => 
-        del<{ status: string }>(`/api/v1/monitor/alerts/rules/${id}`),
+        http.del<{ status: string }>(`/v1/monitor/alerts/rules/${id}`),
     },
     
     // Notification channels
     channels: {
-      list: () => get<{ channels: NotificationChannel[] }>('/api/v1/monitor/alerts/channels'),
-      get: (id: string) => get<NotificationChannel>(`/api/v1/monitor/alerts/channels/${id}`),
+      list: () => http.get<{ channels: NotificationChannel[] }>('/v1/monitor/alerts/channels'),
+      get: (id: string) => http.get<NotificationChannel>(`/v1/monitor/alerts/channels/${id}`),
       create: (channel: Partial<NotificationChannel>) => 
-        post<NotificationChannel>('/api/v1/monitor/alerts/channels', channel),
+        http.post<NotificationChannel>('/v1/monitor/alerts/channels', channel),
       update: (id: string, channel: Partial<NotificationChannel>) => 
-        patch<NotificationChannel>(`/api/v1/monitor/alerts/channels/${id}`, channel),
+        http.patch<NotificationChannel>(`/v1/monitor/alerts/channels/${id}`, channel),
       delete: (id: string) => 
-        del<{ status: string }>(`/api/v1/monitor/alerts/channels/${id}`),
+        http.del<{ status: string }>(`/v1/monitor/alerts/channels/${id}`),
       test: (id: string) => 
-        post<{ success: boolean; error?: string }>(`/api/v1/monitor/alerts/channels/${id}/test`, {}),
+        http.post<{ success: boolean; error?: string }>(`/v1/monitor/alerts/channels/${id}/test`, {}),
     },
     
     // Events
     events: {
       list: (limit?: number) => {
         const params = limit ? `?limit=${limit}` : '';
-        return get<{ events: AlertEvent[] }>(`/api/v1/monitor/alerts/events${params}`);
+        return http.get<{ events: AlertEvent[] }>(`/v1/monitor/alerts/events${params}`);
       },
     },
   },

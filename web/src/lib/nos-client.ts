@@ -1,738 +1,230 @@
-/**
- * NithronOS TypeScript Client Library
- * Auto-generated from OpenAPI specification
- */
+import axios, { AxiosError, AxiosInstance } from 'axios';
 
-export interface ClientConfig {
-  baseURL: string
-  token?: string
-  timeout?: number
-  onUnauthorized?: () => void
+export type ApiError = {
+  code: string;              // e.g. "Unauthorized", "RateLimited"
+  message: string;           // human-friendly
+  details?: unknown;         // optional structured data
+  status?: number;           // HTTP status
+  requestId?: string;        // from server logs if present
+};
+
+// Backward compatibility type exports
+export interface AuthSession {
+  user: {
+    id: string;
+    username: string;
+    isAdmin?: boolean;
+  };
+  expiresAt?: string;
 }
 
-export interface APIError {
-  code: string
-  message: string
-  hint?: string
-  details?: Record<string, any>
-}
-
-export interface PaginatedResponse<T> {
-  items: T[]
-  total: number
-  page: number
-  pageSize: number
-  hasNext: boolean
-  hasPrev: boolean
-}
-
-// API Scopes
-export enum APIScope {
-  SystemRead = 'system.read',
-  SystemWrite = 'system.write',
-  UsersRead = 'users.read',
-  UsersWrite = 'users.write',
-  StorageRead = 'storage.read',
-  StorageWrite = 'storage.write',
-  AppsRead = 'apps.read',
-  AppsWrite = 'apps.write',
-  MetricsRead = 'metrics.read',
-  AlertsRead = 'alerts.read',
-  AlertsWrite = 'alerts.write',
-  BackupsRead = 'backups.read',
-  BackupsWrite = 'backups.write',
-  AdminAll = 'admin.*',
-}
-
-// Token types
-export interface APIToken {
-  id: string
-  type: 'personal' | 'service'
-  name: string
-  scopes: string[]
-  createdAt: string
-  expiresAt?: string
-  lastUsedAt?: string
-  lastUsedIP?: string
-  useCount: number
-}
-
-export interface CreateTokenRequest {
-  type: 'personal' | 'service'
-  name: string
-  scopes: string[]
-  expiresIn?: string
-  ipAllowlist?: string[]
-}
-
-export interface CreateTokenResponse {
-  token: APIToken
-  value: string // Only returned on creation
-}
-
-// Webhook types
-export interface Webhook {
-  id: string
-  url: string
-  name: string
-  description?: string
-  events: string[]
-  enabled: boolean
-  headers?: Record<string, string>
-  maxRetries: number
-  retryDelay: number
-  timeout: number
-  createdAt: string
-  updatedAt: string
-  lastDelivery?: string
-  lastStatus?: number
-  lastError?: string
-  deliveryCount: number
-  successCount: number
-  failureCount: number
-}
-
-export interface CreateWebhookRequest {
-  url: string
-  name: string
-  description?: string
-  events: string[]
-  secret?: string
-  headers?: Record<string, string>
-  enabled: boolean
-}
-
-export interface WebhookDelivery {
-  id: string
-  webhookId: string
-  eventId: string
-  url: string
-  method: string
-  status: number
-  error?: string
-  attemptedAt: string
-  duration: number
-  attempt: number
-  nextRetry?: string
-}
-
-// User and auth types
-export interface User {
-  id: string
-  username: string
-  email?: string
-  role: 'admin' | 'operator' | 'viewer'
-  enabled: boolean
-  twoFactorEnabled: boolean
-  createdAt: string
-  updatedAt: string
-  lastLoginAt?: string
-  lastLoginIP?: string
-  forcePasswordChange: boolean
-  lockedUntil?: string
-  failedLogins: number
-}
-
-export interface Session {
-  id: string
-  userId: string
-  username: string
-  role: 'admin' | 'operator' | 'viewer'
-  issuedAt: string
-  expiresAt: string
-  lastSeenAt: string
-  ip: string
-  userAgent: string
-  twoFactorVerified: boolean
-  elevatedUntil?: string
-  scopes?: string[]
-}
-
-// System types
-export interface SystemInfo {
-  hostname: string
-  os: string
-  kernel: string
-  arch: string
-  cpus: number
-  memory: number
-  nosVersion: string
-  uptime: string
-}
-
-export interface SystemStatus {
-  version: string
-  uptime: string
-  load1: number
-  load5: number
-  load15: number
-  cpuUsage: number
-  memoryUsed: number
-  memoryTotal: number
-  memoryPercent: number
-  storageUsed: number
-  storageTotal: number
-  storagePercent: number
-  services: ServiceStatus[]
-}
-
-export interface ServiceStatus {
-  name: string
-  state: string
-  active: boolean
-}
-
-// Storage types
-export interface StoragePool {
-  uuid: string
-  label: string
-  devices: string[]
-  used: number
-  total: number
-  available: number
-  dataProfile: string
-  metadataProfile: string
-  mountpoint: string
-  health: 'healthy' | 'degraded' | 'failed'
-}
-
-export interface Snapshot {
-  id: string
-  subvolume: string
-  path: string
-  createdAt: string
-  size: number
-  scheduleId?: string
-  tags?: string[]
-}
-
-// App types
-export interface App {
-  id: string
-  name: string
-  version: string
-  status: 'running' | 'stopped' | 'unhealthy' | 'installing' | 'updating'
-  health: 'healthy' | 'unhealthy' | 'unknown'
-  ports: number[]
-  urls: string[]
-  installedAt: string
-  updatedAt?: string
-}
-
-export interface AppManifest {
-  meta: {
-    name: string
-    id: string
-    version: string
-    icon?: string
-    description: string
-    upstream?: string
-    author?: string
-    license?: string
-    homepage?: string
-    categories?: string[]
-  }
-  runtime: {
-    dockerComposePath: string
-    envSchema?: Record<string, any>
-    mounts?: Array<{
-      name: string
-      path: string
-      description?: string
-      required?: boolean
-      persistent?: boolean
-    }>
-    ports?: Array<{
-      port: number
-      protocol?: string
-      description?: string
-      webui?: boolean
-    }>
-    healthChecks?: Array<{
-      type: 'container' | 'http' | 'tcp'
-      container?: string
-      url?: string
-      port?: number
-      interval?: number
-      timeout?: number
-      retries?: number
-    }>
-  }
-  permissions?: {
-    apiScopes?: string[]
-    agentOps?: string[]
-    privileged?: boolean
-    hostNetwork?: boolean
-    hostPID?: boolean
-    capabilities?: string[]
-  }
-  backup?: {
-    includePaths?: string[]
-    excludePaths?: string[]
-    backupSize?: string
-  }
-  webui?: {
-    path: string
-    port: number
-    authMode?: 'none' | 'inherit' | 'custom'
-    stripPath?: boolean
-    headers?: Record<string, string>
+// Backward compatibility aliases
+export class APIError extends Error {
+  status?: number;
+  code?: string;
+  retryAfterSec?: number;
+  
+  constructor(message: string, status?: number) {
+    super(message);
+    this.status = status;
   }
 }
 
-// Alert types
-export interface AlertRule {
-  id: string
-  name: string
-  metric: string
-  operator: '>' | '<' | '>=' | '<=' | '==' | '!='
-  threshold: number
-  duration: number
-  severity: 'info' | 'warning' | 'critical'
-  enabled: boolean
-  currentState: {
-    firing: boolean
-    since?: string
-    value?: number
+export class ProxyMisconfiguredError extends Error {
+  constructor(message: string) {
+    super(message);
   }
-  createdAt: string
-  updatedAt: string
 }
 
-export interface AlertChannel {
-  id: string
-  type: 'email' | 'webhook' | 'ntfy'
-  name: string
-  enabled: boolean
-  config: Record<string, any>
-  createdAt: string
-  updatedAt: string
+export function getErrorMessage(err: any): string {
+  if (err?.message) return err.message;
+  if (typeof err === 'string') return err;
+  return 'An error occurred';
 }
 
-// Backup types
-export interface BackupSchedule {
-  id: string
-  name: string
-  subvols: string[]
-  frequency: string // cron expression
-  retention: {
-    minKeep: number
-    days?: number
-    weeks?: number
-    months?: number
-    years?: number
+function readCookie(name: string): string | null {
+  const m = document.cookie.match(new RegExp('(^|; )' + name.replace(/([.*+?^${}()|[\]\\])/g, '\\$1') + '=([^;]*)'));
+  return m ? decodeURIComponent(m[2]) : null;
+}
+
+let refreshing: Promise<void> | null = null;
+
+function assertV1Path(path: string) {
+  if (!path.startsWith('/')) throw new Error("Path must start with '/'");
+  if (path.startsWith('/api/')) {
+    throw new Error("Do not include '/api' in paths; pass '/v1/...'. baseURL is already '/api'.");
   }
-  enabled: boolean
-  lastRun?: string
-  nextRun?: string
-  createdAt: string
-  updatedAt: string
+  if (!path.startsWith('/v1/') && !path.startsWith('/setup/')) {
+    throw new Error("Path must start with '/v1/...' or '/setup/'.");
+  }
 }
 
-export interface BackupJob {
-  id: string
-  type: 'backup' | 'restore' | 'replicate'
-  state: 'pending' | 'running' | 'succeeded' | 'failed' | 'cancelled'
-  progress: number
-  startedAt: string
-  finishedAt?: string
-  error?: string
-  metadata?: Record<string, any>
+function toApiError(err: any): ApiError {
+  if (err?.isAxiosError) {
+    const ae = err as AxiosError<any>;
+    const status = ae.response?.status;
+    const data = ae.response?.data;
+    // Try to normalize server error shape; fall back sensibly
+    const code = (data?.code as string) || (status === 401 ? 'Unauthorized' : status === 429 ? 'RateLimited' : 'HttpError');
+    const message = (typeof data?.message === 'string' ? data.message : ae.message) || 'Request failed';
+    const requestId = ae.response?.headers?.['x-request-id'];
+    return { code, message, details: data?.details ?? data, status, requestId };
+  }
+  return { code: 'UnknownError', message: err?.message || 'Unknown error' };
 }
 
-/**
- * NithronOS API Client
- */
-export class NOSClient {
-  private config: ClientConfig
-  private abortControllers: Map<string, AbortController> = new Map()
+const client: AxiosInstance = axios.create({
+  baseURL: '/api',
+  withCredentials: true,
+  timeout: 15000,
+  headers: { 'Accept': 'application/json' }
+});
 
-  constructor(config: ClientConfig) {
-    this.config = {
-      timeout: 30000,
-      ...config,
+// Request interceptor: add CSRF header if cookie exists
+client.interceptors.request.use((config) => {
+  const csrf = readCookie('nos_csrf') || readCookie('csrf_token');
+  if (csrf) {
+    (config.headers ||= {})['X-CSRF-Token'] = csrf;
+  }
+  // Guard path correctness for relative URLs
+  const url = (config.url || '');
+  if (url.startsWith('/')) assertV1Path(url);
+  return config;
+});
+
+// Response interceptor: on 401, try single refresh then replay once
+client.interceptors.response.use(
+  (res) => res,
+  async (error) => {
+    const err = toApiError(error);
+    const original = error?.config;
+    if (err.status === 401 && !original?._retry) {
+      if (!refreshing) {
+        refreshing = (async () => {
+          try { await client.post('/v1/auth/refresh', {}); }
+          finally { refreshing = null; }
+        })();
+      }
+      await refreshing;
+      original._retry = true;
+      return client(original);
     }
+    // For backward compatibility, throw APIError instances
+    const apiErr = new APIError(err.message, err.status);
+    apiErr.code = err.code;
+    if ((err as any).retryAfterSec) apiErr.retryAfterSec = (err as any).retryAfterSec;
+    return Promise.reject(apiErr);
   }
+);
 
-  // Helper methods
+// Minimal typed wrapper
+const httpCore = {
+  async get<T>(path: string, params?: Record<string, any>): Promise<T> {
+    assertV1Path(path);
+    const res = await client.get<T>(path, { params });
+    return res.data;
+  },
+  async post<T>(path: string, body?: any): Promise<T> {
+    assertV1Path(path);
+    const res = await client.post<T>(path, body ?? {});
+    return res.data;
+  },
+  async put<T>(path: string, body?: any): Promise<T> {
+    assertV1Path(path);
+    const res = await client.put<T>(path, body ?? {});
+    return res.data;
+  },
+  async patch<T>(path: string, body?: any): Promise<T> {
+    assertV1Path(path);
+    const res = await client.patch<T>(path, body ?? {});
+    return res.data;
+  },
+  async del<T>(path: string): Promise<T> {
+    assertV1Path(path);
+    const res = await client.delete<T>(path);
+    return res.data;
+  },
+};
 
-  private async request<T>(
-    method: string,
-    path: string,
-    body?: any,
-    options?: RequestInit
-  ): Promise<T> {
-    const url = `${this.config.baseURL}${path}`
-    const abortController = new AbortController()
-    const requestId = Math.random().toString(36).substr(2, 9)
-    
-    this.abortControllers.set(requestId, abortController)
-    
-    const timeout = setTimeout(() => {
-      abortController.abort()
-    }, this.config.timeout!)
-    
-    try {
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.config.token && { Authorization: `Bearer ${this.config.token}` }),
-          ...options?.headers,
-        },
-        body: body ? JSON.stringify(body) : undefined,
-        signal: abortController.signal,
-        ...options,
-      })
-      
-      clearTimeout(timeout)
-      this.abortControllers.delete(requestId)
-      
-      if (response.status === 401 && this.config.onUnauthorized) {
-        this.config.onUnauthorized()
-      }
-      
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}))
-        throw new APIClientError(
-          error.message || `Request failed with status ${response.status}`,
-          error.code || 'UNKNOWN',
-          error.hint,
-          error.details
-        )
-      }
-      
-      if (response.status === 204) {
-        return {} as T
-      }
-      
-      return response.json()
-    } catch (error) {
-      clearTimeout(timeout)
-      this.abortControllers.delete(requestId)
-      
-      if (error instanceof APIClientError) {
-        throw error
-      }
-      
-      if ((error as Error).name === 'AbortError') {
-        throw new APIClientError('Request timeout', 'TIMEOUT')
-      }
-      
-      throw new APIClientError(
-        (error as Error).message || 'Network error',
-        'NETWORK_ERROR'
-      )
-    }
-  }
+// Extended API client with nested structure for backward compatibility
+export const http = {
+  ...httpCore,
+  
+  // Setup endpoints
+  setup: {
+    getState: () => httpCore.get<any>('/setup/state'),
+    verifyOTP: (otp: string) => httpCore.post('/setup/verify-otp', { otp }),
+    createAdmin: (token: string, data: any) => httpCore.post('/setup/create-admin', { token, ...data }),
+    complete: (token: string) => httpCore.post('/setup/complete', { token }),
+  },
+  
+  // Auth endpoints
+  auth: {
+    login: (data: any) => httpCore.post('/v1/auth/login', data),
+    logout: () => httpCore.post('/v1/auth/logout'),
+    refresh: () => httpCore.post('/v1/auth/refresh', {}),
+    me: () => httpCore.get('/v1/auth/me'),
+    verifyTotp: (code: string) => httpCore.post('/v1/auth/verify-totp', { code }),
+    getSession: () => httpCore.get('/v1/auth/session'),
+    session: () => httpCore.get('/v1/auth/session'),
+    totp: {
+      enroll: () => httpCore.post('/v1/auth/totp/enroll'),
+      verify: (code: string) => httpCore.post('/v1/auth/totp/verify', { code }),
+    },
+  },
+  
+  // System endpoints
+  system: {
+    getTimezone: (token?: string) => httpCore.get('/v1/system/timezone'),
+    getNTP: (token?: string) => httpCore.get('/v1/system/ntp'),
+    setHostname: (data: any, token?: string) => httpCore.post('/v1/system/hostname', data),
+    setTimezone: (data: any, token?: string) => httpCore.post('/v1/system/timezone', data),
+    setNTP: (data: any, token?: string) => httpCore.post('/v1/system/ntp', data),
+  },
+  
+  // Network endpoints
+  network: {
+    getInterfaces: (token?: string) => httpCore.get('/v1/network/interfaces'),
+    configureInterface: (iface: string, config: any) => httpCore.post(`/v1/network/interfaces/${iface}`, config),
+  },
+  
+  // Telemetry endpoints
+  telemetry: {
+    setConsent: (data: any) => httpCore.post('/v1/telemetry/consent', data),
+  },
+  
+  // Pool endpoints
+  pools: {
+    get: (id: string) => httpCore.get(`/v1/pools/${id}`),
+    list: () => httpCore.get('/v1/pools'),
+    getMountOptions: (id: string) => httpCore.get(`/v1/pools/${id}/mount-options`),
+    updateMountOptions: (id: string, options: any) => httpCore.post(`/v1/pools/${id}/mount-options`, options),
+    planDevice: (id: string, body: any) => httpCore.post(`/v1/pools/${id}/plan-device`, body),
+    applyDevice: (id: string, body: any) => httpCore.post(`/v1/pools/${id}/apply-device`, body),
+    roots: () => httpCore.get('/v1/pools/roots'),
+  },
+  
+  // Updates endpoints
+  updates: {
+    check: () => httpCore.get('/v1/updates/check'),
+    apply: (data: any) => httpCore.post('/v1/updates/apply', data),
+    rollback: (data: any) => httpCore.post('/v1/updates/rollback', data),
+  },
+  
+  // Shares endpoints
+  shares: {
+    create: (data: any) => httpCore.post('/v1/shares', data),
+  },
+  
+  // SMB endpoints
+  smb: {
+    usersList: () => httpCore.get('/v1/smb/users'),
+    userCreate: (data: any) => httpCore.post('/v1/smb/users', data),
+  },
+};
 
-  private get<T>(path: string, options?: RequestInit): Promise<T> {
-    return this.request<T>('GET', path, undefined, options)
-  }
+// Backward compatibility - export api as an alias to http
+export const api = http;
 
-  private post<T>(path: string, body?: any, options?: RequestInit): Promise<T> {
-    return this.request<T>('POST', path, body, options)
-  }
-
-  // Commented out as it's currently unused
-  // private put<T>(path: string, body?: any, options?: RequestInit): Promise<T> {
-  //   return this.request<T>('PUT', path, body, options)
-  // }
-
-  private patch<T>(path: string, body?: any, options?: RequestInit): Promise<T> {
-    return this.request<T>('PATCH', path, body, options)
-  }
-
-  private delete<T>(path: string, body?: any, options?: RequestInit): Promise<T> {
-    return this.request<T>('DELETE', path, body, options)
-  }
-
-  // Cancel all pending requests
-  cancelAll(): void {
-    this.abortControllers.forEach(controller => controller.abort())
-    this.abortControllers.clear()
-  }
-
-  // API Methods
-
-  // System
-  async getSystemInfo(): Promise<SystemInfo> {
-    return this.get<SystemInfo>('/api/v1/system/info')
-  }
-
-  async getSystemStatus(): Promise<SystemStatus> {
-    return this.get<SystemStatus>('/api/v1/system/status')
-  }
-
-  // Tokens
-  async listTokens(): Promise<APIToken[]> {
-    const response = await this.get<{ tokens: APIToken[] }>('/api/v1/tokens')
-    return response.tokens
-  }
-
-  async createToken(request: CreateTokenRequest): Promise<CreateTokenResponse> {
-    return this.post<CreateTokenResponse>('/api/v1/tokens', request)
-  }
-
-  async deleteToken(id: string): Promise<void> {
-    await this.delete<void>(`/api/v1/tokens/${id}`)
-  }
-
-  // Webhooks
-  async listWebhooks(): Promise<Webhook[]> {
-    const response = await this.get<{ webhooks: Webhook[] }>('/api/v1/webhooks')
-    return response.webhooks
-  }
-
-  async createWebhook(request: CreateWebhookRequest): Promise<Webhook> {
-    return this.post<Webhook>('/api/v1/webhooks', request)
-  }
-
-  async updateWebhook(id: string, request: Partial<CreateWebhookRequest>): Promise<Webhook> {
-    return this.patch<Webhook>(`/api/v1/webhooks/${id}`, request)
-  }
-
-  async deleteWebhook(id: string): Promise<void> {
-    await this.delete<void>(`/api/v1/webhooks/${id}`)
-  }
-
-  async testWebhook(id: string): Promise<void> {
-    await this.post<void>(`/api/v1/webhooks/${id}/test`)
-  }
-
-  async getWebhookDeliveries(id: string, limit?: number): Promise<WebhookDelivery[]> {
-    const query = limit ? `?limit=${limit}` : ''
-    const response = await this.get<{ deliveries: WebhookDelivery[] }>(
-      `/api/v1/webhooks/${id}/deliveries${query}`
-    )
-    return response.deliveries
-  }
-
-  // Users
-  async listUsers(): Promise<User[]> {
-    const response = await this.get<{ users: User[] }>('/api/v1/auth/users')
-    return response.users
-  }
-
-  async createUser(request: {
-    username: string
-    email?: string
-    password: string
-    role: 'admin' | 'operator' | 'viewer'
-  }): Promise<User> {
-    return this.post<User>('/api/v1/auth/users', request)
-  }
-
-  async updateUser(id: string, request: {
-    email?: string
-    role?: 'admin' | 'operator' | 'viewer'
-    enabled?: boolean
-  }): Promise<User> {
-    return this.patch<User>(`/api/v1/auth/users/${id}`, request)
-  }
-
-  async deleteUser(id: string): Promise<void> {
-    await this.delete<void>(`/api/v1/auth/users/${id}`)
-  }
-
-  // Sessions
-  async listSessions(): Promise<Session[]> {
-    const response = await this.get<{ sessions: Session[] }>('/api/v1/auth/sessions')
-    return response.sessions
-  }
-
-  async revokeSession(id?: string): Promise<void> {
-    await this.post<void>('/api/v1/auth/sessions/revoke', { sessionId: id })
-  }
-
-  // Storage
-  async listStoragePools(): Promise<StoragePool[]> {
-    const response = await this.get<{ pools: StoragePool[] }>('/api/v1/storage/pools')
-    return response.pools
-  }
-
-  async getStoragePool(uuid: string): Promise<StoragePool> {
-    return this.get<StoragePool>(`/api/v1/storage/pools/${uuid}`)
-  }
-
-  async listSnapshots(): Promise<Snapshot[]> {
-    const response = await this.get<{ items: Snapshot[] }>('/api/v1/backup/snapshots')
-    return response.items
-  }
-
-  async createSnapshot(subvols: string[], tag?: string): Promise<BackupJob> {
-    return this.post<BackupJob>('/api/v1/backup/snapshots/create', { subvols, tag })
-  }
-
-  async deleteSnapshot(id: string): Promise<void> {
-    await this.delete<void>(`/api/v1/backup/snapshots/${id}`)
-  }
-
-  // Apps
-  async listApps(): Promise<App[]> {
-    const response = await this.get<{ items: App[] }>('/api/v1/apps/installed')
-    return response.items
-  }
-
-  async getApp(id: string): Promise<App> {
-    return this.get<App>(`/api/v1/apps/${id}`)
-  }
-
-  async installApp(id: string, params?: Record<string, any>): Promise<void> {
-    await this.post<void>('/api/v1/apps/install', { id, params })
-  }
-
-  async uninstallApp(id: string, keepData?: boolean): Promise<void> {
-    await this.delete<void>(`/api/v1/apps/${id}`, { keep_data: keepData })
-  }
-
-  async startApp(id: string): Promise<void> {
-    await this.post<void>(`/api/v1/apps/${id}/start`)
-  }
-
-  async stopApp(id: string): Promise<void> {
-    await this.post<void>(`/api/v1/apps/${id}/stop`)
-  }
-
-  async restartApp(id: string): Promise<void> {
-    await this.post<void>(`/api/v1/apps/${id}/restart`)
-  }
-
-  // Alerts
-  async listAlertRules(): Promise<AlertRule[]> {
-    const response = await this.get<{ rules: AlertRule[] }>('/api/v1/monitor/alerts/rules')
-    return response.rules
-  }
-
-  async createAlertRule(request: {
-    name: string
-    metric: string
-    operator: '>' | '<' | '>=' | '<=' | '==' | '!='
-    threshold: number
-    duration: number
-    severity: 'info' | 'warning' | 'critical'
-    enabled: boolean
-  }): Promise<AlertRule> {
-    return this.post<AlertRule>('/api/v1/monitor/alerts/rules', request)
-  }
-
-  async updateAlertRule(id: string, request: Partial<{
-    name: string
-    enabled: boolean
-    threshold: number
-    duration: number
-    severity: 'info' | 'warning' | 'critical'
-  }>): Promise<AlertRule> {
-    return this.patch<AlertRule>(`/api/v1/monitor/alerts/rules/${id}`, request)
-  }
-
-  async deleteAlertRule(id: string): Promise<void> {
-    await this.delete<void>(`/api/v1/monitor/alerts/rules/${id}`)
-  }
-
-  async listAlertChannels(): Promise<AlertChannel[]> {
-    const response = await this.get<{ channels: AlertChannel[] }>('/api/v1/monitor/alerts/channels')
-    return response.channels
-  }
-
-  async createAlertChannel(request: {
-    type: 'email' | 'webhook' | 'ntfy'
-    name: string
-    enabled: boolean
-    config: Record<string, any>
-  }): Promise<AlertChannel> {
-    return this.post<AlertChannel>('/api/v1/monitor/alerts/channels', request)
-  }
-
-  async testAlertChannel(id: string): Promise<void> {
-    await this.post<void>(`/api/v1/monitor/alerts/channels/${id}/test`)
-  }
-
-  // Backups
-  async listBackupSchedules(): Promise<BackupSchedule[]> {
-    const response = await this.get<{ schedules: BackupSchedule[] }>('/api/v1/backup/schedules')
-    return response.schedules
-  }
-
-  async createBackupSchedule(request: {
-    name: string
-    subvols: string[]
-    frequency: string
-    retention: {
-      minKeep: number
-      days?: number
-      weeks?: number
-      months?: number
-      years?: number
-    }
-    enabled: boolean
-  }): Promise<BackupSchedule> {
-    return this.post<BackupSchedule>('/api/v1/backup/schedules', request)
-  }
-
-  async updateBackupSchedule(id: string, request: Partial<{
-    name: string
-    enabled: boolean
-    frequency: string
-    retention: {
-      minKeep: number
-      days?: number
-      weeks?: number
-      months?: number
-      years?: number
-    }
-  }>): Promise<BackupSchedule> {
-    return this.patch<BackupSchedule>(`/api/v1/backup/schedules/${id}`, request)
-  }
-
-  async deleteBackupSchedule(id: string): Promise<void> {
-    await this.delete<void>(`/api/v1/backup/schedules/${id}`)
-  }
-
-  async runBackup(scheduleId: string): Promise<BackupJob> {
-    return this.post<BackupJob>('/api/v1/backup/run', { schedule_id: scheduleId })
-  }
-
-  async listBackupJobs(): Promise<BackupJob[]> {
-    const response = await this.get<{ jobs: BackupJob[] }>('/api/v1/backup/jobs')
-    return response.jobs
-  }
-
-  async getBackupJob(id: string): Promise<BackupJob> {
-    return this.get<BackupJob>(`/api/v1/backup/jobs/${id}`)
-  }
-
-  async cancelBackupJob(id: string): Promise<void> {
-    await this.post<void>(`/api/v1/backup/jobs/${id}/cancel`)
-  }
-
-  // OpenAPI
-  async getOpenAPISpec(): Promise<any> {
-    return this.get<any>('/api/v1/openapi.json')
-  }
-}
-
-/**
- * API Client Error
- */
-export class APIClientError extends Error {
-  constructor(
-    message: string,
-    public code: string,
-    public hint?: string,
-    public details?: Record<string, any>
-  ) {
-    super(message)
-    this.name = 'APIClientError'
-  }
-}
-
-/**
- * Create a NithronOS API client
- */
-export function createNOSClient(config: ClientConfig): NOSClient {
-  return new NOSClient(config)
-}
-
-// Export all types
-export * from './nos-client'
+// Re-export the base http methods as default
+export default http;

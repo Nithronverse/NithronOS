@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import http from '@/lib/nos-client';
 import type {
   NetworkStatus,
   FirewallState,
@@ -23,7 +23,7 @@ import type {
 export function useNetworkStatus() {
   return useQuery<NetworkStatus>({
     queryKey: ['network', 'status'],
-    queryFn: () => api.get('/api/v1/net/status'),
+    queryFn: () => http.get('/v1/net/status'),
     refetchInterval: 10000, // Poll every 10 seconds
   });
 }
@@ -32,7 +32,7 @@ export function useNetworkStatus() {
 export function useFirewallState() {
   return useQuery<FirewallState>({
     queryKey: ['firewall', 'state'],
-    queryFn: () => api.get('/api/v1/net/firewall/state'),
+    queryFn: () => http.get('/v1/net/firewall/state'),
     refetchInterval: 5000, // Poll more frequently when confirming
   });
 }
@@ -41,7 +41,7 @@ export function usePlanFirewall() {
   const queryClient = useQueryClient();
   
   return useMutation<FirewallPlan, Error, PlanFirewallRequest>({
-    mutationFn: (data) => api.post('/api/v1/net/firewall/plan', data),
+    mutationFn: (data) => http.post('/v1/net/firewall/plan', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['firewall'] });
     },
@@ -52,7 +52,7 @@ export function useApplyFirewall() {
   const queryClient = useQueryClient();
   
   return useMutation<void, Error, ApplyFirewallRequest>({
-    mutationFn: (data) => api.post('/api/v1/net/firewall/apply', data),
+    mutationFn: (data) => http.post('/v1/net/firewall/apply', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['firewall'] });
       queryClient.invalidateQueries({ queryKey: ['network'] });
@@ -64,7 +64,7 @@ export function useConfirmFirewall() {
   const queryClient = useQueryClient();
   
   return useMutation<void, Error>({
-    mutationFn: () => api.post('/api/v1/net/firewall/confirm'),
+    mutationFn: () => http.post('/v1/net/firewall/confirm'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['firewall'] });
       queryClient.invalidateQueries({ queryKey: ['network'] });
@@ -76,7 +76,7 @@ export function useRollbackFirewall() {
   const queryClient = useQueryClient();
   
   return useMutation<void, Error>({
-    mutationFn: () => api.post('/api/v1/net/firewall/rollback'),
+    mutationFn: () => http.post('/v1/net/firewall/rollback'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['firewall'] });
       queryClient.invalidateQueries({ queryKey: ['network'] });
@@ -88,7 +88,7 @@ export function useRollbackFirewall() {
 export function useWireGuardState() {
   return useQuery<WireGuardConfig>({
     queryKey: ['wireguard', 'state'],
-    queryFn: () => api.get('/api/v1/net/wg/state'),
+    queryFn: () => http.get('/v1/net/wg/state'),
     refetchInterval: 30000, // Poll every 30 seconds
   });
 }
@@ -97,7 +97,7 @@ export function useEnableWireGuard() {
   const queryClient = useQueryClient();
   
   return useMutation<void, Error, EnableWireGuardRequest>({
-    mutationFn: (data) => api.post('/api/v1/net/wg/enable', data),
+    mutationFn: (data) => http.post('/v1/net/wg/enable', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wireguard'] });
       queryClient.invalidateQueries({ queryKey: ['network'] });
@@ -109,7 +109,7 @@ export function useDisableWireGuard() {
   const queryClient = useQueryClient();
   
   return useMutation<void, Error>({
-    mutationFn: () => api.post('/api/v1/net/wg/disable'),
+    mutationFn: () => http.post('/v1/net/wg/disable'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wireguard'] });
       queryClient.invalidateQueries({ queryKey: ['network'] });
@@ -121,7 +121,7 @@ export function useAddWireGuardPeer() {
   const queryClient = useQueryClient();
   
   return useMutation<WireGuardPeerConfig, Error, AddWireGuardPeerRequest>({
-    mutationFn: (data) => api.post('/api/v1/net/wg/peers/add', data),
+    mutationFn: (data) => http.post('/v1/net/wg/peers/add', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wireguard'] });
     },
@@ -132,7 +132,7 @@ export function useRemoveWireGuardPeer() {
   const queryClient = useQueryClient();
   
   return useMutation<void, Error, string>({
-    mutationFn: (peerId) => api.post(`/api/v1/net/wg/peers/remove?id=${peerId}`),
+    mutationFn: (peerId) => http.post(`/v1/net/wg/peers/remove?id=${peerId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wireguard'] });
     },
@@ -143,7 +143,7 @@ export function useRemoveWireGuardPeer() {
 export function useHTTPSConfig() {
   return useQuery<HTTPSConfig>({
     queryKey: ['https', 'config'],
-    queryFn: () => api.get('/api/v1/net/https/config'),
+    queryFn: () => http.get('/v1/net/https/config'),
     refetchInterval: 60000, // Poll every minute
   });
 }
@@ -152,7 +152,7 @@ export function useConfigureHTTPS() {
   const queryClient = useQueryClient();
   
   return useMutation<void, Error, ConfigureHTTPSRequest>({
-    mutationFn: (data) => api.post('/api/v1/net/https/configure', data),
+    mutationFn: (data) => http.post('/v1/net/https/configure', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['https'] });
       queryClient.invalidateQueries({ queryKey: ['network'] });
@@ -162,7 +162,7 @@ export function useConfigureHTTPS() {
 
 export function useTestHTTPS() {
   return useMutation<{ status: string; message: string }, Error>({
-    mutationFn: () => api.post('/api/v1/net/https/test'),
+    mutationFn: () => http.post('/v1/net/https/test'),
   });
 }
 
@@ -170,7 +170,7 @@ export function useTestHTTPS() {
 export function useTOTPStatus() {
   return useQuery<TOTPStatus>({
     queryKey: ['auth', '2fa', 'status'],
-    queryFn: () => api.get('/api/v1/auth/2fa/status'),
+    queryFn: () => http.get('/v1/auth/2fa/status'),
   });
 }
 
@@ -178,7 +178,7 @@ export function useEnrollTOTP() {
   const queryClient = useQueryClient();
   
   return useMutation<TOTPEnrollment, Error, EnrollTOTPRequest>({
-    mutationFn: (data) => api.post('/api/v1/auth/2fa/enroll', data),
+    mutationFn: (data) => http.post('/v1/auth/2fa/enroll', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['auth', '2fa'] });
     },
@@ -189,7 +189,7 @@ export function useVerifyTOTP() {
   const queryClient = useQueryClient();
   
   return useMutation<void, Error, VerifyTOTPRequest>({
-    mutationFn: (data) => api.post('/api/v1/auth/2fa/verify', data),
+    mutationFn: (data) => http.post('/v1/auth/2fa/verify', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['auth', '2fa'] });
     },
@@ -200,7 +200,7 @@ export function useDisableTOTP() {
   const queryClient = useQueryClient();
   
   return useMutation<void, Error>({
-    mutationFn: () => api.post('/api/v1/auth/2fa/disable'),
+    mutationFn: () => http.post('/v1/auth/2fa/disable'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['auth', '2fa'] });
     },
@@ -211,7 +211,7 @@ export function useRegenerateBackupCodes() {
   const queryClient = useQueryClient();
   
   return useMutation<{ backup_codes: string[] }, Error>({
-    mutationFn: () => api.post('/api/v1/auth/2fa/backup-codes'),
+    mutationFn: () => http.post('/v1/auth/2fa/backup-codes'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['auth', '2fa'] });
     },
@@ -223,7 +223,7 @@ export function useStartWizard() {
   const queryClient = useQueryClient();
   
   return useMutation<RemoteAccessWizardState, Error>({
-    mutationFn: () => api.post('/api/v1/net/wizard/start'),
+    mutationFn: () => http.post('/v1/net/wizard/start'),
     onSuccess: (data) => {
       queryClient.setQueryData(['wizard', 'state'], data);
     },
@@ -233,7 +233,7 @@ export function useStartWizard() {
 export function useWizardState() {
   return useQuery<RemoteAccessWizardState>({
     queryKey: ['wizard', 'state'],
-    queryFn: () => api.get('/api/v1/net/wizard/state'),
+    queryFn: () => http.get('/v1/net/wizard/state'),
     enabled: false, // Only fetch when needed
   });
 }
@@ -242,7 +242,7 @@ export function useWizardNext() {
   const queryClient = useQueryClient();
   
   return useMutation<RemoteAccessWizardState, Error, Record<string, any>>({
-    mutationFn: (data) => api.post('/api/v1/net/wizard/next', data),
+    mutationFn: (data) => http.post('/v1/net/wizard/next', data),
     onSuccess: (data) => {
       queryClient.setQueryData(['wizard', 'state'], data);
     },
@@ -253,7 +253,7 @@ export function useCompleteWizard() {
   const queryClient = useQueryClient();
   
   return useMutation<void, Error>({
-    mutationFn: () => api.post('/api/v1/net/wizard/complete'),
+    mutationFn: () => http.post('/v1/net/wizard/complete'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wizard'] });
       queryClient.invalidateQueries({ queryKey: ['network'] });

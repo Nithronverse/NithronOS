@@ -32,7 +32,9 @@ import {
   useApiStatus
 } from '@/hooks/use-api'
 import { cn } from '@/lib/utils'
-import type { Device, Pool } from '@/lib/api'
+// import type { Device, Pool } from '@/lib/api'
+type Device = any
+type Pool = any
 
 // Helper functions
 function formatBytes(bytes: number): string {

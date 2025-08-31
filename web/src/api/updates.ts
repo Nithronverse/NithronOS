@@ -1,4 +1,4 @@
-import { apiClient } from '@/lib/api-client';
+import http from '@/lib/nos-client';
 import type {
   SystemVersion,
   UpdateChannel,
@@ -13,45 +13,45 @@ import type {
 export const updatesApi = {
   // Version and channel
   getVersion: () => 
-    apiClient.get<SystemVersion>('/api/v1/updates/version'),
+    http.get<SystemVersion>('/v1/updates/version'),
     
   getChannel: () => 
-    apiClient.get<{ channel: UpdateChannel }>('/api/v1/updates/channel'),
+    http.get<{ channel: UpdateChannel }>('/v1/updates/channel'),
     
   setChannel: (request: ChannelChangeRequest) =>
-    apiClient.post<{ status: string; channel: UpdateChannel }>(
-      '/api/v1/updates/channel',
+    http.post<{ status: string; channel: UpdateChannel }>(
+      '/v1/updates/channel',
       request
     ),
 
   // Update operations
   checkForUpdates: () =>
-    apiClient.get<UpdateCheckResponse>('/api/v1/updates/check'),
+    http.get<UpdateCheckResponse>('/v1/updates/check'),
     
   applyUpdate: (request?: UpdateApplyRequest) =>
-    apiClient.post<{ status: string; message: string }>(
-      '/api/v1/updates/apply',
+    http.post<{ status: string; message: string }>(
+      '/v1/updates/apply',
       request || {}
     ),
     
   getProgress: () =>
-    apiClient.get<UpdateProgress>('/api/v1/updates/progress'),
+    http.get<UpdateProgress>('/v1/updates/progress'),
     
   rollback: (request: RollbackRequest) =>
-    apiClient.post<{ status: string; message: string }>(
-      '/api/v1/updates/rollback',
+    http.post<{ status: string; message: string }>(
+      '/v1/updates/rollback',
       request
     ),
 
   // Snapshots
   listSnapshots: () =>
-    apiClient.get<{ snapshots: UpdateSnapshot[]; total: number }>(
-      '/api/v1/updates/snapshots'
+    http.get<{ snapshots: UpdateSnapshot[]; total: number }>(
+      '/v1/updates/snapshots'
     ),
     
   deleteSnapshot: (id: string) =>
-    apiClient.delete<{ status: string; snapshot_id: string }>(
-      `/api/v1/updates/snapshots/${id}`
+    http.del<{ status: string; snapshot_id: string }>(
+      `/v1/updates/snapshots/${id}`
     ),
 
   // Progress streaming (Server-Sent Events)

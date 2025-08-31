@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import QRCode from 'qrcode'
 import BrandHeader from '@/components/BrandHeader'
 import { useGlobalNotice } from '@/lib/globalNotice'
-import { api, APIError, ProxyMisconfiguredError, getErrorMessage } from '@/lib/api-client'
+import { api, APIError, ProxyMisconfiguredError, getErrorMessage } from '@/lib/nos-client'
 import { toast } from '@/components/ui/toast'
 import { TIMEZONE_REGIONS, getTimezoneInfo } from '@/lib/timezone-data'
 

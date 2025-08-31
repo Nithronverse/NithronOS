@@ -4,12 +4,12 @@ import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 
 import Setup from '../pages/Setup'
-import { api } from '../lib/api-client'
+import http from '../lib/nos-client'
 import { GlobalNoticeProvider } from '../lib/globalNotice'
 
 // Mock the API client
-vi.mock('../lib/api-client', () => ({
-  api: {
+vi.mock('../lib/nos-client', () => ({
+  default: {
     setup: {
       getState: vi.fn(),
       verifyOTP: vi.fn(),
@@ -66,7 +66,7 @@ describe.skip('Setup Flow', () => {
 
   describe('Setup State Check', () => {
     it('should redirect to login if setup is already complete', async () => {
-      vi.mocked(api.setup.getState).mockRejectedValueOnce({
+      vi.mocked(http.setup.getState).mockRejectedValueOnce({
         status: 410,
         message: 'Setup already completed',
       })
@@ -86,7 +86,7 @@ describe.skip('Setup Flow', () => {
     })
 
     it('should show OTP form when first boot requires OTP', async () => {
-      vi.mocked(api.setup.getState).mockResolvedValueOnce({
+      vi.mocked(http.setup.getState).mockResolvedValueOnce({
         firstBoot: true,
         otpRequired: true,
       })
@@ -100,7 +100,7 @@ describe.skip('Setup Flow', () => {
     })
 
     it('should show waiting message when OTP not required', async () => {
-      vi.mocked(api.setup.getState).mockResolvedValueOnce({
+      vi.mocked(http.setup.getState).mockResolvedValueOnce({
         firstBoot: true,
         otpRequired: false,
       })
@@ -115,7 +115,7 @@ describe.skip('Setup Flow', () => {
 
   describe('OTP Verification', () => {
     beforeEach(async () => {
-      vi.mocked(api.setup.getState).mockResolvedValueOnce({
+      vi.mocked(http.setup.getState).mockResolvedValueOnce({
         firstBoot: true,
         otpRequired: true,
       })
@@ -142,7 +142,7 @@ describe.skip('Setup Flow', () => {
     })
 
     it('should handle successful OTP verification', async () => {
-      vi.mocked(api.setup.verifyOTP).mockResolvedValueOnce({ ok: true, token: 'mock-token' })
+      vi.mocked(http.setup.verifyOTP).mockResolvedValueOnce({ ok: true, token: 'mock-token' })
       
       renderSetup()
       const user = userEvent.setup()
@@ -155,13 +155,13 @@ describe.skip('Setup Flow', () => {
       await user.click(screen.getByRole('button', { name: /verify/i }))
       
       await waitFor(() => {
-        expect(api.setup.verifyOTP).toHaveBeenCalledWith('test-otp-123')
+        expect(http.setup.verifyOTP).toHaveBeenCalledWith('test-otp-123')
         expect(screen.getByRole('button', { name: /create admin account/i })).toBeInTheDocument()
       })
     })
 
     it('should handle invalid OTP error', async () => {
-      vi.mocked(api.setup.verifyOTP).mockRejectedValueOnce({
+      vi.mocked(http.setup.verifyOTP).mockRejectedValueOnce({
         status: 401,
         message: 'Invalid OTP',
       })
@@ -182,7 +182,7 @@ describe.skip('Setup Flow', () => {
     })
 
     it('should show permission hint on 403 error', async () => {
-      vi.mocked(api.setup.verifyOTP).mockRejectedValueOnce({
+      vi.mocked(http.setup.verifyOTP).mockRejectedValueOnce({
         status: 403,
         message: 'Forbidden',
       })
@@ -205,7 +205,7 @@ describe.skip('Setup Flow', () => {
 
   describe('Admin Account Creation', () => {
     beforeEach(async () => {
-      vi.mocked(api.setup.getState).mockResolvedValueOnce({
+      vi.mocked(http.setup.getState).mockResolvedValueOnce({
         firstBoot: true,
         otpRequired: false,
       })
@@ -281,7 +281,7 @@ describe.skip('Setup Flow', () => {
     })
 
     it('should handle successful admin creation without TOTP', async () => {
-      vi.mocked(api.setup.createAdmin).mockResolvedValueOnce({
+      vi.mocked(http.setup.createAdmin).mockResolvedValueOnce({
         success: true,
         totpRequired: false,
       })
@@ -301,7 +301,7 @@ describe.skip('Setup Flow', () => {
       await user.click(createButton)
       
       await waitFor(() => {
-        expect(api.setup.createAdmin).toHaveBeenCalledWith({
+        expect(http.setup.createAdmin).toHaveBeenCalledWith({
           username: 'admin',
           password: 'StrongPassword123!',
         })
@@ -310,12 +310,12 @@ describe.skip('Setup Flow', () => {
     })
 
     it('should show TOTP enrollment when required', async () => {
-      vi.mocked(api.setup.createAdmin).mockResolvedValueOnce({
+      vi.mocked(http.setup.createAdmin).mockResolvedValueOnce({
         success: true,
         totpRequired: true,
       })
       
-      vi.mocked(api.auth.totp.enroll).mockResolvedValueOnce({
+      vi.mocked(http.auth.totp.enroll).mockResolvedValueOnce({
 
         otpauth_url: 'otpauth://totp/NithronOS:admin?secret=MOCK_SECRET',
       })
@@ -345,25 +345,25 @@ describe.skip('Setup Flow', () => {
   describe('TOTP Enrollment', () => {
     it('should handle TOTP verification after enrollment', async () => {
       // Setup state
-      vi.mocked(api.setup.getState).mockResolvedValueOnce({
+      vi.mocked(http.setup.getState).mockResolvedValueOnce({
         firstBoot: true,
         otpRequired: false,
       })
       
       // Admin creation requires TOTP
-      vi.mocked(api.setup.createAdmin).mockResolvedValueOnce({
+      vi.mocked(http.setup.createAdmin).mockResolvedValueOnce({
         success: true,
         totpRequired: true,
       })
       
       // TOTP enrollment
-      vi.mocked(api.auth.totp.enroll).mockResolvedValueOnce({
+      vi.mocked(http.auth.totp.enroll).mockResolvedValueOnce({
 
         otpauth_url: 'otpauth://totp/NithronOS:admin?secret=MOCK_SECRET',
       })
       
       // TOTP verification
-      vi.mocked(api.auth.totp.verify).mockResolvedValueOnce({ ok: true })
+      vi.mocked(http.auth.totp.verify).mockResolvedValueOnce({ ok: true })
       
       renderSetup()
       const user = userEvent.setup()
@@ -388,23 +388,23 @@ describe.skip('Setup Flow', () => {
       await user.click(screen.getByRole('button', { name: /verify and continue/i }))
       
       await waitFor(() => {
-        expect(api.auth.totp.verify).toHaveBeenCalledWith('123456')
+        expect(http.auth.totp.verify).toHaveBeenCalledWith('123456')
         expect(mockNavigate).toHaveBeenCalledWith('/login', { replace: true })
       })
     })
 
     it('should allow skipping TOTP enrollment', async () => {
-      vi.mocked(api.setup.getState).mockResolvedValueOnce({
+      vi.mocked(http.setup.getState).mockResolvedValueOnce({
         firstBoot: true,
         otpRequired: false,
       })
       
-      vi.mocked(api.setup.createAdmin).mockResolvedValueOnce({
+      vi.mocked(http.setup.createAdmin).mockResolvedValueOnce({
         success: true,
         totpRequired: true,
       })
       
-      vi.mocked(api.auth.totp.enroll).mockResolvedValueOnce({
+      vi.mocked(http.auth.totp.enroll).mockResolvedValueOnce({
 
         otpauth_url: 'otpauth://totp/NithronOS:admin?secret=MOCK_SECRET',
       })

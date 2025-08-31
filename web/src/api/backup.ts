@@ -1,4 +1,4 @@
-import { get, post, patch, del } from '@/lib/api';
+import http from '@/lib/nos-client';
 import type {
   Schedule,
   Snapshot,
@@ -18,53 +18,53 @@ import type {
 export const backupApi = {
   // Schedules
   schedules: {
-    list: () => get<{ schedules: Schedule[] }>('/api/v1/backup/schedules'),
-    get: (id: string) => get<Schedule>(`/api/v1/backup/schedules/${id}`),
-    create: (data: CreateScheduleRequest) => post<Schedule>('/api/v1/backup/schedules', data),
-    update: (id: string, data: Partial<Schedule>) => patch<Schedule>(`/api/v1/backup/schedules/${id}`, data),
-    delete: (id: string) => del<{ status: string }>(`/api/v1/backup/schedules/${id}`),
+    list: () => http.get<{ schedules: Schedule[] }>('/v1/backup/schedules'),
+    get: (id: string) => http.get<Schedule>(`/v1/backup/schedules/${id}`),
+    create: (data: CreateScheduleRequest) => http.post<Schedule>('/v1/backup/schedules', data),
+    update: (id: string, data: Partial<Schedule>) => http.patch<Schedule>(`/v1/backup/schedules/${id}`, data),
+    delete: (id: string) => http.del<{ status: string }>(`/v1/backup/schedules/${id}`),
   },
   
   // Snapshots
   snapshots: {
     list: (subvolume?: string) => {
       const params = subvolume ? `?subvolume=${encodeURIComponent(subvolume)}` : '';
-      return get<{ snapshots: Snapshot[] }>(`/api/v1/backup/snapshots${params}`);
+      return http.get<{ snapshots: Snapshot[] }>(`/v1/backup/snapshots${params}`);
     },
-    create: (data: CreateSnapshotRequest) => post<BackupJob>('/api/v1/backup/snapshots/create', data),
-    delete: (id: string) => del<{ status: string }>(`/api/v1/backup/snapshots/${id}`),
-    stats: () => get<SnapshotStats>('/api/v1/backup/snapshots/stats'),
+    create: (data: CreateSnapshotRequest) => http.post<BackupJob>('/v1/backup/snapshots/create', data),
+    delete: (id: string) => http.del<{ status: string }>(`/v1/backup/snapshots/${id}`),
+    stats: () => http.get<SnapshotStats>('/v1/backup/snapshots/stats'),
   },
   
   // Destinations
   destinations: {
-    list: () => get<{ destinations: Destination[] }>('/api/v1/backup/destinations'),
-    get: (id: string) => get<Destination>(`/api/v1/backup/destinations/${id}`),
-    create: (data: CreateDestinationRequest) => post<Destination>('/api/v1/backup/destinations', data),
-    update: (id: string, data: Partial<Destination>) => patch<Destination>(`/api/v1/backup/destinations/${id}`, data),
-    delete: (id: string) => del<{ status: string }>(`/api/v1/backup/destinations/${id}`),
-    test: (id: string) => post<{ success: boolean; error?: string }>(`/api/v1/backup/destinations/${id}/test`, {}),
-    storeSSHKey: (id: string, data: StoreSSHKeyRequest) => post<{ status: string }>(`/api/v1/backup/destinations/${id}/key`, data),
+    list: () => http.get<{ destinations: Destination[] }>('/v1/backup/destinations'),
+    get: (id: string) => http.get<Destination>(`/v1/backup/destinations/${id}`),
+    create: (data: CreateDestinationRequest) => http.post<Destination>('/v1/backup/destinations', data),
+    update: (id: string, data: Partial<Destination>) => http.patch<Destination>(`/v1/backup/destinations/${id}`, data),
+    delete: (id: string) => http.del<{ status: string }>(`/v1/backup/destinations/${id}`),
+    test: (id: string) => http.post<{ success: boolean; error?: string }>(`/v1/backup/destinations/${id}/test`, {}),
+    storeSSHKey: (id: string, data: StoreSSHKeyRequest) => http.post<{ status: string }>(`/v1/backup/destinations/${id}/key`, data),
   },
   
   // Replication
-  replicate: (data: ReplicateRequest) => post<BackupJob>('/api/v1/backup/replicate', data),
+  replicate: (data: ReplicateRequest) => http.post<BackupJob>('/v1/backup/replicate', data),
   
   // Restore
   restore: {
-    createPlan: (data: RestorePlanRequest) => post<RestorePlan>('/api/v1/backup/restore/plan', data),
-    apply: (data: RestorePlanRequest) => post<BackupJob>('/api/v1/backup/restore/apply', data),
-    listPoints: () => get<{ restore_points: RestorePoint[] }>('/api/v1/backup/restore/points'),
+    createPlan: (data: RestorePlanRequest) => http.post<RestorePlan>('/v1/backup/restore/plan', data),
+    apply: (data: RestorePlanRequest) => http.post<BackupJob>('/v1/backup/restore/apply', data),
+    listPoints: () => http.get<{ restore_points: RestorePoint[] }>('/v1/backup/restore/points'),
   },
   
   // Jobs
   jobs: {
     list: (limit?: number) => {
       const params = limit ? `?limit=${limit}` : '';
-      return get<{ jobs: BackupJob[] }>(`/api/v1/backup/jobs${params}`);
+      return http.get<{ jobs: BackupJob[] }>(`/v1/backup/jobs${params}`);
     },
-    get: (id: string) => get<BackupJob>(`/api/v1/backup/jobs/${id}`),
-    cancel: (id: string) => post<{ status: string }>(`/api/v1/backup/jobs/${id}/cancel`, {}),
+    get: (id: string) => http.get<BackupJob>(`/v1/backup/jobs/${id}`),
+    cancel: (id: string) => http.post<{ status: string }>(`/v1/backup/jobs/${id}/cancel`, {}),
   },
 };
 

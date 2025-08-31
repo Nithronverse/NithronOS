@@ -1,5 +1,5 @@
 // Dashboard API types and endpoints
-import { apiClient as api } from './api-client'
+import http from './nos-client'
 
 // Dashboard types
 export interface DashboardData {
@@ -79,7 +79,7 @@ export const dashboardApi = {
   // Get all dashboard data
   getDashboard: async (): Promise<DashboardData> => {
     try {
-      return await api.get<DashboardData>('/v1/dashboard')
+      return await http.get<DashboardData>('/v1/dashboard')
     } catch (error) {
       console.warn('Failed to fetch dashboard data:', error)
       // Return safe defaults
@@ -119,7 +119,7 @@ export const dashboardApi = {
   // Individual endpoints for granular updates
   getSystemSummary: async (): Promise<SystemSummary> => {
     try {
-      return await api.get<SystemSummary>('/v1/health/system')
+      return await http.get<SystemSummary>('/v1/health/system')
     } catch (error) {
       return {
         status: 'ok',
@@ -134,7 +134,7 @@ export const dashboardApi = {
 
   getStorageSummary: async (): Promise<StorageSummary> => {
     try {
-      return await api.get<StorageSummary>('/v1/storage/summary')
+      return await http.get<StorageSummary>('/v1/storage/summary')
     } catch (error) {
       return {
         totalBytes: 0,
@@ -147,7 +147,7 @@ export const dashboardApi = {
 
   getDisksSummary: async (): Promise<DisksSummary> => {
     try {
-      return await api.get<DisksSummary>('/v1/health/disks/summary')
+      return await http.get<DisksSummary>('/v1/health/disks/summary')
     } catch (error) {
       return {
         total: 0,
@@ -161,7 +161,7 @@ export const dashboardApi = {
 
   getShares: async (): Promise<ShareInfo[]> => {
     try {
-      const response = await api.get<ShareInfo[]>('/v1/shares')
+      const response = await http.get<ShareInfo[]>('/v1/shares')
       return Array.isArray(response) ? response : []
     } catch (error) {
       return []
@@ -170,7 +170,7 @@ export const dashboardApi = {
 
   getInstalledApps: async (): Promise<AppInfo[]> => {
     try {
-      const response = await api.get<AppInfo[]>('/v1/apps/installed')
+      const response = await http.get<AppInfo[]>('/v1/apps/installed')
       return Array.isArray(response) ? response : []
     } catch (error) {
       return []
@@ -179,7 +179,7 @@ export const dashboardApi = {
 
   getMaintenanceStatus: async (): Promise<MaintenanceStatus> => {
     try {
-      return await api.get<MaintenanceStatus>('/v1/maintenance/status')
+      return await http.get<MaintenanceStatus>('/v1/maintenance/status')
     } catch (error) {
       return {
         scrub: { state: 'idle', nextISO: '' },
@@ -190,7 +190,7 @@ export const dashboardApi = {
 
   getRecentEvents: async (limit = 10): Promise<EventInfo[]> => {
     try {
-      const response = await api.get<EventInfo[]>(`/v1/events/recent?limit=${limit}`)
+      const response = await http.get<EventInfo[]>(`/v1/events/recent?limit=${limit}`)
       return Array.isArray(response) ? response : []
     } catch (error) {
       return []

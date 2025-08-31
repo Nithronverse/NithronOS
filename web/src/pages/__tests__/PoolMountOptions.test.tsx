@@ -2,11 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { toast } from '@/components/ui/toast'
-import { api } from '@/lib/api-client'
+import http from '@/lib/nos-client'
 import { PoolDetails } from '../PoolDetails'
 
-vi.mock('@/lib/api-client', () => ({
-  api: {
+vi.mock('@/lib/nos-client', () => ({
+  default: {
     pools: {
       get: vi.fn(),
       getMountOptions: vi.fn(),
@@ -30,7 +30,7 @@ describe.skip('PoolMountOptions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     // Mock the pool data
-    vi.mocked(api.pools.get).mockResolvedValue({
+    vi.mocked(http.pools.get).mockResolvedValue({
       id:'p1',
       mount:'/mnt/p1',
       uuid:'U',
@@ -43,8 +43,8 @@ describe.skip('PoolMountOptions', () => {
   })
 
   it('saves updated options (applied)', async () => {
-    vi.mocked(api.pools.getMountOptions).mockResolvedValue({ mountOptions:'compress=zstd:3,noatime' })
-    vi.mocked(api.pools.updateMountOptions).mockResolvedValue({ ok:true, mountOptions:'compress=zstd:3,ssd,discard=async,noatime', rebootRequired:false })
+    vi.mocked(http.pools.getMountOptions).mockResolvedValue({ mountOptions:'compress=zstd:3,noatime' })
+    vi.mocked(http.pools.updateMountOptions).mockResolvedValue({ ok:true, mountOptions:'compress=zstd:3,ssd,discard=async,noatime', rebootRequired:false })
 
     render(
       <MemoryRouter initialEntries={["/pools/p1"]}>
@@ -64,8 +64,8 @@ describe.skip('PoolMountOptions', () => {
   })
 
   it('saves with reboot warning', async () => {
-    vi.mocked(api.pools.getMountOptions).mockResolvedValue({ mountOptions:'compress=zstd:3,noatime' })
-    vi.mocked(api.pools.updateMountOptions).mockResolvedValue({ ok:true, mountOptions:'compress=zstd:3,ssd,discard=async,noatime', rebootRequired:true })
+    vi.mocked(http.pools.getMountOptions).mockResolvedValue({ mountOptions:'compress=zstd:3,noatime' })
+    vi.mocked(http.pools.updateMountOptions).mockResolvedValue({ ok:true, mountOptions:'compress=zstd:3,ssd,discard=async,noatime', rebootRequired:true })
 
     render(
       <MemoryRouter initialEntries={["/pools/p1"]}>

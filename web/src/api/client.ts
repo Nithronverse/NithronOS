@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiDelete, apiPatch } from './http'
+import http from '@/lib/nos-client'
 import type { paths, components } from './schema'
 
 type GetResponse<Path extends keyof paths> = paths[Path] extends { get: any }
@@ -90,57 +90,57 @@ type PostResponse<Path extends keyof paths> = paths[Path] extends { post: any }
 
 export const api = {
 	health: {
-		get: () => apiGet<Health>('/api/health'),
+		get: () => http.get<Health>('/v1/health'),
 	},
 	disks: {
-		get: () => apiGet<Disks>('/api/disks'),
+		get: () => http.get<Disks>('/v1/disks'),
 	},
 	pools: {
-		get: () => apiGet<Pools>('/api/pools'),
-		planCreateV1: (body: any) => apiPost<any>('/api/v1/pools/plan-create', body),
-		applyCreateV1: (body: any) => apiPost<any>('/api/v1/pools/apply-create', body),
-		txStatus: (id: string) => apiGet<any>(`/api/v1/pools/tx/${id}/status`),
-		txLog: (id: string, cursor = 0, max = 1000) => apiGet<any>(`/api/v1/pools/tx/${id}/log?cursor=${cursor}&max=${max}`),
-		planCreate: (body: any) => apiPost<PostResponse<'/api/pools/plan-create'>>('/api/pools/plan-create', body),
-		create: (body: any) => apiPost<PostResponse<'/api/pools/create'>>('/api/pools/create', body),
-		candidates: () => apiGet<PoolCandidates>('/api/pools/candidates'),
-		import: (deviceOrUuid: string) => apiPost<PostResponse<'/api/pools/import'>>('/api/pools/import', { device_or_uuid: deviceOrUuid }),
-		discoverV1: () => apiGet<any>('/api/v1/pools/discover'),
-		importV1: (body: { uuid: string; label?: string; mountpoint: string }) => apiPost<any>('/api/v1/pools/import', body),
-		scrubStart: (mount: string) => apiPost<any>('/api/v1/pools/scrub/start', { mount }),
-		scrubStatus: (mount: string) => apiGet<any>(`/api/v1/pools/scrub/status?mount=${encodeURIComponent(mount)}`),
+		get: () => http.get<Pools>('/v1/pools'),
+		planCreateV1: (body: any) => http.post<any>('/v1/pools/plan-create', body),
+		applyCreateV1: (body: any) => http.post<any>('/v1/pools/apply-create', body),
+		txStatus: (id: string) => http.get<any>(`/v1/pools/tx/${id}/status`),
+		txLog: (id: string, cursor = 0, max = 1000) => http.get<any>(`/v1/pools/tx/${id}/log?cursor=${cursor}&max=${max}`),
+		planCreate: (body: any) => http.post<PostResponse<'/api/pools/plan-create'>>('/v1/pools/plan-create', body),
+		create: (body: any) => http.post<PostResponse<'/api/pools/create'>>('/v1/pools/create', body),
+		candidates: () => http.get<PoolCandidates>('/v1/pools/candidates'),
+		import: (deviceOrUuid: string) => http.post<PostResponse<'/api/pools/import'>>('/v1/pools/import', { device_or_uuid: deviceOrUuid }),
+		discoverV1: () => http.get<any>('/v1/pools/discover'),
+		importV1: (body: { uuid: string; label?: string; mountpoint: string }) => http.post<any>('/v1/pools/import', body),
+		scrubStart: (mount: string) => http.post<any>('/v1/pools/scrub/start', { mount }),
+		scrubStatus: (mount: string) => http.get<any>(`/v1/pools/scrub/status?mount=${encodeURIComponent(mount)}`),
 	},
 	shares: {
-		get: () => apiGet<Share[]>('/api/shares'),
-		create: (data: CreateShareRequest) => apiPost<Share>('/api/shares', data),
-		update: (name: string, data: UpdateShareRequest) => apiPatch<Share>(`/api/shares/${name}`, data),
-		delete: (name: string) => apiDelete(`/api/shares/${name}`),
-		test: (name: string, config: any) => apiPost<TestShareResponse>(`/api/shares/${name}/test`, { config }),
+		get: () => http.get<Share[]>('/v1/shares'),
+		create: (data: CreateShareRequest) => http.post<Share>('/v1/shares', data),
+		update: (name: string, data: UpdateShareRequest) => http.patch<Share>(`/v1/shares/${name}`, data),
+		delete: (name: string) => http.del(`/v1/shares/${name}`),
+		test: (name: string, config: any) => http.post<TestShareResponse>(`/v1/shares/${name}/test`, { config }),
 	},
 	apps: {
-		get: () => apiGet<Apps>('/api/apps'),
+		get: () => http.get<Apps>('/v1/apps'),
 	},
 	remote: {
-		status: () => apiGet<RemoteStatus>('/api/remote/status'),
+		status: () => http.get<RemoteStatus>('/v1/remote/status'),
 	},
 	auth: {
-		me: () => apiGet<any>('/api/auth/me'),
+		me: () => http.get<any>('/v1/auth/me'),
 	},
 	users: {
-		get: () => apiGet<User[]>('/api/users'),
+		get: () => http.get<User[]>('/v1/users'),
 	},
 	groups: {
-		get: () => apiGet<Group[]>('/api/groups'),
+		get: () => http.get<Group[]>('/v1/groups'),
 	},
 	policy: {
-		get: () => apiGet<Policy>('/api/policy'),
+		get: () => http.get<Policy>('/v1/policy'),
 	},
 	firewall: {
-		status: () => apiGet<GetResponse<'/api/firewall/status'>>('/api/firewall/status'),
-		plan: (mode: string) => apiPost<PostResponse<'/api/firewall/plan'>>('/api/firewall/plan', { mode }),
+		status: () => http.get<GetResponse<'/api/firewall/status'>>('/v1/firewall/status'),
+		plan: (mode: string) => http.post<PostResponse<'/api/firewall/plan'>>('/v1/firewall/plan', { mode }),
 		apply: (mode: string, twoFactorToken?: string) =>
-			apiPost<PostResponse<'/api/firewall/apply'>>('/api/firewall/apply', { mode, twoFactorToken }),
-		rollback: () => apiPost<PostResponse<'/api/firewall/rollback'>>('/api/firewall/rollback'),
+			http.post<PostResponse<'/api/firewall/apply'>>('/v1/firewall/apply', { mode, twoFactorToken }),
+		rollback: () => http.post<PostResponse<'/api/firewall/rollback'>>('/v1/firewall/rollback'),
 	},
 	support: {
 		bundle: async (): Promise<Blob> => {

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { PoolSnapshots } from './PoolSnapshots'
-import { api } from '@/lib/api-client'
+import http from '@/lib/nos-client'
 
 export function PoolDetails() {
   const { id } = useParams()
@@ -116,7 +116,7 @@ function MountOptionsCard({ pool, id, onSaved }: { pool: any; id: string; onSave
   useEffect(() => {
     let ignore = false
     Promise
-      .resolve((api as any).pools?.getMountOptions ? api.pools.getMountOptions(id) : undefined)
+      .resolve((api as any).pools?.getMountOptions ? http.pools.getMountOptions(id) : undefined)
       .then((r: any) => { if (!ignore && r && typeof r.mountOptions === 'string') setCurrent(r.mountOptions) })
       .catch(()=>{})
     return () => { ignore = true }
@@ -125,7 +125,7 @@ function MountOptionsCard({ pool, id, onSaved }: { pool: any; id: string; onSave
   async function onEdit() {
     setError(null)
     try {
-      const r = await api.pools.getMountOptions(id)
+      const r = await http.pools.getMountOptions(id)
       setValue((r as any).mountOptions)
       setOpen(true)
     } catch (e:any) {
@@ -139,7 +139,7 @@ function MountOptionsCard({ pool, id, onSaved }: { pool: any; id: string; onSave
     if (ve) { setError(ve); return }
     setSaving(true)
     try {
-      const r = await api.pools.updateMountOptions(id, v) as any
+      const r = await http.pools.updateMountOptions(id, v) as any
       setCurrent(r.mountOptions)
       setOpen(false)
       onSaved()
@@ -197,7 +197,7 @@ function DevicesWizards({ id }: { id: string }) {
       if (mode==='add') body.devices.add = form.add.split(/\s+/).filter(Boolean)
       if (mode==='remove') body.devices.remove = form.remove.split(/\s+/).filter(Boolean)
       if (mode==='replace') body.devices.replace = [{ old: form.replaceOld.trim(), new: form.replaceNew.trim() }]
-      const res = await api.pools.planDevice(id, body)
+      const res = await http.pools.planDevice(id, body)
       setPlan(res)
     } catch (e:any) {
       setError(e?.message || 'Plan failed')
@@ -209,7 +209,7 @@ function DevicesWizards({ id }: { id: string }) {
     try {
       const steps = (plan.steps || []).map((s:any) => ({ id:s.id||s.ID||'', description:s.description||s.Description||'', command:s.command||s.Command||'' }))
       const confirm = mode==='add' ? 'ADD' : mode==='remove' ? 'REMOVE' : 'REPLACE'
-      const res = await api.pools.applyDevice(id, { steps, confirm }) as any
+      const res = await http.pools.applyDevice(id, { steps, confirm }) as any
       setTx(res.tx_id)
     } catch (e:any) {
       const msg = e?.message || 'Apply failed'

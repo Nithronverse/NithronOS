@@ -1,4 +1,4 @@
-import { apiClient } from '@/lib/api-client';
+import http from '@/lib/nos-client';
 import type {
   Catalog,
   CatalogEntry,
@@ -13,48 +13,48 @@ import type {
 export const appsApi = {
   // Catalog operations
   getCatalog: () =>
-    apiClient.get<Catalog>('/api/v1/apps/catalog'),
+    http.get<Catalog>('/v1/apps/catalog'),
 
   getInstalledApps: () =>
-    apiClient.get<{ items: InstalledApp[] }>('/api/v1/apps/installed'),
+    http.get<{ items: InstalledApp[] }>('/v1/apps/installed'),
 
   getApp: (id: string) =>
-    apiClient.get<InstalledApp>(`/api/v1/apps/${id}`),
+    http.get<InstalledApp>(`/v1/apps/${id}`),
 
   // App lifecycle operations
   installApp: (data: InstallRequest) =>
-    apiClient.post<{ message: string; app: InstalledApp }>('/api/v1/apps/install', data),
+    http.post<{ message: string; app: InstalledApp }>('/v1/apps/install', data),
 
   upgradeApp: (id: string, data: UpgradeRequest) =>
-    apiClient.post<{ message: string; version: string }>(`/api/v1/apps/${id}/upgrade`, data),
+    http.post<{ message: string; version: string }>(`/v1/apps/${id}/upgrade`, data),
 
   startApp: (id: string) =>
-    apiClient.post<{ message: string }>(`/api/v1/apps/${id}/start`),
+    http.post<{ message: string }>(`/v1/apps/${id}/start`),
 
   stopApp: (id: string) =>
-    apiClient.post<{ message: string }>(`/api/v1/apps/${id}/stop`),
+    http.post<{ message: string }>(`/v1/apps/${id}/stop`),
 
   restartApp: (id: string) =>
-    apiClient.post<{ message: string }>(`/api/v1/apps/${id}/restart`),
+    http.post<{ message: string }>(`/v1/apps/${id}/restart`),
 
   deleteApp: (id: string, keepData = false) =>
-    apiClient.delete<{ message: string }>(`/api/v1/apps/${id}?keep_data=${keepData}`),
+    http.del<{ message: string }>(`/v1/apps/${id}?keep_data=${keepData}`),
 
   rollbackApp: (id: string, snapshotTs: string) =>
-    apiClient.post<{ message: string }>(`/api/v1/apps/${id}/rollback`, {
+    http.post<{ message: string }>(`/v1/apps/${id}/rollback`, {
       snapshot_ts: snapshotTs,
     } as RollbackRequest),
 
   // Monitoring operations
   forceHealthCheck: (id: string) =>
-    apiClient.post<{ message: string; health: any }>(`/api/v1/apps/${id}/health`),
+    http.post<{ message: string; health: any }>(`/v1/apps/${id}/health`),
 
   getAppEvents: (id: string, limit = 100) =>
-    apiClient.get<{ events: AppEvent[] }>(`/api/v1/apps/${id}/events?limit=${limit}`),
+    http.get<{ events: AppEvent[] }>(`/v1/apps/${id}/events?limit=${limit}`),
 
   // Admin operations
   syncCatalogs: () =>
-    apiClient.post<{ message: string }>('/api/v1/apps/catalog/sync'),
+    http.post<{ message: string }>('/v1/apps/catalog/sync'),
 
   // WebSocket for logs
   streamLogs: (id: string, options: LogStreamOptions = {}) => {
@@ -78,9 +78,7 @@ export const appsApi = {
     if (options.timestamps) params.append('timestamps', 'true');
     if (options.container) params.append('container', options.container);
 
-    return apiClient.get<string>(`/api/v1/apps/${id}/logs?${params}`, {
-      responseType: 'text',
-    });
+    return http.get<string>(`/v1/apps/${id}/logs?${params}`);
   },
 };
 
