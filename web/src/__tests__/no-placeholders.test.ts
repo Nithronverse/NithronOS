@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { dashboardApi } from '../lib/api-dashboard'
 import http from '../lib/nos-client'
 
@@ -25,9 +25,6 @@ describe('No Placeholders Policy', () => {
   })
   
   it('should not have placeholder strings in dashboardApi', () => {
-    // Convert the module to string and check for forbidden patterns
-    const moduleString = dashboardApi.toString()
-    
     // These patterns should not exist
     const forbiddenPatterns = [
       'cpuPct: 0',
