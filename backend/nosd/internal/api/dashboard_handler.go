@@ -116,7 +116,9 @@ func HandleDashboard(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
 }
 
 func getSystemSummary(ctx context.Context) SystemSummary {
@@ -330,7 +332,9 @@ func HandleStorageSummary(w http.ResponseWriter, r *http.Request) {
 
 	summary := getStorageSummary(ctx)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(summary)
+	if err := json.NewEncoder(w).Encode(summary); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
 }
 
 // HandleDisksSummary returns disks summary
@@ -345,7 +349,9 @@ func HandleDisksSummary(w http.ResponseWriter, r *http.Request) {
 
 	summary := getDisksSummary(ctx)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(summary)
+	if err := json.NewEncoder(w).Encode(summary); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
 }
 
 // HandleRecentEvents returns recent events
@@ -360,7 +366,9 @@ func HandleRecentEvents(w http.ResponseWriter, r *http.Request) {
 
 	events := getRecentEvents(ctx)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(events)
+	if err := json.NewEncoder(w).Encode(events); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
 }
 
 // HandleMaintenanceStatus returns maintenance status
@@ -375,5 +383,7 @@ func HandleMaintenanceStatus(w http.ResponseWriter, r *http.Request) {
 
 	status := getMaintenanceStatus(ctx)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(status)
+	if err := json.NewEncoder(w).Encode(status); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
 }

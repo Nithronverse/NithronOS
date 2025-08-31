@@ -269,7 +269,7 @@ func NewRouter(cfg config.Config) http.Handler {
 	r.Get("/api/health/system", handleSystemHealth(cfg))
 	r.Get("/api/health/disks", handleDiskHealth(cfg))
 	r.Get("/api/monitor/system", handleSystemHealth(cfg)) // Reuse system health for monitoring
-	
+
 	// Dashboard endpoints
 	r.Get("/api/dashboard", api.HandleDashboard)
 	r.Get("/api/storage/summary", api.HandleStorageSummary)
@@ -2160,7 +2160,9 @@ func handleSystemHealth(cfg config.Config) http.HandlerFunc {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(health)
+		if err := json.NewEncoder(w).Encode(health); err != nil {
+			http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		}
 	}
 }
 
@@ -2174,7 +2176,9 @@ func handleDiskHealth(cfg config.Config) http.HandlerFunc {
 		if err != nil {
 			// Return empty array on error
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode([]DiskHealthResponse{})
+			if err := json.NewEncoder(w).Encode([]DiskHealthResponse{}); err != nil {
+				http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+			}
 			return
 		}
 
@@ -2224,6 +2228,8 @@ func handleDiskHealth(cfg config.Config) http.HandlerFunc {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(disks)
+		if err := json.NewEncoder(w).Encode(disks); err != nil {
+			http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		}
 	}
 }
