@@ -466,7 +466,7 @@ jobs:
 
   # M11 additions: Comprehensive E2E tests and quality gates
   contract:
-    name: Contract: FE-BE endpoint check
+    name: "Contract: FE-BE endpoint check"
     needs: lint
     runs-on: ubuntu-latest
     steps:
