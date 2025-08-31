@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
+	"runtime"
 
 	"nithronos/backend/nosd/pkg/apps"
 )
@@ -44,6 +46,10 @@ type EventLogger struct {
 
 // NewEventLogger creates a new event logger
 func NewEventLogger(logPath string) (*EventLogger, error) {
+	// If no path provided, operate in-memory only (tests)
+	if strings.TrimSpace(logPath) == "" {
+		return &EventLogger{events: []apps.Event{}}, nil
+	}
 	// Ensure directory exists
 	dir := filepath.Dir(logPath)
 	if err := os.MkdirAll(dir, 0700); err != nil {
@@ -75,17 +81,18 @@ func (el *EventLogger) LogEvent(event apps.Event) error {
 		el.events = el.events[len(el.events)-1000:]
 	}
 
-	// Write to file
-	data, err := json.Marshal(event)
-	if err != nil {
-		return fmt.Errorf("failed to marshal event: %w", err)
+	// Write to file if configured
+	if el.file != nil {
+		data, err := json.Marshal(event)
+		if err != nil {
+			return fmt.Errorf("failed to marshal event: %w", err)
+		}
+		if _, err := el.file.Write(append(data, '\n')); err != nil {
+			return fmt.Errorf("failed to write event: %w", err)
+		}
+		return el.file.Sync()
 	}
-
-	if _, err := el.file.Write(append(data, '\n')); err != nil {
-		return fmt.Errorf("failed to write event: %w", err)
-	}
-
-	return el.file.Sync()
+	return nil
 }
 
 // GetEvents returns recent events
@@ -114,7 +121,11 @@ func (el *EventLogger) Close() error {
 // NewManager creates a new app manager
 func NewManager(config *Config) (*Manager, error) {
 	// Create event logger
-	eventLogger, err := NewEventLogger(filepath.Join(filepath.Dir(config.StateFile), "events.jsonl"))
+	logPath := filepath.Join(filepath.Dir(config.StateFile), "events.jsonl")
+	if strings.EqualFold(os.Getenv("NOS_DISABLE_APP_EVENTS"), "1") || runtime.GOOS == "windows" {
+		logPath = ""
+	}
+	eventLogger, err := NewEventLogger(logPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create event logger: %w", err)
 	}

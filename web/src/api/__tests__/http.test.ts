@@ -10,7 +10,7 @@ describe('fetchJSON', () => {
       headers: { get: () => 'text/html; charset=utf-8' },
       text: async () => '<!doctype html><html>oops</html>',
     })
-    await expect(fetchJSON('/api/setup/state')).rejects.toBeInstanceOf(ErrProxyMisconfigured)
+    await expect(fetchJSON('/api/v1/setup/state')).rejects.toBeInstanceOf(ErrProxyMisconfigured)
   })
 })
 

@@ -1,13 +1,14 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from '../App'
 
 describe('Global banner on proxy misconfig', () => {
-  it('shows banner when /api/setup/state returns HTML', async () => {
+  it('shows banner when /api/v1/setup/state returns HTML', async () => {
     // HTML response for setup state
     // @ts-ignore
     global.fetch = vi.fn().mockImplementation((url: string) => {
-      if (url === '/api/setup/state') {
+      if (url === '/api/v1/setup/state') {
         return Promise.resolve({
           ok: true,
           status: 200,
@@ -15,11 +16,16 @@ describe('Global banner on proxy misconfig', () => {
           text: async () => '<!doctype html>nope',
         })
       }
-      // default auth call
-      return Promise.resolve({ ok: false, status: 401, headers: { get: () => 'application/json' }, json: async () => ({}) })
+      // default other calls
+      return Promise.resolve({ ok: true, status: 200, headers: { get: () => 'application/json' }, json: async () => ({}) })
     })
 
-    render(<App />)
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={qc}>
+        <App />
+      </QueryClientProvider>
+    )
     const el = await screen.findByText(/Backend unreachable or proxy misconfigured/i)
     expect(!!el).toBe(true)
     const link = await screen.findByRole('link', { name: /Troubleshooting/i })

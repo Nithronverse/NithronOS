@@ -39,14 +39,14 @@ func TestOTPAndLoginRateLimitIntegration(t *testing.T) {
 	// OTP: allow twice, third returns 429 and Retry-After > 0
 	for i := 0; i < 2; i++ {
 		res := httptest.NewRecorder()
-		r.ServeHTTP(res, httptest.NewRequest(http.MethodPost, "/api/setup/verify-otp", bytes.NewBufferString(`{"otp":"111111"}`)))
+		r.ServeHTTP(res, httptest.NewRequest(http.MethodPost, "/api/v1/setup/otp/verify", bytes.NewBufferString(`{"otp":"111111"}`)))
 		if res.Code != 200 {
 			t.Fatalf("otp allow #%d: %d", i+1, res.Code)
 		}
 	}
 	{
 		res := httptest.NewRecorder()
-		r.ServeHTTP(res, httptest.NewRequest(http.MethodPost, "/api/setup/verify-otp", bytes.NewBufferString(`{"otp":"111111"}`)))
+		r.ServeHTTP(res, httptest.NewRequest(http.MethodPost, "/api/v1/setup/otp/verify", bytes.NewBufferString(`{"otp":"111111"}`)))
 		if res.Code != http.StatusTooManyRequests {
 			t.Fatalf("otp limit: %d", res.Code)
 		}
@@ -63,7 +63,7 @@ func TestOTPAndLoginRateLimitIntegration(t *testing.T) {
 	time.Sleep(2100 * time.Millisecond)
 	{
 		res := httptest.NewRecorder()
-		r.ServeHTTP(res, httptest.NewRequest(http.MethodPost, "/api/setup/verify-otp", bytes.NewBufferString(`{"otp":"111111"}`)))
+		r.ServeHTTP(res, httptest.NewRequest(http.MethodPost, "/api/v1/setup/otp/verify", bytes.NewBufferString(`{"otp":"111111"}`)))
 		if res.Code == http.StatusTooManyRequests {
 			t.Fatalf("expected OTP limiter recovery after window")
 		}
@@ -74,7 +74,7 @@ func TestOTPAndLoginRateLimitIntegration(t *testing.T) {
 	// For this repository, login performs multiple checks; here we can call it with invalid body to just pass the limiter.
 	for i := 0; i < 2; i++ {
 		res := httptest.NewRecorder()
-		r.ServeHTTP(res, httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewBufferString(`{"username":"bob","password":"x"}`)))
+		r.ServeHTTP(res, httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewBufferString(`{"username":"bob","password":"x"}`)))
 		// it may return 401 for wrong password; we only care that it is not 429
 		if res.Code == http.StatusTooManyRequests {
 			t.Fatalf("unexpected 429 on #%d", i+1)
@@ -82,7 +82,7 @@ func TestOTPAndLoginRateLimitIntegration(t *testing.T) {
 	}
 	{
 		res := httptest.NewRecorder()
-		r.ServeHTTP(res, httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewBufferString(`{"username":"bob","password":"x"}`)))
+		r.ServeHTTP(res, httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewBufferString(`{"username":"bob","password":"x"}`)))
 		if res.Code != http.StatusTooManyRequests {
 			t.Fatalf("expected 429 for login limit, got %d", res.Code)
 		}
@@ -95,7 +95,7 @@ func TestOTPAndLoginRateLimitIntegration(t *testing.T) {
 	time.Sleep(2100 * time.Millisecond)
 	{
 		res := httptest.NewRecorder()
-		r.ServeHTTP(res, httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewBufferString(`{"username":"bob","password":"x"}`)))
+		r.ServeHTTP(res, httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewBufferString(`{"username":"bob","password":"x"}`)))
 		if res.Code == http.StatusTooManyRequests {
 			t.Fatalf("expected recovery after window")
 		}

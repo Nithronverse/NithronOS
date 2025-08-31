@@ -273,7 +273,7 @@ systemctl restart nosd
 
 **"Backend unreachable"**:
 - Check nosd is running: `systemctl status nosd`
-- Check API responds: `curl http://127.0.0.1:9000/api/health`
+- Check API responds: `curl http://127.0.0.1:9000/api/v1/health`
 
 **"Setup already completed"**:
 - Normal if setup was previously done

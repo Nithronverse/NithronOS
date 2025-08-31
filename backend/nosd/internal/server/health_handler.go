@@ -55,6 +55,12 @@ func NewHealthHandler(agentClient AgentClient) *HealthHandler {
 func (h *HealthHandler) Routes() chi.Router {
 	r := chi.NewRouter()
 
+	// Root health endpoint
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "version": "0.9.5-pre-alpha"})
+	})
+
 	r.Get("/smart/summary", h.GetSmartSummary)
 	r.Get("/smart/{device}", h.GetSmartDevice)
 	r.Post("/smart/scan", h.StartSmartScan)

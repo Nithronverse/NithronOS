@@ -15,6 +15,10 @@ import (
 )
 
 func TestApplyCreatePersistsMountOptions(t *testing.T) {
+	// isolate etc dir for persistence checks and disable noisy subsystems
+	dir := t.TempDir()
+	t.Setenv("NOS_ETC_DIR", dir)
+	t.Setenv("NOS_DISABLE_APP_EVENTS", "1")
 	r := NewRouter(config.FromEnv())
 	reqBody := applyCreateRequest{
 		Plan:    CreateSimplePlanForTest(),
@@ -27,7 +31,6 @@ func TestApplyCreatePersistsMountOptions(t *testing.T) {
 	res := httptest.NewRecorder()
 	r.ServeHTTP(res, req)
 	// Accept 200 (async tx created) or 428/400 depending on middleware; focus on persistence check
-	dir := config.Defaults().EtcDir
 	p := filepath.Join(dir, "nos", "pools.json")
 	if b, err := os.ReadFile(p); err == nil {
 		if !bytes.Contains(b, []byte("compress=zstd:3,ssd,discard=async,noatime")) {

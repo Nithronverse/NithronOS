@@ -31,7 +31,8 @@ import (
 	"nithronos/backend/nosd/internal/sessions"
 	"nithronos/backend/nosd/pkg/agentclient"
 	"nithronos/backend/nosd/pkg/auth"
-	"nithronos/backend/nosd/pkg/firewall"
+
+	// "nithronos/backend/nosd/pkg/firewall"
 	"nithronos/backend/nosd/pkg/httpx"
 	poolroots "nithronos/backend/nosd/pkg/pools"
 
@@ -200,6 +201,9 @@ func NewRouter(cfg config.Config) http.Handler {
 		AgentPath:     cfg.AgentSocket(),
 		CaddyPath:     "/etc/caddy/Caddyfile.d",
 	}
+	if v := os.Getenv("NOS_APPS_STATE"); v != "" {
+		appManagerConfig.StateFile = v
+	}
 	appsManager, _ := apps.NewManager(appManagerConfig)
 	// Disk-backed session and ratelimit stores
 	sessStore := sessions.New(cfg.SessionsPath)
@@ -261,27 +265,25 @@ func NewRouter(cfg config.Config) http.Handler {
 		})
 	})
 
-	r.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/api/v1/health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{"ok": true, "version": "0.9.5-pre-alpha"})
 	})
 
 	// Health monitoring endpoints (for real-time data)
-	r.Get("/api/health/system", handleSystemHealth(cfg))
-	r.Get("/api/health/disks", handleDiskHealth(cfg))
-	r.Get("/api/monitor/system", handleSystemHealth(cfg)) // Reuse system health for monitoring
+	r.Get("/api/v1/health/system", handleSystemHealth(cfg))
+	r.Get("/api/v1/health/disks", handleDiskHealth(cfg))
+	r.Get("/api/v1/monitoring/system", handleSystemHealth(cfg)) // Reuse system health for monitoring
 
-	// Metrics summary (alias to system health JSON shape)
-	r.Get("/api/metrics/summary", handleSystemHealth(cfg))
+	// Metrics endpoints allowed without /api prefix for tech monitoring
+	r.Get("/metrics", handleSystemHealth(cfg))
+	r.Get("/metrics/all", handleMetricsStream(cfg))
 
-	// Optional SSE stream for metrics at 1 Hz
-	r.Get("/api/metrics/stream", handleMetricsStream(cfg))
-
-	// Dashboard endpoints
-	r.Get("/api/dashboard", api.HandleDashboard)
-	r.Get("/api/storage/summary", api.HandleStorageSummary)
-	r.Get("/api/disks/summary", api.HandleDisksSummary)
-	r.Get("/api/events/recent", api.HandleRecentEvents)
-	r.Get("/api/maintenance/status", api.HandleMaintenanceStatus)
+	// Dashboard endpoints (v1)
+	r.Get("/api/v1/dashboard", api.HandleDashboard)
+	r.Get("/api/v1/storage/summary", api.HandleStorageSummary)
+	r.Get("/api/v1/health/disks/summary", api.HandleDisksSummary)
+	r.Get("/api/v1/events/recent", api.HandleRecentEvents)
+	r.Get("/api/v1/maintenance/status", api.HandleMaintenanceStatus)
 
 	// Storage: block device inventory
 	r.Get("/api/v1/storage/devices", handleListDevices)
@@ -410,8 +412,8 @@ func NewRouter(cfg config.Config) http.Handler {
 		writeJSON(w, map[string]any{"id": id, "token": tok})
 	})
 
-	// Setup routes are always registered, but gated with 410 when setup is complete
-	r.Route("/api/setup", func(sr chi.Router) {
+	// Setup routes are always registered under /api/v1, but gated with 410 when setup is complete
+	r.Route("/api/v1/setup", func(sr chi.Router) {
 		sr.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				// Allow /complete endpoint to bypass the check
@@ -444,7 +446,7 @@ func NewRouter(cfg config.Config) http.Handler {
 		})
 
 		// Rate limiter (persisted): per-IP cfg.RateOTPPerMin per minute for setup endpoints
-		sr.Post("/verify-otp", func(w http.ResponseWriter, r *http.Request) {
+		sr.Post("/otp/verify", func(w http.ResponseWriter, r *http.Request) {
 			ip := clientIP(r, cfg)
 			otpWin := time.Duration(cfg.RateOTPWindowSec) * time.Second
 			if otpWin <= 0 {
@@ -453,7 +455,7 @@ func NewRouter(cfg config.Config) http.Handler {
 			ok1, rem1, reset1 := rlStore.Allow("otp:ip:"+ip, cfg.RateOTPPerMin, otpWin)
 			if !ok1 {
 				retry := int(time.Until(reset1).Seconds())
-				Logger(cfg).Warn().Str("event", "rate.limited").Str("route", "/api/setup/verify-otp").Str("key", "otp:ip:"+ip).Int("remaining", rem1).Int("retryAfterSec", retry).Msg("")
+				Logger(cfg).Warn().Str("event", "rate.limited").Str("route", "/api/v1/setup/otp/verify").Str("key", "otp:ip:"+ip).Int("remaining", rem1).Int("retryAfterSec", retry).Msg("")
 				httpx.WriteTypedError(w, http.StatusTooManyRequests, "rate.limited", "Too many attempts. Try later.", retry)
 				return
 			}
@@ -492,7 +494,8 @@ func NewRouter(cfg config.Config) http.Handler {
 			writeJSON(w, map[string]any{"ok": true, "token": val})
 		})
 
-		sr.Post("/create-admin", func(w http.ResponseWriter, r *http.Request) {
+		// First admin creation (consumes setup token)
+		sr.Post("/first-admin", func(w http.ResponseWriter, r *http.Request) {
 			if users == nil {
 				httpx.WriteTypedError(w, http.StatusInternalServerError, "store.lock", "User store unavailable", 0)
 				return
@@ -627,7 +630,7 @@ func NewRouter(cfg config.Config) http.Handler {
 	})
 
 	// Recovery: local-only endpoint to clear first-boot state and optionally users
-	r.Post("/api/setup/recover", func(w http.ResponseWriter, r *http.Request) {
+	r.Post("/api/v1/setup/recover", func(w http.ResponseWriter, r *http.Request) {
 		// Guard: localhost only
 		ip := r.RemoteAddr
 		if i := strings.LastIndex(ip, ":"); i >= 0 {
@@ -660,69 +663,17 @@ func NewRouter(cfg config.Config) http.Handler {
 	// Remove legacy login limiter seed (persisted store is the single source of truth)
 	// (intentionally left blank)
 
-	// First admin creation (consumes first-boot OTP)
-	r.Post("/api/setup/first-admin", func(w http.ResponseWriter, r *http.Request) {
-		if users == nil {
-			httpx.WriteError(w, http.StatusInternalServerError, "user store unavailable")
-			return
-		}
-		if users.HasAdmin() {
-			httpx.WriteTypedError(w, http.StatusGone, "setup.complete", "Setup already completed", 0)
-			return
-		}
-		var body struct {
-			Username string `json:"username"`
-			Email    string `json:"email"`
-			Password string `json:"password"`
-			OTP      string `json:"otp"`
-		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		uname := strings.TrimSpace(body.Username)
-		if uname == "" {
-			uname = strings.TrimSpace(body.Email)
-		}
-		if uname == "" || strings.TrimSpace(body.Password) == "" || len(body.OTP) != 6 {
-			httpx.WriteError(w, http.StatusBadRequest, "username, password and 6-digit otp required")
-			return
-		}
-		// Load first-boot OTP state
-		var st struct {
-			OTP       string `json:"otp"`
-			CreatedAt string `json:"created_at"`
-			Used      bool   `json:"used"`
-		}
-		if b, err := os.ReadFile(cfg.FirstBootPath); err == nil {
-			_ = json.Unmarshal(b, &st)
-		}
-		if st.Used || st.OTP == "" || st.OTP != body.OTP {
-			httpx.WriteError(w, http.StatusUnauthorized, "invalid otp")
-			return
-		}
-		if t, err := time.Parse(time.RFC3339, st.CreatedAt); err != nil || time.Since(t) >= 15*time.Minute {
-			httpx.WriteError(w, http.StatusUnauthorized, "otp expired")
-			return
-		}
-		// Create admin user
-		phc, err := pwhash.HashPassword(body.Password)
-		if err != nil {
-			httpx.WriteError(w, http.StatusInternalServerError, "hash error")
-			return
-		}
-		now := time.Now().UTC().Format(time.RFC3339)
-		u := userstore.User{ID: generateUUID(), Username: uname, PasswordHash: phc, Roles: []string{"admin"}, CreatedAt: now, UpdatedAt: now}
-		if err := users.UpsertUser(u); err != nil {
-			httpx.WriteError(w, http.StatusInternalServerError, "persist error")
-			return
-		}
-		// Mark OTP used (best-effort)
-		st.Used = true
-		_ = fsatomic.SaveJSON(context.TODO(), cfg.FirstBootPath, st, 0o600)
-		writeJSON(w, map[string]any{"ok": true})
+	// Serve minimal OpenAPI JSON for v1 at /api/v1/openapi.json
+	r.Get("/api/v1/openapi.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"openapi":"3.0.3","info":{"title":"NithronOS API","version":"0.9.5-pre-alpha"},"servers":[{"url":"/api/v1"}]}`))
 	})
+
+	// (Removed legacy unversioned first-admin handler; canonical handler is under /api/v1/setup in the block above.)
 
 	// Auth (legacy + new store integration)
 
-	r.Post("/api/auth/login", func(w http.ResponseWriter, r *http.Request) {
+	r.Post("/api/v1/auth/login", func(w http.ResponseWriter, r *http.Request) {
 		// Check if setup is complete (has admin user AND setup marked complete)
 		setupCompleteFile := filepath.Join(cfg.EtcDir, "nos", "setup-complete")
 		if _, err := os.Stat(setupCompleteFile); os.IsNotExist(err) {
@@ -812,7 +763,7 @@ func NewRouter(cfg config.Config) http.Handler {
 	})
 
 	// Record refresh events in sessions store (best-effort)
-	r.Post("/api/auth/refresh", func(w http.ResponseWriter, r *http.Request) {
+	r.Post("/api/v1/auth/refresh", func(w http.ResponseWriter, r *http.Request) {
 		if uid, ok := decodeRefreshUID(r, cfg); ok {
 			// rotate refresh; revoke all if reuse detected
 			old := r.Header.Get("X-Refresh-ID")
@@ -834,13 +785,36 @@ func NewRouter(cfg config.Config) http.Handler {
 	})
 
 	// Logout: clear cookies and remove persisted sessions for this user (best-effort)
-	r.Post("/api/auth/logout", func(w http.ResponseWriter, r *http.Request) {
+	r.Post("/api/v1/auth/logout", func(w http.ResponseWriter, r *http.Request) {
 		if uid, ok := decodeSessionUID(r, cfg); ok {
 			_ = sessStore.DeleteByUserID(uid)
 			_ = mgr.RevokeAll(uid)
 		}
 		clearAuthCookies(w)
 		w.WriteHeader(http.StatusNoContent)
+	})
+
+	// Session info (single) for compatibility with nos-client
+	r.Get("/api/v1/auth/session", func(w http.ResponseWriter, r *http.Request) {
+		uid, ok := decodeSessionUID(r, cfg)
+		if !ok {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		if u, err := users.FindByID(uid); err == nil {
+			// Minimal shape expected by FE
+			writeJSON(w, map[string]any{
+				"user": map[string]any{
+					"id":       u.ID,
+					"username": u.Username,
+					"roles":    u.Roles,
+					"isAdmin":  hasRole(u.Roles, "admin"),
+				},
+				"expiresAt": time.Now().Add(15 * time.Minute).UTC().Format(time.RFC3339),
+			})
+			return
+		}
+		w.WriteHeader(http.StatusUnauthorized)
 	})
 
 	// Protected API group (auth required)
@@ -923,7 +897,7 @@ func NewRouter(cfg config.Config) http.Handler {
 		})
 	})
 
-	r.Get("/api/auth/me", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/api/v1/auth/me", func(w http.ResponseWriter, r *http.Request) {
 		if uid, ok := decodeSessionUID(r, cfg); ok {
 			if u, err := users.FindByID(uid); err == nil {
 				writeJSON(w, map[string]any{"user": map[string]any{"id": u.ID, "username": u.Username, "roles": u.Roles}})
@@ -937,7 +911,7 @@ func NewRouter(cfg config.Config) http.Handler {
 		w.WriteHeader(http.StatusUnauthorized)
 	})
 
-	r.Post("/api/auth/refresh", func(w http.ResponseWriter, r *http.Request) {
+	r.Post("/api/v1/auth/refresh", func(w http.ResponseWriter, r *http.Request) {
 		if uid, ok := decodeRefreshUID(r, cfg); ok {
 			if err := issueSessionCookies(w, cfg, uid, true); err == nil {
 				writeJSON(w, map[string]any{"ok": true})
@@ -948,7 +922,7 @@ func NewRouter(cfg config.Config) http.Handler {
 	})
 
 	// TOTP setup & confirm
-	r.Post("/api/auth/totp/setup", func(w http.ResponseWriter, r *http.Request) {
+	r.Post("/api/v1/auth/totp/setup", func(w http.ResponseWriter, r *http.Request) {
 		var body struct{ Email, Password string }
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		u, err := store.GetByEmail(body.Email)
@@ -976,7 +950,7 @@ func NewRouter(cfg config.Config) http.Handler {
 		writeJSON(w, map[string]any{"secret": secret, "otpauth": uri})
 	})
 
-	r.Post("/api/auth/totp/confirm", func(w http.ResponseWriter, r *http.Request) {
+	r.Post("/api/v1/auth/totp/confirm", func(w http.ResponseWriter, r *http.Request) {
 		var body struct{ Email, Code string }
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		_, err := store.GetByEmail(body.Email)
@@ -1043,7 +1017,7 @@ func NewRouter(cfg config.Config) http.Handler {
 		}
 
 		// TOTP enroll (logged-in): generate secret, encrypt with secret.key, store pending enc
-		pr.Get("/api/auth/totp/enroll", func(w http.ResponseWriter, r *http.Request) {
+		pr.Get("/api/v1/auth/totp/enroll", func(w http.ResponseWriter, r *http.Request) {
 			uid, ok := decodeSessionUID(r, cfg)
 			if !ok {
 				if s, ok2 := codec.DecodeFromRequest(r); ok2 {
@@ -1078,8 +1052,16 @@ func NewRouter(cfg config.Config) http.Handler {
 			writeJSON(w, map[string]any{"otpauth_url": uri, "qr_png_base64": ""})
 		})
 
+		// Allow POST for enroll to match nos-client
+		pr.Post("/api/v1/auth/totp/enroll", func(w http.ResponseWriter, r *http.Request) {
+			// Delegate to GET handler logic by invoking the same code path
+			r2 := r.Clone(r.Context())
+			r2.Method = http.MethodGet
+			pr.ServeHTTP(w, r2)
+		})
+
 		// TOTP verify (logged-in): verify code, generate recovery codes and persist hashes
-		pr.Post("/api/auth/totp/verify", func(w http.ResponseWriter, r *http.Request) {
+		pr.Post("/api/v1/auth/totp/verify", func(w http.ResponseWriter, r *http.Request) {
 			uid, ok := decodeSessionUID(r, cfg)
 			if !ok {
 				if s, ok2 := codec.DecodeFromRequest(r); ok2 {
@@ -1120,7 +1102,7 @@ func NewRouter(cfg config.Config) http.Handler {
 			writeJSON(w, map[string]any{"ok": true, "recovery_codes": plain})
 		})
 
-		pr.Get("/api/disks", func(w http.ResponseWriter, r *http.Request) {
+		pr.Get("/api/v1/disks", func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
 			if runtime.GOOS != "windows" && hasCommand("lsblk") {
 				if list, err := disks.Collect(ctx); err == nil {
@@ -1141,13 +1123,13 @@ func NewRouter(cfg config.Config) http.Handler {
 			}})
 		})
 
-		pr.Get("/api/pools", func(w http.ResponseWriter, r *http.Request) {
+		pr.Get("/api/v1/pools", func(w http.ResponseWriter, r *http.Request) {
 			list, _ := pools.ListPools(r.Context())
 			writeJSON(w, list)
 		})
 
 		// Pools: allowed roots for shares (mounted pool paths)
-		pr.Get("/api/pools/roots", func(w http.ResponseWriter, r *http.Request) {
+		pr.Get("/api/v1/pools/roots", func(w http.ResponseWriter, r *http.Request) {
 			roots, err := poolroots.AllowedRoots()
 			if err != nil {
 				httpx.WriteError(w, http.StatusInternalServerError, err.Error())
@@ -1172,8 +1154,12 @@ func NewRouter(cfg config.Config) http.Handler {
 		pr.With(adminRequired).Post("/api/v1/pools/scrub/start", handleScrubStart)
 		pr.With(adminRequired).Get("/api/v1/pools/scrub/status", handleScrubStatus)
 		pr.Get("/api/v1/pools/{id}", handlePoolDetail)
+		// Mount options (canonical + compatibility with FE path)
 		pr.Get("/api/v1/pools/{id}/options", handlePoolOptionsGet(cfg))
 		pr.With(adminRequired).Post("/api/v1/pools/{id}/options", handlePoolOptionsPost(cfg))
+		// FE expects mount-options nomenclature
+		pr.Get("/api/v1/pools/{id}/mount-options", handlePoolOptionsGet(cfg))
+		pr.With(adminRequired).Post("/api/v1/pools/{id}/mount-options", handlePoolOptionsPost(cfg))
 
 		pr.Get("/api/v1/schedules", handleSchedulesGet(cfg))
 		pr.With(adminRequired).Post("/api/v1/schedules", handleSchedulesPost(cfg))
@@ -1202,7 +1188,7 @@ func NewRouter(cfg config.Config) http.Handler {
 		})
 		pr.Get("/api/v1/pools/tx/{id}/stream", handleTxStream)
 
-		pr.With(adminRequired).Post("/api/pools/create", func(w http.ResponseWriter, r *http.Request) {
+		pr.With(adminRequired).Post("/api/v1/pools/create", func(w http.ResponseWriter, r *http.Request) {
 			if r.Header.Get("Confirm") != "yes" {
 				httpx.WriteError(w, http.StatusPreconditionRequired, "confirm header required")
 				return
@@ -1229,7 +1215,7 @@ func NewRouter(cfg config.Config) http.Handler {
 		})
 
 		// Pools: candidates for import
-		pr.With(adminRequired).Get("/api/pools/candidates", func(w http.ResponseWriter, r *http.Request) {
+		pr.With(adminRequired).Get("/api/v1/pools/candidates", func(w http.ResponseWriter, r *http.Request) {
 			list, err := pools.ListPools(r.Context())
 			if err != nil {
 				httpx.WriteError(w, http.StatusInternalServerError, err.Error())
@@ -1239,7 +1225,7 @@ func NewRouter(cfg config.Config) http.Handler {
 		})
 
 		// Pools: import (mount) by device or UUID
-		pr.With(adminRequired).Post("/api/pools/import", func(w http.ResponseWriter, r *http.Request) {
+		pr.With(adminRequired).Post("/api/v1/pools/import", func(w http.ResponseWriter, r *http.Request) {
 			var body struct {
 				DeviceOrUUID string `json:"device_or_uuid"`
 			}
@@ -1260,7 +1246,7 @@ func NewRouter(cfg config.Config) http.Handler {
 
 		// Shares endpoints are handled by SharesHandler below
 		// SMB users proxy
-		pr.Get("/api/smb/users", func(w http.ResponseWriter, r *http.Request) {
+		pr.Get("/api/v1/smb/users", func(w http.ResponseWriter, r *http.Request) {
 			client := agentclient.New("/run/nos-agent.sock")
 			var out struct {
 				Users []string `json:"users"`
@@ -1280,7 +1266,7 @@ func NewRouter(cfg config.Config) http.Handler {
 		// pr.With(adminRequired).Delete("/api/shares/{name}", sharesHandler.DeleteShare)
 		// pr.With(adminRequired).Post("/api/shares/{name}/test", sharesHandler.TestShare)
 
-		pr.With(adminRequired).Post("/api/smb/users", func(w http.ResponseWriter, r *http.Request) {
+		pr.With(adminRequired).Post("/api/v1/smb/users", func(w http.ResponseWriter, r *http.Request) {
 			var body struct{ Username, Password string }
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			client := agentclient.New("/run/nos-agent.sock")
@@ -1369,6 +1355,17 @@ func NewRouter(cfg config.Config) http.Handler {
 
 			// Admin operations
 			pr.With(adminRequired).Post("/api/v1/apps/catalog/sync", handleSyncCatalogs(appsManager))
+		} else {
+			// Fallback: provide minimal implementations so FE endpoints exist
+			pr.Get("/api/v1/apps/catalog", func(w http.ResponseWriter, r *http.Request) {
+				writeJSON(w, apps.Catalog(cfg.AppsInstallDir))
+			})
+			pr.Get("/api/v1/apps/installed", func(w http.ResponseWriter, r *http.Request) {
+				writeJSON(w, map[string]any{"items": []any{}})
+			})
+			pr.Get("/api/v1/apps/{id}", func(w http.ResponseWriter, r *http.Request) {
+				httpx.WriteError(w, http.StatusNotFound, "App not found")
+			})
 		}
 
 		// Health endpoints
@@ -1410,14 +1407,14 @@ func NewRouter(cfg config.Config) http.Handler {
 		updatesLogger := Logger(cfg)
 		updatesHandler, err := NewUpdatesHandler(*updatesLogger)
 		if err != nil {
-			updatesLogger.Error().Err(err).Msg("Failed to create updates handler")
+			updatesLogger.Warn().Err(err).Msg("Failed to create updates handler")
 			// Continue without update features
 		} else {
 			pr.Mount("/api/v1/updates", updatesHandler.Routes())
 		}
 
-		// Legacy app routes (keep for backward compatibility)
-		pr.Get("/api/apps", func(w http.ResponseWriter, r *http.Request) {
+		// Apps catalog
+		pr.Get("/api/v1/apps", func(w http.ResponseWriter, r *http.Request) {
 			if appsManager != nil {
 				catalog, _ := appsManager.GetCatalog()
 				writeJSON(w, catalog)
@@ -1426,7 +1423,7 @@ func NewRouter(cfg config.Config) http.Handler {
 			}
 		})
 
-		pr.Get("/api/apps/{id}/status", func(w http.ResponseWriter, r *http.Request) {
+		pr.Get("/api/v1/apps/{id}/status", func(w http.ResponseWriter, r *http.Request) {
 			id := chi.URLParam(r, "id")
 			if appsManager != nil {
 				app, err := appsManager.GetApp(id)
@@ -1446,7 +1443,7 @@ func NewRouter(cfg config.Config) http.Handler {
 			}
 		})
 
-		pr.With(adminRequired).Post("/api/apps/install", func(w http.ResponseWriter, r *http.Request) {
+		pr.With(adminRequired).Post("/api/v1/apps/install", func(w http.ResponseWriter, r *http.Request) {
 			var body struct {
 				ID     string
 				Config map[string]any
@@ -1470,7 +1467,7 @@ func NewRouter(cfg config.Config) http.Handler {
 			writeJSON(w, map[string]any{"ok": true})
 		})
 
-		pr.With(adminRequired).Post("/api/apps/uninstall", func(w http.ResponseWriter, r *http.Request) {
+		pr.With(adminRequired).Post("/api/v1/apps/uninstall", func(w http.ResponseWriter, r *http.Request) {
 			var body struct {
 				ID    string
 				Force bool
@@ -1489,66 +1486,24 @@ func NewRouter(cfg config.Config) http.Handler {
 			writeJSON(w, map[string]any{"ok": true})
 		})
 
-		pr.Get("/api/remote/status", func(w http.ResponseWriter, r *http.Request) {
+		pr.Get("/api/v1/remote/status", func(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, map[string]any{"mode": "lan-only", "https": true})
 		})
 
 		// Support bundle
-		pr.Get("/api/support/bundle", handleSupportBundle(cfg))
+		pr.Get("/api/v1/support/bundle", handleSupportBundle(cfg))
 
-		// Firewall
-		pr.Get("/api/firewall/status", func(w http.ResponseWriter, r *http.Request) {
-			st, _ := firewall.Detect()
-			mode, _ := firewall.ReadMode(filepath.Join(cfg.EtcDir, "nos", "firewall", "mode"))
-			if mode == "" {
-				mode = "lan-only"
-			}
-			st.Mode = mode
-			writeJSON(w, st)
-		})
-		pr.With(adminRequired).Post("/api/firewall/plan", func(w http.ResponseWriter, r *http.Request) {
-			var body struct{ Mode string }
-			_ = json.NewDecoder(r.Body).Decode(&body)
-			rules := firewall.BuildRules(body.Mode)
-			writeJSON(w, map[string]any{"rules": rules})
-		})
-		pr.With(adminRequired).Post("/api/firewall/apply", func(w http.ResponseWriter, r *http.Request) {
-			var body struct {
-				Mode           string
-				TwoFactorToken string
-			}
-			_ = json.NewDecoder(r.Body).Decode(&body)
-			if strings.ToLower(body.Mode) != "lan-only" {
-				if s, ok := codec.DecodeFromRequest(r); !ok || !s.TwoFactorVerified {
-					httpx.WriteError(w, http.StatusForbidden, "2FA required")
-					return
-				}
-			}
-			st, _ := firewall.Detect()
-			if st.UFWPresent || st.FirewalldPresent {
-				httpx.WriteError(w, http.StatusConflict, "UFW or firewalld active")
-				return
-			}
-			rules := firewall.BuildRules(body.Mode)
-			client := agentclient.New("/run/nos-agent.sock")
-			var resp map[string]any
-			if err := client.PostJSON(r.Context(), "/v1/firewall/apply", map[string]any{"ruleset_text": rules, "persist": true}, &resp); err != nil {
-				httpx.WriteError(w, http.StatusInternalServerError, err.Error())
-				return
-			}
-			_ = firewall.WriteMode(filepath.Join(cfg.EtcDir, "nos", "firewall", "mode"), body.Mode)
-			writeJSON(w, map[string]any{"ok": true})
-		})
+		// Firewall legacy routes removed; use /api/v1/net/firewall/*
 
 		// Snapshots
-		pr.Get("/api/pools/{id}/snapshots", func(w http.ResponseWriter, r *http.Request) {
+		pr.Get("/api/v1/pools/{id}/snapshots", func(w http.ResponseWriter, r *http.Request) {
 			id := chi.URLParam(r, "id")
 			list, _ := pools.ListSnapshots(r.Context(), id)
 			writeJSON(w, list)
 		})
 
-		// Updates: check
-		pr.Get("/api/updates/check", func(w http.ResponseWriter, r *http.Request) {
+		// Updates: check (redundant with /api/v1/updates/* handler, but retain convenience)
+		pr.Get("/api/v1/updates/check", func(w http.ResponseWriter, r *http.Request) {
 			client := agentclient.New("/run/nos-agent.sock")
 			var planResp map[string]any
 			_ = client.PostJSON(r.Context(), "/v1/updates/plan", map[string]any{}, &planResp)
@@ -1558,7 +1513,7 @@ func NewRouter(cfg config.Config) http.Handler {
 		})
 
 		// Updates: apply
-		pr.With(adminRequired).Post("/api/updates/apply", func(w http.ResponseWriter, r *http.Request) {
+		pr.With(adminRequired).Post("/api/v1/updates/apply", func(w http.ResponseWriter, r *http.Request) {
 			var body struct {
 				Packages []string `json:"packages"`
 				Snapshot bool     `json:"snapshot"`
@@ -1618,7 +1573,7 @@ func NewRouter(cfg config.Config) http.Handler {
 		})
 
 		// Snapshots: prune
-		pr.With(adminRequired).Post("/api/snapshots/prune", func(w http.ResponseWriter, r *http.Request) {
+		pr.With(adminRequired).Post("/api/v1/snapshots/prune", func(w http.ResponseWriter, r *http.Request) {
 			var body struct {
 				KeepPerTarget int `json:"keep_per_target"`
 			}
@@ -1636,7 +1591,7 @@ func NewRouter(cfg config.Config) http.Handler {
 		})
 
 		// Updates: rollback
-		pr.With(adminRequired).Post("/api/updates/rollback", func(w http.ResponseWriter, r *http.Request) {
+		pr.With(adminRequired).Post("/api/v1/updates/rollback", func(w http.ResponseWriter, r *http.Request) {
 			var body struct {
 				TxID    string `json:"tx_id"`
 				Confirm string `json:"confirm"`
@@ -1680,7 +1635,7 @@ func NewRouter(cfg config.Config) http.Handler {
 		})
 
 		// Snapshots DB: recent
-		pr.Get("/api/snapshots/recent", func(w http.ResponseWriter, r *http.Request) {
+		pr.Get("/api/v1/snapshots/recent", func(w http.ResponseWriter, r *http.Request) {
 			list, err := snapdb.ListRecent(20)
 			if err != nil {
 				httpx.WriteError(w, http.StatusInternalServerError, err.Error())
@@ -1710,8 +1665,16 @@ func NewRouter(cfg config.Config) http.Handler {
 			writeJSON(w, out)
 		})
 
+		// Back-compat: verify-totp path expected by FE
+		pr.Post("/api/v1/auth/verify-totp", func(w http.ResponseWriter, r *http.Request) {
+			// Delegate to /api/v1/auth/totp/verify handler
+			r2 := r.Clone(r.Context())
+			r2.URL.Path = "/api/v1/auth/totp/verify"
+			pr.ServeHTTP(w, r2)
+		})
+
 		// Snapshots DB: by tx id
-		pr.Get("/api/snapshots/{tx_id}", func(w http.ResponseWriter, r *http.Request) {
+		pr.Get("/api/v1/snapshots/{tx_id}", func(w http.ResponseWriter, r *http.Request) {
 			txID := chi.URLParam(r, "tx_id")
 			tx, err := snapdb.FindByTx(txID)
 			if err != nil {
@@ -1721,7 +1684,7 @@ func NewRouter(cfg config.Config) http.Handler {
 			writeJSON(w, tx)
 		})
 
-		pr.With(adminRequired).Post("/api/pools/{id}/snapshots", func(w http.ResponseWriter, r *http.Request) {
+		pr.With(adminRequired).Post("/api/v1/pools/{id}/snapshots", func(w http.ResponseWriter, r *http.Request) {
 			id := chi.URLParam(r, "id")
 			var body struct {
 				Subvol string
@@ -1784,9 +1747,61 @@ func NewRouter(cfg config.Config) http.Handler {
 				next.ServeHTTP(w, r)
 			})
 		})
+		// Mount system info/services
+		sys := NewSystemHandler()
+		sr.Get("/info", sys.GetSystemInfo)
+		sr.Get("/services", sys.GetServices)
+		// Mount system config endpoints under their specific paths
+		// Hostname
+		sr.Get("/hostname", systemConfigHandler.GetHostname)
+		sr.Post("/hostname", systemConfigHandler.SetHostname)
+		// Timezone
+		sr.Get("/timezone", systemConfigHandler.GetTimezone)
+		sr.Post("/timezone", systemConfigHandler.SetTimezone)
+		sr.Get("/timezones", systemConfigHandler.ListTimezones)
+		// NTP
+		sr.Get("/ntp", systemConfigHandler.GetNTP)
+		sr.Post("/ntp", systemConfigHandler.SetNTP)
+		// Network (system-scoped)
+		sr.Get("/network/interfaces", systemConfigHandler.ListInterfaces)
+		sr.Get("/network/interfaces/{iface}", systemConfigHandler.GetInterface)
+		sr.Post("/network/interfaces/{iface}", systemConfigHandler.ConfigureInterface)
+		// Telemetry
+		sr.Get("/telemetry/consent", systemConfigHandler.GetTelemetryConsent)
+		sr.Post("/telemetry/consent", systemConfigHandler.SetTelemetryConsent)
+		// System metrics endpoint expected by FE; reuse system health
+		sr.Get("/metrics", handleSystemHealth(cfg))
+		// Mount system config endpoints
 		sr.Mount("/", systemConfigHandler.Routes())
 	})
 
+	// Network endpoints to match FE contract: /api/v1/network/interfaces
+	r.Route("/api/v1/network", func(nr chi.Router) {
+		// Require auth for network configuration
+		nr.Use(func(next http.Handler) http.Handler { return requireAuth(next, codec, cfg) })
+		nr.Get("/interfaces", systemConfigHandler.ListInterfaces)
+		nr.Get("/interfaces/{iface}", systemConfigHandler.GetInterface)
+		nr.Post("/interfaces/{iface}", systemConfigHandler.ConfigureInterface)
+	})
+
+	// Telemetry endpoints to match FE contract: /api/v1/telemetry/consent
+	r.Route("/api/v1/telemetry", func(tr chi.Router) {
+		tr.Use(func(next http.Handler) http.Handler { return requireAuth(next, codec, cfg) })
+		tr.Get("/consent", systemConfigHandler.GetTelemetryConsent)
+		tr.Post("/consent", systemConfigHandler.SetTelemetryConsent)
+	})
+
+	// Log route inventory once on startup for visibility (method + path)
+	func() {
+		var routes []map[string]string
+		_ = chi.Walk(r, func(method string, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
+			routes = append(routes, map[string]string{"method": method, "path": route})
+			return nil
+		})
+		if b, err := json.Marshal(routes); err == nil {
+			Logger(cfg).Info().RawJSON("api_routes", b).Msg("")
+		}
+	}()
 	return r
 }
 
@@ -2353,4 +2368,13 @@ func handleDiskHealth(cfg config.Config) http.HandlerFunc {
 			http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		}
 	}
+}
+
+func hasRole(roles []string, role string) bool {
+	for _, r := range roles {
+		if r == role {
+			return true
+		}
+	}
+	return false
 }

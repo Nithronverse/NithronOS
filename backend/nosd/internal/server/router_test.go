@@ -14,7 +14,7 @@ import (
 
 func TestHealth(t *testing.T) {
 	r := NewRouter(config.FromEnv())
-	req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
 	res := httptest.NewRecorder()
 
 	r.ServeHTTP(res, req)
@@ -53,7 +53,7 @@ func TestLoginThrottleLockUnlock(t *testing.T) {
 	// Too many bad passwords should increment failures and eventually lock
 	for i := 0; i < 10; i++ {
 		lb, _ := json.Marshal(map[string]any{"username": "admin@example.com", "password": "wrong"})
-		req := httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewReader(lb))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(lb))
 		res := httptest.NewRecorder()
 		r.ServeHTTP(res, req)
 		if res.Code != http.StatusUnauthorized && res.Code != http.StatusTooManyRequests {
@@ -63,7 +63,7 @@ func TestLoginThrottleLockUnlock(t *testing.T) {
 
 	// Next try within window should still fail (locked)
 	lb, _ := json.Marshal(map[string]any{"username": "admin@example.com", "password": "admin123"})
-	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewReader(lb))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(lb))
 	res := httptest.NewRecorder()
 	r.ServeHTTP(res, req)
 	if res.Code == http.StatusOK {
@@ -90,7 +90,7 @@ func TestDisksShape(t *testing.T) {
 	// Login to get cookies
 	loginBody := map[string]any{"username": "admin@example.com", "password": "admin123"}
 	lb, _ := json.Marshal(loginBody)
-	loginReq := httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewReader(lb))
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(lb))
 	loginRes := httptest.NewRecorder()
 	r.ServeHTTP(loginRes, loginReq)
 	if loginRes.Code != http.StatusOK {
@@ -104,7 +104,7 @@ func TestDisksShape(t *testing.T) {
 		}
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/disks", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/disks", nil)
 	for _, c := range cookies {
 		req.AddCookie(c)
 	}
@@ -165,7 +165,7 @@ func TestDeleteShareReturnsNoContent(t *testing.T) {
 	// Login for auth/CSRF
 	loginBody := map[string]any{"username": "admin@example.com", "password": "admin123"}
 	lb, _ := json.Marshal(loginBody)
-	loginReq := httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewReader(lb))
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(lb))
 	loginRes := httptest.NewRecorder()
 	r.ServeHTTP(loginRes, loginReq)
 	if loginRes.Code != http.StatusOK {
@@ -179,7 +179,7 @@ func TestDeleteShareReturnsNoContent(t *testing.T) {
 		}
 	}
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/shares/media", nil)
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/shares/media", nil)
 	for _, c := range cookies {
 		req.AddCookie(c)
 	}

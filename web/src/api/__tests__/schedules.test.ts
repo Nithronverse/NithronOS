@@ -1,24 +1,31 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getSchedules, updateSchedules, type Schedules, type SchedulesUpdate } from '../schedules'
 
-const g: any = globalThis
+vi.mock('@/lib/nos-client', () => {
+  const get = vi.fn()
+  const post = vi.fn()
+  return { default: { get, post } }
+})
+
+import http from '@/lib/nos-client'
 
 describe('schedules api', () => {
-  const originalFetch = g.fetch
-  beforeEach(() => { g.fetch = vi.fn() })
-  afterEach(() => { g.fetch = originalFetch })
+  beforeEach(() => { vi.clearAllMocks() })
+  afterEach(() => {})
 
   it('gets schedules', async () => {
     const payload: Schedules = { smartScan: 'Sun 03:00', btrfsScrub: 'Sun *-**-01..07 03:00', updatedAt: 'now' }
-    g.fetch.mockResolvedValue({ ok: true, status: 200, json: async () => payload, headers: new Headers() })
+    vi.mocked(http.get).mockResolvedValueOnce(payload as any)
     const res = await getSchedules()
+    expect(http.get).toHaveBeenCalledWith('/v1/schedules')
     expect(res.smartScan).toBe(payload.smartScan)
     expect(res.btrfsScrub).toBe(payload.btrfsScrub)
   })
 
   it('handles validation error 422', async () => {
-    const errBody = { error: { message: 'invalid schedule' } }
-    g.fetch.mockResolvedValue({ ok: false, status: 422, json: async () => errBody, headers: new Headers({ 'content-type': 'application/json' }) })
+    const err: any = new Error('HTTP 422')
+    err.status = 422
+    vi.mocked(http.post).mockRejectedValueOnce(err)
     const input: SchedulesUpdate = { smartScan: '', btrfsScrub: '' }
     await expect(updateSchedules(input)).rejects.toThrow(/422/i)
   })

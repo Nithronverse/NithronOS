@@ -7,9 +7,13 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"runtime"
 )
 
 func TestSnapshotManager(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Skipping snapshot manager tests on non-Linux")
+	}
 	// Skip if not running on Btrfs
 	sm := NewSnapshotManager(3)
 	isBtrfs, _ := sm.IsBtrfs("/tmp")
@@ -78,6 +82,9 @@ func TestSnapshotManager(t *testing.T) {
 }
 
 func TestSnapshotValidation(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Skipping snapshot validation tests on non-Linux")
+	}
 	sm := NewSnapshotManager(3)
 	
 	t.Run("VerifyNonExistentSnapshot", func(t *testing.T) {
@@ -100,6 +107,9 @@ func TestSnapshotValidation(t *testing.T) {
 }
 
 func TestSnapshotHelpers(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Skipping snapshot helper tests on non-Linux")
+	}
 	sm := NewSnapshotManager(3)
 	
 	t.Run("FindSubvolumeMountPoint", func(t *testing.T) {

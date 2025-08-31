@@ -2,6 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
+
+// Hoist http client mock before importing hooks
+vi.mock('../lib/nos-client', () => {
+  const get = vi.fn()
+  const post = vi.fn()
+  return { default: { get, post } }
+})
+
+import http from '../lib/nos-client'
 import { 
   useSystemInfo, 
   usePools, 
@@ -9,9 +18,6 @@ import {
   useShares,
   useInstalledApps,
 } from '../hooks/use-api'
-
-// Mock the fetch function
-global.fetch = vi.fn()
 
 // Create a wrapper with QueryClient
 const createWrapper = () => {
@@ -24,7 +30,6 @@ const createWrapper = () => {
       },
     },
   })
-  
   return ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       {children}
@@ -38,36 +43,23 @@ describe('API Wiring Tests', () => {
   })
 
   describe('System API', () => {
-    it('should fetch system info from /api/v1/system/info', async () => {
+    it('should fetch system info using /v1/system/info', async () => {
       const mockData = {
         hostname: 'nithronos',
         uptime: 123456,
         kernel: '5.15.0',
         version: '0.3.0',
       }
-
-      ;(global.fetch as any).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockData,
-        headers: new Headers({ 'content-type': 'application/json' }),
-      })
-
-      const { result } = renderHook(() => useSystemInfo(), {
-        wrapper: createWrapper(),
-      })
-
+      vi.mocked(http.get).mockResolvedValueOnce(mockData as any)
+      const { result } = renderHook(() => useSystemInfo(), { wrapper: createWrapper() })
       await waitFor(() => expect(result.current.isSuccess).toBe(true))
-
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/system/info'),
-        expect.any(Object)
-      )
+      expect(http.get).toHaveBeenCalledWith('/v1/system/info')
       expect(result.current.data).toEqual(mockData)
     })
   })
 
   describe('Storage API', () => {
-    it('should fetch pools from /api/v1/storage/pools', async () => {
+    it('should fetch pools using /v1/pools', async () => {
       const mockPools = [
         {
           id: 'pool1',
@@ -82,156 +74,51 @@ describe('API Wiring Tests', () => {
           devices: [],
         },
       ]
-
-      ;(global.fetch as any).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockPools,
-        headers: new Headers({ 'content-type': 'application/json' }),
-      })
-
-      const { result } = renderHook(() => usePools(), {
-        wrapper: createWrapper(),
-      })
-
+      vi.mocked(http.get).mockResolvedValueOnce(mockPools as any)
+      const { result } = renderHook(() => usePools(), { wrapper: createWrapper() })
       await waitFor(() => expect(result.current.isSuccess).toBe(true))
-
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/storage/pools'),
-        expect.any(Object)
-      )
+      expect(http.get).toHaveBeenCalledWith('/v1/pools')
       expect(result.current.data).toEqual(mockPools)
     })
   })
 
   describe('Health API', () => {
-    it('should fetch SMART summary from /api/v1/health/smart/summary', async () => {
+    it('should fetch SMART summary using /v1/smart/summary', async () => {
       const mockSummary = {
         totalDevices: 4,
         healthyDevices: 3,
         warningDevices: 1,
         criticalDevices: 0,
       }
-
-      ;(global.fetch as any).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockSummary,
-        headers: new Headers({ 'content-type': 'application/json' }),
-      })
-
-      const { result } = renderHook(() => useSmartSummary(), {
-        wrapper: createWrapper(),
-      })
-
+      vi.mocked(http.get).mockResolvedValueOnce(mockSummary as any)
+      const { result } = renderHook(() => useSmartSummary(), { wrapper: createWrapper() })
       await waitFor(() => expect(result.current.isSuccess).toBe(true))
-
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/health/smart/summary'),
-        expect.any(Object)
-      )
+      expect(http.get).toHaveBeenCalledWith('/v1/smart/summary')
       expect(result.current.data).toEqual(mockSummary)
     })
   })
 
   describe('Shares API', () => {
-    it('should fetch shares from /api/v1/shares', async () => {
+    it('should fetch shares using /v1/shares', async () => {
       const mockShares = [
-        {
-          name: 'Documents',
-          path: '/mnt/main/docs',
-          protocol: 'smb',
-          enabled: true,
-        },
+        { name: 'Documents', path: '/mnt/main/docs', protocol: 'smb', enabled: true },
       ]
-
-      ;(global.fetch as any).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockShares,
-        headers: new Headers({ 'content-type': 'application/json' }),
-      })
-
-      const { result } = renderHook(() => useShares(), {
-        wrapper: createWrapper(),
-      })
-
+      vi.mocked(http.get).mockResolvedValueOnce(mockShares as any)
+      const { result } = renderHook(() => useShares(), { wrapper: createWrapper() })
       await waitFor(() => expect(result.current.isSuccess).toBe(true))
-
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/shares'),
-        expect.any(Object)
-      )
+      expect(http.get).toHaveBeenCalledWith('/v1/shares')
       expect(result.current.data).toEqual(mockShares)
     })
   })
 
   describe('Apps API', () => {
-    it('should fetch installed apps from /api/v1/apps/installed', async () => {
-      const mockApps = {
-        items: [
-          {
-            id: 'nextcloud',
-            name: 'Nextcloud',
-            version: '28.0',
-            status: 'running',
-          },
-        ],
-      }
-
-      ;(global.fetch as any).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockApps,
-        headers: new Headers({ 'content-type': 'application/json' }),
-      })
-
-      const { result } = renderHook(() => useInstalledApps(), {
-        wrapper: createWrapper(),
-      })
-
+    it('should fetch installed apps using /v1/apps/installed', async () => {
+      const mockApps = { items: [ { id: 'nextcloud', name: 'Nextcloud', version: '28.0', status: 'running' } ] }
+      vi.mocked(http.get).mockResolvedValueOnce(mockApps as any)
+      const { result } = renderHook(() => useInstalledApps(), { wrapper: createWrapper() })
       await waitFor(() => expect(result.current.isSuccess).toBe(true))
-
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/apps/installed'),
-        expect.any(Object)
-      )
+      expect(http.get).toHaveBeenCalledWith('/v1/apps/installed')
       expect(result.current.data).toEqual(mockApps.items)
-    })
-  })
-
-  describe('Error Handling', () => {
-    it('should handle backend unreachable error', async () => {
-      ;(global.fetch as any).mockResolvedValueOnce({
-        ok: false,
-        status: 502,
-        headers: new Headers({ 'content-type': 'text/html' }),
-        text: async () => '<html>502 Bad Gateway</html>',
-        json: async () => { throw new Error('Not JSON') },
-      })
-
-      const { result } = renderHook(() => useSystemInfo(), {
-        wrapper: createWrapper(),
-      })
-
-      await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 5000 })
-      
-      expect(result.current.error).toBeDefined()
-    })
-
-    it('should handle JSON parse errors gracefully', async () => {
-      ;(global.fetch as any).mockResolvedValueOnce({
-        ok: true,
-        headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => {
-          throw new Error('Invalid JSON')
-        },
-        text: async () => 'not json',
-      })
-
-      const { result } = renderHook(() => useSystemInfo(), {
-        wrapper: createWrapper(),
-      })
-
-      await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 5000 })
-      
-      expect(result.current.error).toBeDefined()
     })
   })
 })

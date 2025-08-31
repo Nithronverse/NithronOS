@@ -1,0 +1,146 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/v1/setup/state"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/setup/otp/verify"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/setup/first-admin"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/setup/complete"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/login"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/logout"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/refresh"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/auth/me"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/auth/session"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/auth/sessions"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/sessions/revoke"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/totp/verify"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/totp/enroll"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/system/info"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/health/system"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/health/disks"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/health/smart"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/storage/summary"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/pools"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/pools/{id}"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/pools/{id}/plan-device"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/pools/{id}/apply-device"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/pools/{id}/mount-options"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/pools/{id}/mount-options"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/pools/tx/{id}/log"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/shares"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/shares/{name}"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/shares"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/shares/{name}"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/shares/{name}"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/updates/check"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/updates/apply"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/updates/rollback"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/apps/installed"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/apps/catalog"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/apps/{id}"
+  }
+]

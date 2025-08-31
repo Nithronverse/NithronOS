@@ -24,7 +24,7 @@ export function GlobalNoticeProvider({ children }: { children: React.ReactNode }
     let timeout: any
     async function check() {
       try {
-        await fetchJSON<any>('/api/setup/state')
+        await fetchJSON<any>('/api/v1/setup/state')
         if (!stopRef.current) setNotice((n) => (n && n.title.includes('Backend unreachable') ? null : n))
       } catch (e: any) {
         if (e instanceof ErrProxyMisconfigured) {

@@ -1,5 +1,5 @@
 export default function HelpProxy() {
-  const curl = `curl -i http://YOUR_HOST/api/setup/state\n# Expect: HTTP/1.1 200 and Content-Type: application/json`
+  const curl = `curl -i http://YOUR_HOST/api/v1/setup/state\n# Expect: HTTP/1.1 200 and Content-Type: application/json`
   const caddy = `# API first\nhandle_path /api/* {\n  reverse_proxy localhost:8080\n}\n\n# SPA fallback\nhandle {\n  root * /srv/web\n  file_server\n  try_files {path} /index.html\n}`
   return (
     <div className="max-w-3xl mx-auto space-y-4">

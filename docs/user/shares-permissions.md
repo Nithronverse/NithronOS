@@ -319,10 +319,10 @@ Power users can manage shares programmatically:
 
 ```bash
 # List all shares
-curl http://nithronos.local:9000/api/shares
+curl http://nithronos.local:9000/api/v1/shares
 
 # Create a new share
-curl -X POST http://nithronos.local:9000/api/shares \
+curl -X POST http://nithronos.local:9000/api/v1/shares \
   -H "Content-Type: application/json" \
   -d '{
     "name": "api-share",

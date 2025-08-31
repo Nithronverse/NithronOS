@@ -76,7 +76,7 @@ export async function apiPostAuth<T>(path: string, token: string, body?: any): P
 }
 
 async function request<T>(path: string, init: RequestInit, retried = false): Promise<T> {
-	const isSetup = path.startsWith('/api/setup/')
+	const isSetup = path.startsWith('/api/v1/setup/')
 	const csrf = getCSRFCookie()
 	const res = await fetch(path, {
 		...init,

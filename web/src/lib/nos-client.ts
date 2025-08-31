@@ -53,7 +53,7 @@ let refreshing: Promise<void> | null = null;
 // Relaxed path validation to support various API patterns
 const ALLOWED_PATH_PREFIXES = [
   '/v1/',
-  '/setup/',
+  '/v1/setup/',
   '/auth/',
   '/metrics',
   '/debug/pprof',
@@ -208,10 +208,10 @@ export const http = {
   
   // Setup endpoints
   setup: {
-    getState: () => httpCore.get<any>('/setup/state'),
-    verifyOTP: (otp: string) => httpCore.post('/setup/verify-otp', { otp }),
-    createAdmin: (token: string, data: any) => httpCore.post('/setup/create-admin', { token, ...data }),
-    complete: (token: string) => httpCore.post('/setup/complete', { token }),
+    getState: () => httpCore.get<any>('/v1/setup/state'),
+    verifyOTP: (otp: string) => httpCore.post('/v1/setup/otp/verify', { otp }),
+    createAdmin: (token: string, data: any) => httpCore.post('/v1/setup/first-admin', { token, ...data }),
+    complete: (token: string) => httpCore.post('/v1/setup/complete', { token }),
   },
   
   // Auth endpoints
@@ -399,6 +399,53 @@ export const http = {
     runTest: (device: string, type: string) => httpCore.post(`/v1/smart/test/${device}`, { type }),
   },
 };
+
+// Explicit FE contract of endpoints used by the app (method + path)
+export const NOS_ENDPOINTS: Array<{ method: 'GET'|'POST'|'PUT'|'PATCH'|'DELETE', path: string }> = [
+  // Setup
+  { method: 'GET', path: '/api/v1/setup/state' },
+  { method: 'POST', path: '/api/v1/setup/otp/verify' },
+  { method: 'POST', path: '/api/v1/setup/first-admin' },
+  { method: 'POST', path: '/api/v1/setup/complete' },
+  // Auth
+  { method: 'POST', path: '/api/v1/auth/login' },
+  { method: 'POST', path: '/api/v1/auth/logout' },
+  { method: 'POST', path: '/api/v1/auth/refresh' },
+  { method: 'GET', path: '/api/v1/auth/me' },
+  { method: 'GET', path: '/api/v1/auth/session' },
+  { method: 'GET', path: '/api/v1/auth/sessions' },
+  { method: 'POST', path: '/api/v1/auth/sessions/revoke' },
+  { method: 'POST', path: '/api/v1/auth/totp/verify' },
+  { method: 'POST', path: '/api/v1/auth/totp/enroll' },
+  // System/health
+  { method: 'GET', path: '/api/v1/system/info' },
+  { method: 'GET', path: '/api/v1/health/system' },
+  { method: 'GET', path: '/api/v1/health/disks' },
+  { method: 'GET', path: '/api/v1/health/smart' },
+  // Storage/pools (subset used)
+  { method: 'GET', path: '/api/v1/storage/summary' },
+  { method: 'GET', path: '/api/v1/pools' },
+  { method: 'GET', path: '/api/v1/pools/{id}' },
+  { method: 'POST', path: '/api/v1/pools/{id}/plan-device' },
+  { method: 'POST', path: '/api/v1/pools/{id}/apply-device' },
+  { method: 'GET', path: '/api/v1/pools/{id}/mount-options' },
+  { method: 'POST', path: '/api/v1/pools/{id}/mount-options' },
+  { method: 'GET', path: '/api/v1/pools/tx/{id}/log' },
+  // Shares
+  { method: 'GET', path: '/api/v1/shares' },
+  { method: 'GET', path: '/api/v1/shares/{name}' },
+  { method: 'POST', path: '/api/v1/shares' },
+  { method: 'PUT', path: '/api/v1/shares/{name}' },
+  { method: 'DELETE', path: '/api/v1/shares/{name}' },
+  // Updates
+  { method: 'GET', path: '/api/v1/updates/check' },
+  { method: 'POST', path: '/api/v1/updates/apply' },
+  { method: 'POST', path: '/api/v1/updates/rollback' },
+  // Apps
+  { method: 'GET', path: '/api/v1/apps/installed' },
+  { method: 'GET', path: '/api/v1/apps/catalog' },
+  { method: 'GET', path: '/api/v1/apps/{id}' },
+];
 
 // Backward compatibility - export api as an alias to http
 export const api = http;

@@ -4,22 +4,26 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import http from '@/lib/nos-client'
 import { PoolDetails } from '../PoolDetails'
 
-vi.mock('@/lib/nos-client', () => ({
-  default: {
-    pools: {
-      list: vi.fn(),
-      get: vi.fn(),
-      planDevice: vi.fn(),
-      applyDevice: vi.fn(),
-      getMountOptions: vi.fn().mockResolvedValue({ mountOptions: 'compress=zstd:3,noatime' }),
-    },
-  },
-}))
+vi.mock('@/lib/nos-client', () => {
+  const pools = {
+    list: vi.fn(),
+    listUnversioned: vi.fn(),
+    get: vi.fn(),
+    planDevice: vi.fn(),
+    applyDevice: vi.fn(),
+    getMountOptions: vi.fn().mockResolvedValue({ mountOptions: 'compress=zstd:3,noatime' }),
+    txLog: vi.fn().mockResolvedValue({ lines: [], nextCursor: 0 }),
+  }
+  const defaultExport = { pools }
+  return { default: defaultExport, api: defaultExport }
+})
+
 
 describe('Devices wizard warnings and confirm gating', () => {
   beforeEach(() => {
-    vi.restoreAllMocks()
+    vi.clearAllMocks()
     // Mock the pool data
+    vi.mocked(http.pools.listUnversioned).mockResolvedValue([{ id:'p1', mount:'/mnt/p1', uuid:'U', raid:'raid1', size:1, used:0, free:1, devices:[] }] as any)
     vi.mocked(http.pools.get).mockResolvedValue({
       id:'p1', 
       mount:'/mnt/p1', 
@@ -29,7 +33,7 @@ describe('Devices wizard warnings and confirm gating', () => {
       used:0, 
       free:1, 
       devices:[]
-    })
+    } as any)
   })
 
   it('shows plan warnings and blocks Apply until confirm matches', async () => {
@@ -38,8 +42,8 @@ describe('Devices wizard warnings and confirm gating', () => {
       steps: [{ id:'s1', description:'add devices', command:"btrfs device add /dev/sdb /mnt/p1" }],
       warnings: ['Pool is >80% full; balance may take longer.'],
       requiresBalance: true,
-    })
-    vi.mocked(http.pools.applyDevice).mockResolvedValue({ ok:true, tx_id:'t1' })
+    } as any)
+    vi.mocked(http.pools.applyDevice).mockResolvedValue({ ok:true, tx_id:'t1' } as any)
 
     render(
       <MemoryRouter initialEntries={["/pools/p1"]}>
@@ -50,21 +54,40 @@ describe('Devices wizard warnings and confirm gating', () => {
     )
 
     await screen.findByText(/Pool Details/i)
-    fireEvent.click(screen.getByRole('button', { name:/Devices/i }))
-    fireEvent.click(screen.getByRole('button', { name:/Add/i }))
-    fireEvent.change(screen.getByLabelText(/Devices to add/i), { target: { value: '/dev/sdb' } })
-    fireEvent.click(screen.getByRole('button', { name:/Plan/i }))
+
+    // Click Devices tab by scanning buttons
+    const buttons1 = await screen.findAllByRole('button')
+    const devicesTab = buttons1.find(b => b.textContent?.trim() === 'Devices')
+    expect(devicesTab).toBeTruthy()
+    fireEvent.click(devicesTab!)
+
+    // Click Add
+    const buttons2 = await screen.findAllByRole('button')
+    const addBtn = buttons2.find(b => b.textContent?.trim() === 'Add')
+    expect(addBtn).toBeTruthy()
+    fireEvent.click(addBtn!)
+
+    const input = await screen.findByLabelText(/Devices to add/i)
+    fireEvent.change(input, { target: { value: '/dev/sdb' } })
+
+    // Click Plan
+    const buttons3 = await screen.findAllByRole('button')
+    const planBtn = buttons3.find(b => b.textContent?.trim() === 'Plan')
+    expect(planBtn).toBeTruthy()
+    fireEvent.click(planBtn!)
 
     await screen.findByText(/Warnings:/i)
-    const applyBtn = screen.getByRole('button', { name:/Apply/i }) as HTMLButtonElement
-    expect(applyBtn.disabled).toBe(true)
+    const buttons4 = await screen.findAllByRole('button')
+    const applyBtn = buttons4.find(b => b.textContent?.trim() === 'Apply') as HTMLButtonElement | undefined
+    expect(applyBtn).toBeTruthy()
+    expect(applyBtn!.disabled).toBe(true)
 
-    const confirmInput = screen.getByLabelText(/Confirm code/i)
+    const confirmInput = await screen.findByLabelText(/Confirm code/i)
     fireEvent.change(confirmInput, { target: { value: 'ADD' } })
 
-    await waitFor(() => expect(applyBtn.disabled).toBe(false))
+    await waitFor(() => expect((buttons4.find(b => b.textContent?.trim() === 'Apply') as HTMLButtonElement).disabled).toBe(false))
 
-    fireEvent.click(applyBtn)
+    fireEvent.click((await screen.findAllByRole('button')).find(b => b.textContent?.trim() === 'Apply')!)
     await waitFor(() => expect(http.pools.applyDevice).toHaveBeenCalled())
   })
 })

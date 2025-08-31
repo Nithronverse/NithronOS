@@ -23,7 +23,7 @@ NithronOS provides integrated network share management with support for SMB/CIFS
 ### Via API
 
 ```bash
-curl -X POST http://localhost:9000/api/shares \
+curl -X POST http://localhost:9000/api/v1/shares \
   -H "Content-Type: application/json" \
   -d '{
     "name": "documents",
@@ -298,7 +298,7 @@ systemctl restart avahi-daemon
 
 ### Example: Update Share
 ```bash
-curl -X PATCH http://localhost:9000/api/shares/documents \
+curl -X PATCH http://localhost:9000/api/v1/shares/documents \
   -H "Content-Type: application/json" \
   -d '{
     "smb": {
@@ -310,7 +310,7 @@ curl -X PATCH http://localhost:9000/api/shares/documents \
 
 ### Example: Test Configuration
 ```bash
-curl -X POST http://localhost:9000/api/shares/documents/test \
+curl -X POST http://localhost:9000/api/v1/shares/documents/test \
   -H "Content-Type: application/json" \
   -d '{
     "config": {
