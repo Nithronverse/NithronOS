@@ -1224,25 +1224,7 @@ func NewRouter(cfg config.Config) http.Handler {
 			writeJSON(w, list)
 		})
 
-		// Pools: import (mount) by device or UUID
-		pr.With(adminRequired).Post("/api/v1/pools/import", func(w http.ResponseWriter, r *http.Request) {
-			var body struct {
-				DeviceOrUUID string `json:"device_or_uuid"`
-			}
-			_ = json.NewDecoder(r.Body).Decode(&body)
-			if strings.TrimSpace(body.DeviceOrUUID) == "" {
-				httpx.WriteError(w, http.StatusBadRequest, "device_or_uuid required")
-				return
-			}
-			target := filepath.Join("/mnt", strings.ReplaceAll(body.DeviceOrUUID, "/", "_"))
-			client := agentclient.New("/run/nos-agent.sock")
-			var resp map[string]any
-			if err := client.PostJSON(r.Context(), "/v1/btrfs/mount", map[string]any{"uuid_or_device": body.DeviceOrUUID, "target": target}, &resp); err != nil {
-				httpx.WriteError(w, http.StatusInternalServerError, err.Error())
-				return
-			}
-			writeJSON(w, map[string]any{"ok": true, "mount": target})
-		})
+		// Pools: import handled by handlePoolsImport(cfg)
 
 		// Shares endpoints are handled by SharesHandler below
 		// SMB users proxy
