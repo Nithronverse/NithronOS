@@ -403,7 +403,7 @@ func handleMonitoringSystem(cfg config.Config) http.HandlerFunc {
 			// Get memory info
 			memInfo := response["memory"].(map[string]any)
 			swapInfo := response["swap"].(map[string]any)
-			
+
 			if data, err := os.ReadFile("/proc/meminfo"); err == nil {
 				lines := strings.Split(string(data), "\n")
 				for _, line := range lines {
@@ -441,7 +441,7 @@ func handleMonitoringSystem(cfg config.Config) http.HandlerFunc {
 						}
 					}
 				}
-				
+
 				// Calculate used and percentages
 				if total := memInfo["total"].(int64); total > 0 {
 					if available := memInfo["available"].(int64); available > 0 {
@@ -452,7 +452,7 @@ func handleMonitoringSystem(cfg config.Config) http.HandlerFunc {
 						memInfo["usagePct"] = float64(total-free) / float64(total) * 100
 					}
 				}
-				
+
 				if swapTotal := swapInfo["total"].(int64); swapTotal > 0 {
 					if swapFree := swapInfo["free"].(int64); swapFree > 0 {
 						swapInfo["used"] = swapTotal - swapFree
@@ -554,7 +554,7 @@ func handleMonitoringSystem(cfg config.Config) http.HandlerFunc {
 			memInfo["free"] = int64(4 * 1024 * 1024 * 1024)  // 4GB
 			memInfo["available"] = int64(4 * 1024 * 1024 * 1024)
 			memInfo["usagePct"] = 50.0
-			
+
 			response["load1"] = 0.5
 			response["load5"] = 0.5
 			response["load15"] = 0.5
