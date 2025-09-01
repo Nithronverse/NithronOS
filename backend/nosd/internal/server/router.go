@@ -1104,6 +1104,12 @@ func NewRouter(cfg config.Config) http.Handler {
 
 		// Health: alerts and manual SMART scan
 		pr.Get("/api/v1/alerts", handleAlertsGet(cfg))
+		
+		// Services health endpoints
+		pr.Get("/api/v1/health/services", handleServicesHealth(cfg))
+		pr.Get("/api/v1/health/services/{service}", handleServiceHealth(cfg))
+		pr.Get("/api/v1/health/services/{service}/logs", handleServiceLogs(cfg))
+		pr.With(adminRequired).Post("/api/v1/health/services/{service}/restart", handleServiceRestart(cfg))
 
 		// Monitoring endpoints
 		pr.Get("/api/v1/monitoring/logs", handleMonitoringLogs(cfg))
@@ -1699,7 +1705,7 @@ func NewRouter(cfg config.Config) http.Handler {
 				// During first-boot, always allow authenticated users; also allow setup token.
 				// Only require normal auth after setup is complete.
 				setupCompleteFile := filepath.Join(cfg.EtcDir, "nos", "setup-complete")
-				
+
 				// Check for normal session first (using same logic as adminRequired)
 				uid, ok := decodeSessionUID(r, cfg)
 				if !ok {
@@ -1708,20 +1714,20 @@ func NewRouter(cfg config.Config) http.Handler {
 						ok = true
 					}
 				}
-				
+
 				if ok && uid != "" {
 					// Valid session found, proceed
 					next.ServeHTTP(w, r)
 					return
 				}
-				
+
 				// No session, check if setup is complete
 				if _, err := os.Stat(setupCompleteFile); err == nil {
 					// Setup is complete, authentication is required
 					httpx.WriteTypedError(w, http.StatusUnauthorized, "auth.required", "Authentication required. Please sign in.", 0)
 					return
 				}
-				
+
 				// Setup not complete: allow with setup token for CLI/tools
 				authz := r.Header.Get("Authorization")
 				if strings.HasPrefix(authz, "Bearer ") {
@@ -1731,7 +1737,7 @@ func NewRouter(cfg config.Config) http.Handler {
 						return
 					}
 				}
-				
+
 				// Otherwise unauthorized
 				httpx.WriteTypedError(w, http.StatusUnauthorized, "auth.required", "Authentication required.", 0)
 			})

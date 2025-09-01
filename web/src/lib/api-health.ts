@@ -78,6 +78,6 @@ export const healthApi = {
 
   // Get monitoring data (reuses system health)
   getMonitoringData: async (): Promise<SystemHealth> => {
-    return await http.get<SystemHealth>('/v1/monitor/system')
+    return await http.get<SystemHealth>('/v1/monitoring/system')
   }
 }

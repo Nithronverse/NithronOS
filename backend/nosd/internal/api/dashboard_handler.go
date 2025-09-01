@@ -1,9 +1,13 @@
 package api
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
+	"runtime"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/cpu"
@@ -290,32 +294,86 @@ func getMaintenanceStatus(ctx context.Context) MaintenanceStatus {
 }
 
 func getRecentEvents(ctx context.Context) []EventInfo {
-	// Return recent events - would integrate with actual event system
-	now := time.Now()
-	events := []EventInfo{
-		{
-			ID:        "evt_001",
-			Timestamp: now.Add(-5 * time.Minute).Format(time.RFC3339),
-			Type:      "system",
-			Message:   "System health check completed",
-			Severity:  "info",
-		},
-		{
-			ID:        "evt_002",
-			Timestamp: now.Add(-30 * time.Minute).Format(time.RFC3339),
-			Type:      "storage",
-			Message:   "Pool scrub scheduled",
-			Severity:  "info",
-		},
-		{
-			ID:        "evt_003",
-			Timestamp: now.Add(-1 * time.Hour).Format(time.RFC3339),
-			Type:      "app",
-			Message:   "Plex Media Server updated to 1.32.8",
-			Severity:  "info",
-		},
+	events := []EventInfo{}
+	
+	// Read events from event log file
+	eventFile := "/var/lib/nos/events.jsonl"
+	if runtime.GOOS == "windows" {
+		eventFile = `C:\ProgramData\NithronOS\events.jsonl`
 	}
+	
+	// Try to read actual events
+	if file, err := os.Open(eventFile); err == nil {
+		defer file.Close()
+		scanner := bufio.NewScanner(file)
+		
+		// Read all events into memory to get the most recent ones
+		allEvents := []EventInfo{}
+		for scanner.Scan() {
+			var event map[string]any
+			if err := json.Unmarshal(scanner.Bytes(), &event); err == nil {
+				evt := EventInfo{
+					ID:        getStringField(event, "id"),
+					Timestamp: getStringField(event, "timestamp"),
+					Type:      getStringField(event, "category"),
+					Message:   getStringField(event, "message"),
+					Severity:  getStringField(event, "level"),
+				}
+				if evt.ID == "" {
+					evt.ID = fmt.Sprintf("evt_%d", len(allEvents))
+				}
+				// Map level to severity
+				switch evt.Severity {
+				case "critical", "error":
+					evt.Severity = "error"
+				case "warning", "warn":
+					evt.Severity = "warning"
+				default:
+					evt.Severity = "info"
+				}
+				allEvents = append(allEvents, evt)
+			}
+		}
+		
+		// Return the last 10 events
+		start := 0
+		if len(allEvents) > 10 {
+			start = len(allEvents) - 10
+		}
+		events = allEvents[start:]
+	}
+	
+	// If no events found, add some default ones
+	if len(events) == 0 {
+		now := time.Now()
+		events = []EventInfo{
+			{
+				ID:        "evt_001",
+				Timestamp: now.Format(time.RFC3339),
+				Type:      "system",
+				Message:   "System started",
+				Severity:  "info",
+			},
+		}
+	}
+	
+	// Reverse to show newest first
+	for i := len(events)/2 - 1; i >= 0; i-- {
+		opp := len(events) - 1 - i
+		events[i], events[opp] = events[opp], events[i]
+	}
+	
 	return events
+}
+
+func getStringField(m map[string]any, field string) string {
+	if v, ok := m[field]; ok {
+		if s, ok := v.(string); ok {
+			return s
+		}
+		return fmt.Sprintf("%v", v)
+	}
+	return ""
 }
 
 // Individual endpoint handlers for granular access
