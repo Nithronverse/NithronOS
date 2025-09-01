@@ -1699,21 +1699,30 @@ func NewRouter(cfg config.Config) http.Handler {
 				// During first-boot, always allow authenticated users; also allow setup token.
 				// Only require normal auth after setup is complete.
 				setupCompleteFile := filepath.Join(cfg.EtcDir, "nos", "setup-complete")
-				if _, err := os.Stat(setupCompleteFile); err == nil {
-					if _, ok := codec.DecodeFromRequest(r); !ok {
-						httpx.WriteTypedError(w, http.StatusUnauthorized, "auth.required", "Authentication required. Please sign in.", 0)
-						return
+				
+				// Check for normal session first (using same logic as adminRequired)
+				uid, ok := decodeSessionUID(r, cfg)
+				if !ok {
+					if s, ok2 := codec.DecodeFromRequest(r); ok2 {
+						uid = s.UserID
+						ok = true
 					}
-					// proceed
+				}
+				
+				if ok && uid != "" {
+					// Valid session found, proceed
 					next.ServeHTTP(w, r)
 					return
 				}
-				// Setup not complete: allow if session exists
-				if _, ok := codec.DecodeFromRequest(r); ok {
-					next.ServeHTTP(w, r)
+				
+				// No session, check if setup is complete
+				if _, err := os.Stat(setupCompleteFile); err == nil {
+					// Setup is complete, authentication is required
+					httpx.WriteTypedError(w, http.StatusUnauthorized, "auth.required", "Authentication required. Please sign in.", 0)
 					return
 				}
-				// Or allow with setup token for CLI/tools
+				
+				// Setup not complete: allow with setup token for CLI/tools
 				authz := r.Header.Get("Authorization")
 				if strings.HasPrefix(authz, "Bearer ") {
 					tok := strings.TrimSpace(authz[7:])
@@ -1722,6 +1731,7 @@ func NewRouter(cfg config.Config) http.Handler {
 						return
 					}
 				}
+				
 				// Otherwise unauthorized
 				httpx.WriteTypedError(w, http.StatusUnauthorized, "auth.required", "Authentication required.", 0)
 			})
