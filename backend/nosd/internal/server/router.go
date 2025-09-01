@@ -1396,14 +1396,8 @@ func NewRouter(cfg config.Config) http.Handler {
 		}
 
 		// Updates endpoints (M5)
-		updatesLogger := Logger(cfg)
-		updatesHandler, err := NewUpdatesHandler(*updatesLogger)
-		if err != nil {
-			updatesLogger.Warn().Err(err).Msg("Failed to create updates handler")
-			// Continue without update features
-		} else {
-			pr.Mount("/api/v1/updates", updatesHandler.Routes())
-		}
+		updatesHandler := NewUpdatesHandler(cfg)
+		pr.Mount("/api/v1/updates", updatesHandler.Routes())
 
 		// Apps catalog
 		pr.Get("/api/v1/apps", func(w http.ResponseWriter, r *http.Request) {

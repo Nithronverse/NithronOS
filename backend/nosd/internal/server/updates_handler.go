@@ -15,6 +15,8 @@ import (
 
 	"nithronos/backend/nosd/internal/config"
 	"nithronos/backend/nosd/pkg/httpx"
+
+	"github.com/go-chi/chi/v5"
 )
 
 // UpdateInfo represents information about an available update
@@ -52,6 +54,14 @@ func NewUpdatesHandler(cfg config.Config) *UpdatesHandler {
 		config:       cfg,
 		settingsPath: filepath.Join(cfg.EtcDir, "nos", "update-settings.json"),
 	}
+}
+
+// Routes returns the routes for the updates handler
+func (h *UpdatesHandler) Routes() chi.Router {
+	r := chi.NewRouter()
+	r.Post("/check", h.CheckForUpdates)
+	r.Post("/apply", h.ApplyUpdate)
+	return r
 }
 
 // CheckForUpdates checks for available system updates
@@ -190,7 +200,7 @@ func (h *UpdatesHandler) checkAPTUpdates(info *UpdateInfo) error {
 
 	// Parse output to find available version
 	lines := strings.Split(string(output), "\n")
-	for i, line := range lines {
+	for _, line := range lines {
 		if strings.Contains(line, "Candidate:") {
 			parts := strings.Fields(line)
 			if len(parts) >= 2 {

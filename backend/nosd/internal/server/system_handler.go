@@ -16,14 +16,14 @@ import (
 
 // SystemInfoBasic represents basic system information
 type SystemInfoBasic struct {
-	Hostname     string  `json:"hostname"`
-	Uptime       uint64  `json:"uptime"`
-	Kernel       string  `json:"kernel"`
-	Version      string  `json:"version"`
-	Arch         string  `json:"arch,omitempty"`
-	CPUCount     int     `json:"cpuCount,omitempty"`
-	MemoryTotal  uint64  `json:"memoryTotal,omitempty"`
-	MemoryUsed   uint64  `json:"memoryUsed,omitempty"`
+	Hostname    string `json:"hostname"`
+	Uptime      int64  `json:"uptime"`
+	Kernel      string `json:"kernel"`
+	Version     string `json:"version"`
+	Arch        string `json:"arch,omitempty"`
+	CPUCount    int    `json:"cpuCount,omitempty"`
+	MemoryTotal uint64 `json:"memoryTotal,omitempty"`
+	MemoryUsed  uint64 `json:"memoryUsed,omitempty"`
 }
 
 // ServiceStatus represents the status of a system service
@@ -45,44 +45,44 @@ func NewSystemHandler() *SystemHandler {
 // Routes registers the system routes
 func (h *SystemHandler) Routes() chi.Router {
 	r := chi.NewRouter()
-	
+
 	r.Get("/info", h.GetSystemInfo)
 	r.Get("/services", h.GetServices)
-	
+
 	return r
 }
 
 // GetSystemInfo returns system information
 // GET /api/v1/system/info
 func (h *SystemHandler) GetSystemInfo(w http.ResponseWriter, r *http.Request) {
-	info := SystemInfo{
+	info := SystemInfoBasic{
 		Arch: runtime.GOARCH,
 	}
-	
+
 	// Get hostname
 	hostname, err := os.Hostname()
 	if err == nil {
 		info.Hostname = hostname
 	}
-	
+
 	// Get host info (uptime, kernel)
 	if hostInfo, err := host.Info(); err == nil {
-		info.Uptime = hostInfo.Uptime
+		info.Uptime = int64(hostInfo.Uptime)
 		info.Kernel = hostInfo.KernelVersion
 		info.Version = hostInfo.Platform + " " + hostInfo.PlatformVersion
 	}
-	
+
 	// Get CPU count
 	if cpuCount, err := cpu.Counts(true); err == nil {
 		info.CPUCount = cpuCount
 	}
-	
+
 	// Get memory info
 	if memInfo, err := mem.VirtualMemory(); err == nil {
 		info.MemoryTotal = memInfo.Total
 		info.MemoryUsed = memInfo.Used
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(info); err != nil {
 		log.Error().Err(err).Msg("Failed to encode system info")
@@ -126,7 +126,7 @@ func (h *SystemHandler) GetServices(w http.ResponseWriter, r *http.Request) {
 			Enabled: h.isServiceEnabled("nfs-server"),
 		},
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(services); err != nil {
 		log.Error().Err(err).Msg("Failed to encode services")
@@ -138,11 +138,11 @@ func (h *SystemHandler) GetServices(w http.ResponseWriter, r *http.Request) {
 func (h *SystemHandler) checkServiceStatus(service string) string {
 	// This is a simplified check - in production, you'd use systemd D-Bus API
 	// or parse systemctl output
-	
+
 	// For now, return "unknown" for services we can't check
 	// In a real implementation, you'd execute:
 	// systemctl is-active <service>
-	
+
 	return "unknown"
 }
 
@@ -150,7 +150,7 @@ func (h *SystemHandler) checkServiceStatus(service string) string {
 func (h *SystemHandler) isServiceEnabled(service string) bool {
 	// This is a simplified check - in production, you'd use systemd D-Bus API
 	// or parse systemctl output
-	
+
 	// For now, return true for critical services
 	return service == "smbd" || service == "nfs-server"
 }

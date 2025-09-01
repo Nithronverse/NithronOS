@@ -125,6 +125,16 @@ func (s *Store) FindByID(id string) (User, error) {
 	return User{}, ErrUserNotFound
 }
 
+func (s *Store) List() ([]User, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	users := make([]User, 0, len(s.users))
+	for _, u := range s.users {
+		users = append(users, u)
+	}
+	return users, nil
+}
+
 func (s *Store) UpsertUser(u User) error {
 	// Update in-memory under write lock and take a snapshot
 	s.mu.Lock()

@@ -13,38 +13,39 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"nithronos/backend/nosd/internal/config"
 	"nithronos/backend/nosd/pkg/httpx"
+
+	"github.com/go-chi/chi/v5"
 )
 
 // NetworkOverview represents network system overview
 type NetworkOverview struct {
-	Hostname    string                   `json:"hostname"`
-	Interfaces  []NetworkInterfaceInfo   `json:"interfaces"`
-	Routes      []Route             `json:"routes"`
-	DNS         DNSConfig           `json:"dns"`
-	Firewall    FirewallStatus      `json:"firewall"`
-	WireGuard   WireGuardStatus     `json:"wireguard"`
-	HTTPS       HTTPSStatus         `json:"https"`
+	Hostname   string                 `json:"hostname"`
+	Interfaces []NetworkInterfaceInfo `json:"interfaces"`
+	Routes     []Route                `json:"routes"`
+	DNS        DNSConfig              `json:"dns"`
+	Firewall   FirewallStatus         `json:"firewall"`
+	WireGuard  WireGuardStatus        `json:"wireguard"`
+	HTTPS      HTTPSStatus            `json:"https"`
 }
 
 // NetworkInterfaceInfo represents a network interface
 type NetworkInterfaceInfo struct {
-	Name        string   `json:"name"`
-	Type        string   `json:"type"` // ethernet, wifi, bridge, virtual
-	Status      string   `json:"status"` // up, down
-	IPv4        []string `json:"ipv4"`
-	IPv6        []string `json:"ipv6"`
-	MAC         string   `json:"mac"`
-	MTU         int      `json:"mtu"`
-	Speed       int      `json:"speed"` // Mbps
-	RxBytes     int64    `json:"rx_bytes"`
-	TxBytes     int64    `json:"tx_bytes"`
-	RxPackets   int64    `json:"rx_packets"`
-	TxPackets   int64    `json:"tx_packets"`
-	RxErrors    int64    `json:"rx_errors"`
-	TxErrors    int64    `json:"tx_errors"`
+	Name      string   `json:"name"`
+	Type      string   `json:"type"`   // ethernet, wifi, bridge, virtual
+	Status    string   `json:"status"` // up, down
+	IPv4      []string `json:"ipv4"`
+	IPv6      []string `json:"ipv6"`
+	MAC       string   `json:"mac"`
+	MTU       int      `json:"mtu"`
+	Speed     int      `json:"speed"` // Mbps
+	RxBytes   int64    `json:"rx_bytes"`
+	TxBytes   int64    `json:"tx_bytes"`
+	RxPackets int64    `json:"rx_packets"`
+	TxPackets int64    `json:"tx_packets"`
+	RxErrors  int64    `json:"rx_errors"`
+	TxErrors  int64    `json:"tx_errors"`
 }
 
 // Route represents a network route
@@ -65,9 +66,9 @@ type DNSConfig struct {
 
 // FirewallStatus represents firewall status
 type FirewallStatus struct {
-	Enabled bool                   `json:"enabled"`
-	Mode    string                 `json:"mode"` // strict, permissive
-	Rules   int                    `json:"rules_count"`
+	Enabled bool                    `json:"enabled"`
+	Mode    string                  `json:"mode"` // strict, permissive
+	Rules   int                     `json:"rules_count"`
 	Zones   map[string]FirewallZone `json:"zones"`
 }
 
@@ -85,8 +86,8 @@ type FirewallRule struct {
 	ID          string `json:"id"`
 	Priority    int    `json:"priority"`
 	Direction   string `json:"direction"` // inbound, outbound
-	Action      string `json:"action"` // allow, deny, reject
-	Protocol    string `json:"protocol"` // tcp, udp, icmp, any
+	Action      string `json:"action"`    // allow, deny, reject
+	Protocol    string `json:"protocol"`  // tcp, udp, icmp, any
 	Source      string `json:"source"`
 	Destination string `json:"destination"`
 	Port        string `json:"port"`
@@ -96,9 +97,9 @@ type FirewallRule struct {
 
 // WireGuardStatus represents WireGuard VPN status
 type WireGuardStatus struct {
-	Enabled    bool             `json:"enabled"`
-	Interfaces []WGInterface    `json:"interfaces"`
-	Peers      []WGPeer         `json:"peers"`
+	Enabled    bool          `json:"enabled"`
+	Interfaces []WGInterface `json:"interfaces"`
+	Peers      []WGPeer      `json:"peers"`
 }
 
 // WGInterface represents a WireGuard interface
@@ -111,43 +112,43 @@ type WGInterface struct {
 
 // WGPeer represents a WireGuard peer
 type WGPeer struct {
-	Name           string    `json:"name"`
-	PublicKey      string    `json:"public_key"`
-	Endpoint       string    `json:"endpoint"`
-	AllowedIPs     []string  `json:"allowed_ips"`
-	LastHandshake  time.Time `json:"last_handshake"`
-	TransferRx     int64     `json:"transfer_rx"`
-	TransferTx     int64     `json:"transfer_tx"`
+	Name          string    `json:"name"`
+	PublicKey     string    `json:"public_key"`
+	Endpoint      string    `json:"endpoint"`
+	AllowedIPs    []string  `json:"allowed_ips"`
+	LastHandshake time.Time `json:"last_handshake"`
+	TransferRx    int64     `json:"transfer_rx"`
+	TransferTx    int64     `json:"transfer_tx"`
 }
 
 // HTTPSStatus represents HTTPS/TLS configuration status
 type HTTPSStatus struct {
-	Enabled     bool       `json:"enabled"`
-	Certificate CertInfo   `json:"certificate"`
-	Domains     []string   `json:"domains"`
-	AutoRenew   bool       `json:"auto_renew"`
-	Provider    string     `json:"provider"` // letsencrypt, self-signed, custom
+	Enabled     bool     `json:"enabled"`
+	Certificate CertInfo `json:"certificate"`
+	Domains     []string `json:"domains"`
+	AutoRenew   bool     `json:"auto_renew"`
+	Provider    string   `json:"provider"` // letsencrypt, self-signed, custom
 }
 
 // CertInfo represents certificate information
 type CertInfo struct {
-	Subject    string    `json:"subject"`
-	Issuer     string    `json:"issuer"`
-	NotBefore  time.Time `json:"not_before"`
-	NotAfter   time.Time `json:"not_after"`
-	DaysLeft   int       `json:"days_left"`
+	Subject   string    `json:"subject"`
+	Issuer    string    `json:"issuer"`
+	NotBefore time.Time `json:"not_before"`
+	NotAfter  time.Time `json:"not_after"`
+	DaysLeft  int       `json:"days_left"`
 }
 
 // NetworkConfigHandler handles network configuration
 type NetworkConfigHandler struct {
-	config config.Config
+	config     config.Config
 	configPath string
 }
 
 // NewNetworkConfigHandler creates a new network config handler
 func NewNetworkConfigHandler(cfg config.Config) *NetworkConfigHandler {
 	return &NetworkConfigHandler{
-		config: cfg,
+		config:     cfg,
 		configPath: filepath.Join(cfg.EtcDir, "nos", "network-config.json"),
 	}
 }
@@ -184,10 +185,10 @@ func (h *NetworkConfigHandler) CreateFirewallRule(w http.ResponseWriter, r *http
 	}
 
 	rule.ID = generateUUID()
-	
+
 	rules := h.loadFirewallRules()
 	rules = append(rules, rule)
-	
+
 	if err := h.saveFirewallRules(rules); err != nil {
 		httpx.WriteTypedError(w, http.StatusInternalServerError, "firewall.save_failed", "Failed to save rule", 0)
 		return
@@ -206,7 +207,7 @@ func (h *NetworkConfigHandler) CreateFirewallRule(w http.ResponseWriter, r *http
 // UpdateFirewallRule updates an existing firewall rule
 func (h *NetworkConfigHandler) UpdateFirewallRule(w http.ResponseWriter, r *http.Request) {
 	ruleID := chi.URLParam(r, "id")
-	
+
 	var updatedRule FirewallRule
 	if err := json.NewDecoder(r.Body).Decode(&updatedRule); err != nil {
 		httpx.WriteTypedError(w, http.StatusBadRequest, "firewall.invalid_rule", "Invalid rule format", 0)
@@ -246,11 +247,11 @@ func (h *NetworkConfigHandler) UpdateFirewallRule(w http.ResponseWriter, r *http
 // DeleteFirewallRule deletes a firewall rule
 func (h *NetworkConfigHandler) DeleteFirewallRule(w http.ResponseWriter, r *http.Request) {
 	ruleID := chi.URLParam(r, "id")
-	
+
 	rules := h.loadFirewallRules()
 	newRules := []FirewallRule{}
 	found := false
-	
+
 	for _, rule := range rules {
 		if rule.ID != ruleID {
 			newRules = append(newRules, rule)
@@ -304,7 +305,7 @@ func (h *NetworkConfigHandler) CreateWireGuardPeer(w http.ResponseWriter, r *htt
 
 	config := h.loadWireGuardConfig()
 	config.Peers = append(config.Peers, peer)
-	
+
 	if err := h.saveWireGuardConfig(config); err != nil {
 		httpx.WriteTypedError(w, http.StatusInternalServerError, "wg.save_failed", "Failed to save configuration", 0)
 		return
@@ -359,7 +360,7 @@ func (h *NetworkConfigHandler) getHostname() string {
 
 func (h *NetworkConfigHandler) getInterfaces() []NetworkInterfaceInfo {
 	interfaces := []NetworkInterfaceInfo{}
-	
+
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		return interfaces
@@ -418,7 +419,7 @@ func (h *NetworkConfigHandler) getInterfaces() []NetworkInterfaceInfo {
 func (h *NetworkConfigHandler) getInterfaceStats(ni *NetworkInterfaceInfo) {
 	// Read from /sys/class/net/<interface>/statistics/
 	basePath := fmt.Sprintf("/sys/class/net/%s/statistics", ni.Name)
-	
+
 	if data, err := os.ReadFile(filepath.Join(basePath, "rx_bytes")); err == nil {
 		fmt.Sscanf(string(data), "%d", &ni.RxBytes)
 	}
@@ -437,7 +438,7 @@ func (h *NetworkConfigHandler) getInterfaceStats(ni *NetworkInterfaceInfo) {
 	if data, err := os.ReadFile(filepath.Join(basePath, "tx_errors")); err == nil {
 		fmt.Sscanf(string(data), "%d", &ni.TxErrors)
 	}
-	
+
 	// Get speed
 	speedPath := fmt.Sprintf("/sys/class/net/%s/speed", ni.Name)
 	if data, err := os.ReadFile(speedPath); err == nil {
@@ -447,7 +448,7 @@ func (h *NetworkConfigHandler) getInterfaceStats(ni *NetworkInterfaceInfo) {
 
 func (h *NetworkConfigHandler) getRoutes() []Route {
 	routes := []Route{}
-	
+
 	if runtime.GOOS != "linux" {
 		return routes
 	}
@@ -599,7 +600,7 @@ func (h *NetworkConfigHandler) getHTTPSStatus() HTTPSStatus {
 	if _, err := os.Stat(certPath); err == nil {
 		status.Enabled = true
 		status.Provider = "custom"
-		
+
 		// Parse certificate for details
 		// This is simplified - real implementation would parse the certificate
 		status.Certificate = CertInfo{
@@ -619,7 +620,7 @@ func (h *NetworkConfigHandler) getHTTPSStatus() HTTPSStatus {
 func (h *NetworkConfigHandler) loadFirewallRules() []FirewallRule {
 	rulesFile := filepath.Join(h.config.EtcDir, "nos", "firewall-rules.json")
 	var rules []FirewallRule
-	
+
 	if data, err := os.ReadFile(rulesFile); err == nil {
 		_ = json.Unmarshal(data, &rules)
 	}
@@ -656,7 +657,7 @@ func (h *NetworkConfigHandler) applyFirewallRules() error {
 func (h *NetworkConfigHandler) loadWireGuardConfig() WireGuardStatus {
 	configFile := filepath.Join(h.config.EtcDir, "nos", "wireguard-config.json")
 	var config WireGuardStatus
-	
+
 	if data, err := os.ReadFile(configFile); err == nil {
 		_ = json.Unmarshal(data, &config)
 	}
@@ -709,7 +710,7 @@ type HTTPSConfig struct {
 func (h *NetworkConfigHandler) loadHTTPSConfig() HTTPSConfig {
 	configFile := filepath.Join(h.config.EtcDir, "nos", "https-config.json")
 	var config HTTPSConfig
-	
+
 	if data, err := os.ReadFile(configFile); err == nil {
 		_ = json.Unmarshal(data, &config)
 	}
