@@ -32,26 +32,3 @@ func getDiskUsage(path string) (int, error) {
 	used := totalNumberOfBytes - totalNumberOfFreeBytes
 	return int((used * 100) / totalNumberOfBytes), nil
 }
-
-func getDiskUsageBytes(path string) (used, total int64, err error) {
-	h := windows.MustLoadDLL("kernel32.dll")
-	c := h.MustFindProc("GetDiskFreeSpaceExW")
-	
-	var freeBytesAvailable, totalNumberOfBytes, totalNumberOfFreeBytes int64
-	
-	pathPtr, _ := windows.UTF16PtrFromString(path)
-	_, _, callErr := c.Call(
-		uintptr(unsafe.Pointer(pathPtr)),
-		uintptr(unsafe.Pointer(&freeBytesAvailable)),
-		uintptr(unsafe.Pointer(&totalNumberOfBytes)),
-		uintptr(unsafe.Pointer(&totalNumberOfFreeBytes)),
-	)
-	
-	if callErr != nil && callErr.Error() != "The operation completed successfully." {
-		return 0, 0, callErr
-	}
-	
-	used = totalNumberOfBytes - totalNumberOfFreeBytes
-	total = totalNumberOfBytes
-	return used, total, nil
-}
