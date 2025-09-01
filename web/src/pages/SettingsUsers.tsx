@@ -439,7 +439,7 @@ export function SettingsUsers() {
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['users'],
     queryFn: async () => {
-      const response = await api.get('/api/v1/users')
+      const response = await api.get<{ data: User[] }>('/api/v1/users')
       return response.data
     },
     refetchInterval: 30000, // Refresh every 30 seconds
