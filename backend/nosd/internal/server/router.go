@@ -637,15 +637,6 @@ func NewRouter(cfg config.Config) http.Handler {
 	// Auth (legacy + new store integration)
 
 	r.Post("/api/v1/auth/login", func(w http.ResponseWriter, r *http.Request) {
-		// During setup, allow login if admin exists (needed for steps 4-7)
-		// Only block login if no admin exists yet
-		us, _ := userstore.New(cfg.UsersPath)
-		if us != nil && !us.HasAdmin() {
-			// No admin yet, cannot login
-			httpx.WriteTypedError(w, http.StatusForbidden, "setup.required", "System setup required. Please create an admin account first.", 0)
-			return
-		}
-
 		var body struct {
 			Username   string `json:"username"`
 			Password   string `json:"password"`
@@ -655,7 +646,8 @@ func NewRouter(cfg config.Config) http.Handler {
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		uname := strings.TrimSpace(body.Username)
 		pass := body.Password
-		// rate limit by IP and username
+		
+		// Apply rate limiting first (before any other checks)
 		ip := clientIP(r, cfg)
 		loginWin := time.Duration(cfg.RateLoginWindowSec) * time.Second
 		if loginWin <= 0 {
@@ -671,6 +663,15 @@ func NewRouter(cfg config.Config) http.Handler {
 			Logger(cfg).Warn().Str("event", "rate.limited").Str("key", "login").Str("ip", ip).Int("limit", cfg.RateLoginPer15m).Time("resetAt", retry).Msg("")
 			w.Header().Set("Retry-After", strconv.Itoa(int(time.Until(retry).Seconds())))
 			httpx.WriteError(w, http.StatusTooManyRequests, `{"error":{"code":"rate.limited","retryAfterSec":`+strconv.Itoa(int(time.Until(retry).Seconds()))+`}}`)
+			return
+		}
+		
+		// During setup, allow login if admin exists (needed for steps 4-7)
+		// Only block login if no admin exists yet
+		us, _ := userstore.New(cfg.UsersPath)
+		if us != nil && !us.HasAdmin() {
+			// No admin yet, cannot login
+			httpx.WriteTypedError(w, http.StatusForbidden, "setup.required", "System setup required. Please create an admin account first.", 0)
 			return
 		}
 		u, err := users.FindByUsername(uname)
@@ -1102,7 +1103,7 @@ func NewRouter(cfg config.Config) http.Handler {
 
 		// Health: alerts and manual SMART scan
 		pr.Get("/api/v1/alerts", handleAlertsGet(cfg))
-		
+
 		// Monitoring endpoints expected by frontend
 		pr.Get("/api/v1/monitoring/logs", func(w http.ResponseWriter, r *http.Request) {
 			// TODO: Implement log retrieval
@@ -1125,7 +1126,7 @@ func NewRouter(cfg config.Config) http.Handler {
 				},
 			})
 		})
-		
+
 		// Scrub endpoints expected by frontend
 		pr.Get("/api/v1/scrub/status", func(w http.ResponseWriter, r *http.Request) {
 			// TODO: Implement scrub status
@@ -1139,7 +1140,7 @@ func NewRouter(cfg config.Config) http.Handler {
 			// TODO: Implement scrub cancel
 			writeJSON(w, map[string]any{"ok": true, "message": "Scrub cancelled"})
 		})
-		
+
 		// Balance endpoints expected by frontend
 		pr.Get("/api/v1/balance/status", func(w http.ResponseWriter, r *http.Request) {
 			// TODO: Implement balance status
@@ -1153,7 +1154,7 @@ func NewRouter(cfg config.Config) http.Handler {
 			// TODO: Implement balance cancel
 			writeJSON(w, map[string]any{"ok": true, "message": "Balance cancelled"})
 		})
-		
+
 		// SMART endpoints expected by frontend
 		pr.Get("/api/v1/smart/summary", func(w http.ResponseWriter, r *http.Request) {
 			// TODO: Implement SMART summary
@@ -1179,12 +1180,14 @@ func NewRouter(cfg config.Config) http.Handler {
 		})
 		pr.With(adminRequired).Post("/api/v1/smart/test/{device}", func(w http.ResponseWriter, r *http.Request) {
 			device := chi.URLParam(r, "device")
-			var body struct{ Type string `json:"type"` }
+			var body struct {
+				Type string `json:"type"`
+			}
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			// TODO: Implement SMART test
 			writeJSON(w, map[string]any{"ok": true, "device": device, "test_type": body.Type, "message": "SMART test started"})
 		})
-		
+
 		// Jobs endpoints expected by frontend
 		pr.Get("/api/v1/jobs/recent", func(w http.ResponseWriter, r *http.Request) {
 			limit := r.URL.Query().Get("limit")
@@ -1194,7 +1197,7 @@ func NewRouter(cfg config.Config) http.Handler {
 			// TODO: Implement recent jobs
 			writeJSON(w, map[string]any{"jobs": []any{}, "limit": limit})
 		})
-		
+
 		// Devices endpoint expected by frontend
 		pr.Get("/api/v1/devices", func(w http.ResponseWriter, r *http.Request) {
 			// Delegate to existing devices handler
