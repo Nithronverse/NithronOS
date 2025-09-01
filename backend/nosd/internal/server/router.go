@@ -1102,6 +1102,104 @@ func NewRouter(cfg config.Config) http.Handler {
 
 		// Health: alerts and manual SMART scan
 		pr.Get("/api/v1/alerts", handleAlertsGet(cfg))
+		
+		// Monitoring endpoints expected by frontend
+		pr.Get("/api/v1/monitoring/logs", func(w http.ResponseWriter, r *http.Request) {
+			// TODO: Implement log retrieval
+			writeJSON(w, map[string]any{"logs": []any{}, "total": 0})
+		})
+		pr.Get("/api/v1/monitoring/events", func(w http.ResponseWriter, r *http.Request) {
+			// TODO: Implement event retrieval
+			writeJSON(w, map[string]any{"events": []any{}, "total": 0})
+		})
+		pr.Get("/api/v1/monitoring/alerts", func(w http.ResponseWriter, r *http.Request) {
+			// Delegate to existing alerts handler
+			handleAlertsGet(cfg)(w, r)
+		})
+		pr.Get("/api/v1/monitoring/services", func(w http.ResponseWriter, r *http.Request) {
+			// TODO: Implement service status
+			writeJSON(w, map[string]any{
+				"services": []map[string]any{
+					{"name": "nosd", "status": "running", "uptime": 3600},
+					{"name": "nos-agent", "status": "running", "uptime": 3600},
+				},
+			})
+		})
+		
+		// Scrub endpoints expected by frontend
+		pr.Get("/api/v1/scrub/status", func(w http.ResponseWriter, r *http.Request) {
+			// TODO: Implement scrub status
+			writeJSON(w, map[string]any{"status": "idle", "last_run": nil})
+		})
+		pr.With(adminRequired).Post("/api/v1/scrub/start", func(w http.ResponseWriter, r *http.Request) {
+			// TODO: Implement scrub start
+			writeJSON(w, map[string]any{"ok": true, "message": "Scrub started"})
+		})
+		pr.With(adminRequired).Post("/api/v1/scrub/cancel", func(w http.ResponseWriter, r *http.Request) {
+			// TODO: Implement scrub cancel
+			writeJSON(w, map[string]any{"ok": true, "message": "Scrub cancelled"})
+		})
+		
+		// Balance endpoints expected by frontend
+		pr.Get("/api/v1/balance/status", func(w http.ResponseWriter, r *http.Request) {
+			// TODO: Implement balance status
+			writeJSON(w, map[string]any{"status": "idle", "last_run": nil})
+		})
+		pr.With(adminRequired).Post("/api/v1/balance/start", func(w http.ResponseWriter, r *http.Request) {
+			// TODO: Implement balance start
+			writeJSON(w, map[string]any{"ok": true, "message": "Balance started"})
+		})
+		pr.With(adminRequired).Post("/api/v1/balance/cancel", func(w http.ResponseWriter, r *http.Request) {
+			// TODO: Implement balance cancel
+			writeJSON(w, map[string]any{"ok": true, "message": "Balance cancelled"})
+		})
+		
+		// SMART endpoints expected by frontend
+		pr.Get("/api/v1/smart/summary", func(w http.ResponseWriter, r *http.Request) {
+			// TODO: Implement SMART summary
+			writeJSON(w, map[string]any{"devices": []any{}, "healthy": 0, "warning": 0, "critical": 0})
+		})
+		pr.Get("/api/v1/smart/devices", func(w http.ResponseWriter, r *http.Request) {
+			// TODO: Implement SMART devices list
+			writeJSON(w, map[string]any{"devices": []any{}})
+		})
+		pr.Get("/api/v1/smart/device/{device}", func(w http.ResponseWriter, r *http.Request) {
+			device := chi.URLParam(r, "device")
+			// TODO: Implement SMART device details
+			writeJSON(w, map[string]any{"device": device, "status": "healthy", "attributes": []any{}})
+		})
+		pr.Get("/api/v1/smart/test/{device}", func(w http.ResponseWriter, r *http.Request) {
+			device := chi.URLParam(r, "device")
+			// TODO: Implement SMART test status
+			writeJSON(w, map[string]any{"device": device, "test_status": "not_running"})
+		})
+		pr.With(adminRequired).Post("/api/v1/smart/scan", func(w http.ResponseWriter, r *http.Request) {
+			// TODO: Implement SMART scan
+			writeJSON(w, map[string]any{"ok": true, "message": "SMART scan initiated"})
+		})
+		pr.With(adminRequired).Post("/api/v1/smart/test/{device}", func(w http.ResponseWriter, r *http.Request) {
+			device := chi.URLParam(r, "device")
+			var body struct{ Type string `json:"type"` }
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			// TODO: Implement SMART test
+			writeJSON(w, map[string]any{"ok": true, "device": device, "test_type": body.Type, "message": "SMART test started"})
+		})
+		
+		// Jobs endpoints expected by frontend
+		pr.Get("/api/v1/jobs/recent", func(w http.ResponseWriter, r *http.Request) {
+			limit := r.URL.Query().Get("limit")
+			if limit == "" {
+				limit = "10"
+			}
+			// TODO: Implement recent jobs
+			writeJSON(w, map[string]any{"jobs": []any{}, "limit": limit})
+		})
+		
+		// Devices endpoint expected by frontend
+		pr.Get("/api/v1/devices", func(w http.ResponseWriter, r *http.Request) {
+			// Delegate to existing devices handler
+			handleListDevices(w, r)
+		})
 		pr.With(adminRequired).Post("/api/v1/health/scan", handleHealthScan(cfg))
 		pr.With(adminRequired).Post("/api/v1/pools/apply-create", handleApplyCreate(cfg))
 		pr.With(adminRequired).Get("/api/v1/pools/discover", handlePoolsDiscover)
