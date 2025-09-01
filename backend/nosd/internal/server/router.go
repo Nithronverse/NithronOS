@@ -1104,7 +1104,7 @@ func NewRouter(cfg config.Config) http.Handler {
 
 		// Health: alerts and manual SMART scan
 		pr.Get("/api/v1/alerts", handleAlertsGet(cfg))
-		
+
 		// Services health endpoints
 		pr.Get("/api/v1/health/services", handleServicesHealth(cfg))
 		pr.Get("/api/v1/health/services/{service}", handleServiceHealth(cfg))
