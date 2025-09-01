@@ -129,7 +129,7 @@ func (m *Manager) initializeConfig() {
 		LastUpdated:  time.Now(),
 	}
 	
-	m.save()
+	_ = m.save()
 }
 
 func (m *Manager) checkCertificate() {
@@ -210,7 +210,7 @@ func (m *Manager) SetEnabled(enabled bool) error {
 		
 		// Reload Caddy
 		cmd := exec.Command("systemctl", "reload", "caddy")
-		cmd.Run()
+		_ = cmd.Run()
 	}
 	
 	m.config.Enabled = enabled
@@ -540,7 +540,7 @@ func (m *Manager) applyCaddyConfigHTTPOnly() error {
 // applyCaddyConfigLE generates Caddy configuration with Let's Encrypt
 func (m *Manager) applyCaddyConfigLE() error {
 	if m.config.LetsEncrypt == nil {
-		return fmt.Errorf("Let's Encrypt not configured")
+		return fmt.Errorf("let's encrypt not configured")
 	}
 	
 	var buf bytes.Buffer

@@ -176,7 +176,7 @@ func (m *Manager) Send(notif *Notification) error {
 	
 	m.mu.Lock()
 	m.notifications[notif.ID] = notif
-	m.save()
+	_ = m.save()
 	
 	// Notify subscribers
 	for _, subs := range m.subscribers {
@@ -545,14 +545,14 @@ func (m *Manager) cleanupOldNotifications() {
 			}
 		}
 		
-		m.save()
+		_ = m.save()
 		m.mu.Unlock()
 	}
 }
 
 // SendSystemNotification is a helper to send system notifications
 func (m *Manager) SendSystemNotification(title, message string, notifType string) {
-	m.Send(&Notification{
+	_ = m.Send(&Notification{
 		Type:     notifType,
 		Category: "system",
 		Title:    title,
@@ -567,7 +567,7 @@ func (m *Manager) SendBackupNotification(jobName string, status string, details 
 		notifType = "error"
 	}
 	
-	m.Send(&Notification{
+	_ = m.Send(&Notification{
 		Type:     notifType,
 		Category: "backup",
 		Title:    fmt.Sprintf("Backup Job: %s", jobName),
@@ -578,7 +578,7 @@ func (m *Manager) SendBackupNotification(jobName string, status string, details 
 
 // SendStorageNotification is a helper to send storage notifications
 func (m *Manager) SendStorageNotification(title, message string, notifType string, details map[string]interface{}) {
-	m.Send(&Notification{
+	_ = m.Send(&Notification{
 		Type:     notifType,
 		Category: "storage",
 		Title:    title,

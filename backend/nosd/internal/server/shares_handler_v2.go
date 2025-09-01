@@ -275,7 +275,7 @@ func (m *SambaManager) TestShare(share *ShareConfig) error {
 	// Check if Samba is running
 	cmd := exec.Command("systemctl", "is-active", "smbd")
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("Samba service is not running")
+		return fmt.Errorf("samba service is not running")
 	}
 	
 	return nil
@@ -513,7 +513,7 @@ func (h *SharesHandlerV2) UpdateShare(w http.ResponseWriter, r *http.Request) {
 	updated, _ := h.store.Get(id)
 	if updated.Enabled {
 		// Remove old config
-		h.removeShare(existing)
+		_ = h.removeShare(existing)
 		// Apply new config
 		if err := h.applyShare(updated); err != nil {
 			log.Error().Err(err).Str("id", id).Msg("Failed to apply updated share")

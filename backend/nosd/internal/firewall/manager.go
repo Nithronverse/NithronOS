@@ -241,7 +241,7 @@ func (m *Manager) addDefaultRules() {
 		UpdatedAt: time.Now(),
 	}
 
-	m.save()
+	_ = m.save()
 }
 
 func (m *Manager) checkStatus() {

@@ -176,7 +176,7 @@ func (m *Manager) initializeConfig() {
 	m.config.PostUp = "iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE"
 	m.config.PostDown = "iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE"
 
-	m.save()
+	_ = m.save()
 }
 
 // GetConfig returns the WireGuard configuration
@@ -238,7 +238,7 @@ func (m *Manager) SetEnabled(enabled bool) error {
 
 		// Enable systemd service
 		cmd = exec.Command("systemctl", "enable", fmt.Sprintf("wg-quick@%s", m.config.Interface))
-		cmd.Run()
+		_ = cmd.Run()
 	} else {
 		// Stop interface
 		cmd := exec.Command("wg-quick", "down", m.config.Interface)
@@ -249,7 +249,7 @@ func (m *Manager) SetEnabled(enabled bool) error {
 
 		// Disable systemd service
 		cmd = exec.Command("systemctl", "disable", fmt.Sprintf("wg-quick@%s", m.config.Interface))
-		cmd.Run()
+		_ = cmd.Run()
 	}
 
 	m.config.Enabled = enabled

@@ -118,7 +118,7 @@ func (h *NotificationHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 	defer h.manager.Unsubscribe(clientID, ch)
 	
 	// Send initial ping
-	w.Write([]byte("event: ping\ndata: {}\n\n"))
+	_, _ = w.Write([]byte("event: ping\ndata: {}\n\n"))
 	w.(http.Flusher).Flush()
 	
 	// Listen for notifications
@@ -129,14 +129,14 @@ func (h *NotificationHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 		select {
 		case notif := <-ch:
 			data, _ := json.Marshal(notif)
-			w.Write([]byte("event: notification\ndata: "))
-			w.Write(data)
-			w.Write([]byte("\n\n"))
+			_, _ = w.Write([]byte("event: notification\ndata: "))
+			_, _ = w.Write(data)
+			_, _ = w.Write([]byte("\n\n"))
 			w.(http.Flusher).Flush()
 			
 		case <-ticker.C:
 			// Send keepalive
-			w.Write([]byte("event: ping\ndata: {}\n\n"))
+			_, _ = w.Write([]byte("event: ping\ndata: {}\n\n"))
 			w.(http.Flusher).Flush()
 			
 		case <-r.Context().Done():
