@@ -637,16 +637,13 @@ func NewRouter(cfg config.Config) http.Handler {
 	// Auth (legacy + new store integration)
 
 	r.Post("/api/v1/auth/login", func(w http.ResponseWriter, r *http.Request) {
-		// Check if setup is complete (has admin user AND setup marked complete)
-		setupCompleteFile := filepath.Join(cfg.EtcDir, "nos", "setup-complete")
-		if _, err := os.Stat(setupCompleteFile); os.IsNotExist(err) {
-			// Setup not marked complete, check if in setup mode
-			us, _ := userstore.New(cfg.UsersPath)
-			if us != nil && us.HasAdmin() {
-				// Has admin but setup not complete, likely still in setup
-				httpx.WriteTypedError(w, http.StatusForbidden, "setup.incomplete", "System setup is not complete. Please complete all setup steps.", 0)
-				return
-			}
+		// During setup, allow login if admin exists (needed for steps 4-7)
+		// Only block login if no admin exists yet
+		us, _ := userstore.New(cfg.UsersPath)
+		if us != nil && !us.HasAdmin() {
+			// No admin yet, cannot login
+			httpx.WriteTypedError(w, http.StatusForbidden, "setup.required", "System setup required. Please create an admin account first.", 0)
+			return
 		}
 
 		var body struct {

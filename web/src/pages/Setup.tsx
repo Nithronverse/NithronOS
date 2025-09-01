@@ -226,6 +226,16 @@ export default function Setup() {
               <StepTOTPEnroll
                 credentials={adminCreds}
                 onSuccess={async () => {
+                  // Login after TOTP enrollment (session needed for subsequent API calls)
+                  try {
+                    await api.auth.login({
+                      username: adminCreds.username,
+                      password: adminCreds.password,
+                    })
+                  } catch (loginErr) {
+                    console.warn('Auto-login after TOTP enrollment failed:', loginErr)
+                  }
+                  
                   // Mark setup as complete after TOTP
                   try {
                     await api.setup.complete(setupToken)
@@ -499,6 +509,19 @@ function StepCreateAdmin({
       })
       
       toast.success('Admin account created successfully')
+      
+      // Login immediately after creating admin (needed for steps 4-7)
+      if (!data.enableTotp) {
+        try {
+          await api.auth.login({
+            username: data.username,
+            password: data.password,
+          })
+        } catch (loginErr) {
+          console.warn('Auto-login after admin creation failed:', loginErr)
+          // Continue anyway - user can login manually if needed
+        }
+      }
       
       if (data.enableTotp) {
         onSuccess(true, { username: data.username, password: data.password })
