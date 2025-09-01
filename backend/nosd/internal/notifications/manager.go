@@ -10,15 +10,16 @@ import (
 	"sync"
 	"time"
 
+	"nithronos/backend/nosd/internal/fsatomic"
+
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
-	"nithronos/backend/nosd/internal/fsatomic"
 )
 
 // Notification represents a system notification
 type Notification struct {
 	ID        string                 `json:"id"`
-	Type      string                 `json:"type"` // info, warning, error, success
+	Type      string                 `json:"type"`     // info, warning, error, success
 	Category  string                 `json:"category"` // system, backup, storage, network, security
 	Title     string                 `json:"title"`
 	Message   string                 `json:"message"`
@@ -37,12 +38,12 @@ type Action struct {
 
 // Channel represents a notification channel
 type Channel struct {
-	ID       string                 `json:"id"`
-	Name     string                 `json:"name"`
-	Type     string                 `json:"type"` // email, webhook, syslog
-	Enabled  bool                   `json:"enabled"`
-	Config   map[string]interface{} `json:"config"`
-	Filters  []Filter               `json:"filters"`
+	ID      string                 `json:"id"`
+	Name    string                 `json:"name"`
+	Type    string                 `json:"type"` // email, webhook, syslog
+	Enabled bool                   `json:"enabled"`
+	Config  map[string]interface{} `json:"config"`
+	Filters []Filter               `json:"filters"`
 }
 
 // Filter defines what notifications to send to a channel
@@ -69,27 +70,27 @@ func NewManager(storePath string) (*Manager, error) {
 		channels:      make(map[string]*Channel),
 		subscribers:   make(map[string][]chan *Notification),
 	}
-	
+
 	// Ensure directory exists
 	if err := os.MkdirAll(storePath, 0755); err != nil {
 		return nil, err
 	}
-	
+
 	// Load existing data
 	if err := m.load(); err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
-	
+
 	// Start cleanup routine
 	go m.cleanupOldNotifications()
-	
+
 	return m, nil
 }
 
 func (m *Manager) load() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	// Load notifications
 	notifPath := filepath.Join(m.storePath, "notifications.json")
 	var notifications []*Notification
@@ -100,7 +101,7 @@ func (m *Manager) load() error {
 			m.notifications[n.ID] = n
 		}
 	}
-	
+
 	// Load channels
 	channelsPath := filepath.Join(m.storePath, "channels.json")
 	var channels []*Channel
@@ -111,12 +112,12 @@ func (m *Manager) load() error {
 			m.channels[c.ID] = c
 		}
 	}
-	
+
 	// Add default channels if none exist
 	if len(m.channels) == 0 {
 		m.addDefaultChannels()
 	}
-	
+
 	return nil
 }
 
@@ -126,23 +127,23 @@ func (m *Manager) save() error {
 	for _, n := range m.notifications {
 		notifications = append(notifications, n)
 	}
-	
+
 	// Sort by timestamp and keep recent ones
 	if len(notifications) > 1000 {
 		notifications = notifications[len(notifications)-1000:]
 	}
-	
+
 	notifPath := filepath.Join(m.storePath, "notifications.json")
 	if err := fsatomic.SaveJSON(context.Background(), notifPath, notifications, 0600); err != nil {
 		return err
 	}
-	
+
 	// Save channels
 	channels := make([]*Channel, 0, len(m.channels))
 	for _, c := range m.channels {
 		channels = append(channels, c)
 	}
-	
+
 	channelsPath := filepath.Join(m.storePath, "channels.json")
 	return fsatomic.SaveJSON(context.Background(), channelsPath, channels, 0600)
 }
@@ -173,11 +174,11 @@ func (m *Manager) Send(notif *Notification) error {
 	if notif.Timestamp.IsZero() {
 		notif.Timestamp = time.Now()
 	}
-	
+
 	m.mu.Lock()
 	m.notifications[notif.ID] = notif
 	_ = m.save()
-	
+
 	// Notify subscribers
 	for _, subs := range m.subscribers {
 		for _, ch := range subs {
@@ -189,10 +190,10 @@ func (m *Manager) Send(notif *Notification) error {
 		}
 	}
 	m.mu.Unlock()
-	
+
 	// Send to channels
 	m.sendToChannels(notif)
-	
+
 	return nil
 }
 
@@ -206,7 +207,7 @@ func (m *Manager) sendToChannels(notif *Notification) {
 		}
 	}
 	m.mu.RUnlock()
-	
+
 	for _, channel := range channels {
 		switch channel.Type {
 		case "email":
@@ -224,13 +225,13 @@ func (m *Manager) matchesFilters(notif *Notification, filters []Filter) bool {
 	if len(filters) == 0 {
 		return true
 	}
-	
+
 	for _, filter := range filters {
 		// Check type
 		if filter.Type != "" && filter.Type != notif.Type {
 			continue
 		}
-		
+
 		// Check categories
 		if len(filter.Categories) > 0 {
 			found := false
@@ -244,17 +245,17 @@ func (m *Manager) matchesFilters(notif *Notification, filters []Filter) bool {
 				continue
 			}
 		}
-		
+
 		// Check level
 		if filter.MinLevel != "" {
 			if !m.meetsMinLevel(notif.Type, filter.MinLevel) {
 				continue
 			}
 		}
-		
+
 		return true
 	}
-	
+
 	return false
 }
 
@@ -266,14 +267,14 @@ func (m *Manager) meetsMinLevel(notifType, minLevel string) bool {
 		"warning": 3,
 		"error":   4,
 	}
-	
+
 	notifLevel, ok1 := levels[notifType]
 	minLevelVal, ok2 := levels[minLevel]
-	
+
 	if !ok1 || !ok2 {
 		return false
 	}
-	
+
 	return notifLevel >= minLevelVal
 }
 
@@ -285,35 +286,35 @@ func (m *Manager) sendEmail(channel *Channel, notif *Notification) {
 	to, _ := channel.Config["to"].(string)
 	username, _ := channel.Config["username"].(string)
 	password, _ := channel.Config["password"].(string)
-	
+
 	if host == "" || from == "" || to == "" {
 		log.Error().Str("channel", channel.ID).Msg("Invalid email configuration")
 		return
 	}
-	
+
 	if port == "" {
 		port = "587"
 	}
-	
+
 	// Build message
 	subject := fmt.Sprintf("[NithronOS %s] %s", strings.ToUpper(notif.Type), notif.Title)
 	body := fmt.Sprintf("Time: %s\n\n%s\n", notif.Timestamp.Format(time.RFC3339), notif.Message)
-	
+
 	if len(notif.Details) > 0 {
 		body += "\n\nDetails:\n"
 		for k, v := range notif.Details {
 			body += fmt.Sprintf("  %s: %v\n", k, v)
 		}
 	}
-	
+
 	msg := []byte(fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s", from, to, subject, body))
-	
+
 	// Send email
 	var auth smtp.Auth
 	if username != "" && password != "" {
 		auth = smtp.PlainAuth("", username, password, host)
 	}
-	
+
 	addr := fmt.Sprintf("%s:%s", host, port)
 	if err := smtp.SendMail(addr, auth, from, []string{to}, msg); err != nil {
 		log.Error().Err(err).Str("channel", channel.ID).Msg("Failed to send email")
@@ -327,7 +328,7 @@ func (m *Manager) sendWebhook(channel *Channel, notif *Notification) {
 		log.Error().Str("channel", channel.ID).Msg("Invalid webhook configuration")
 		return
 	}
-	
+
 	// TODO: Implement webhook sending
 	log.Debug().Str("channel", channel.ID).Str("url", url).Msg("Webhook notification not yet implemented")
 }
@@ -346,14 +347,14 @@ func (m *Manager) sendSyslog(channel *Channel, notif *Notification) {
 func (m *Manager) List(unreadOnly bool) []*Notification {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	list := make([]*Notification, 0, len(m.notifications))
 	for _, n := range m.notifications {
 		if !unreadOnly || !n.Read {
 			list = append(list, n)
 		}
 	}
-	
+
 	return list
 }
 
@@ -361,7 +362,7 @@ func (m *Manager) List(unreadOnly bool) []*Notification {
 func (m *Manager) Get(id string) (*Notification, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	notif, ok := m.notifications[id]
 	return notif, ok
 }
@@ -370,12 +371,12 @@ func (m *Manager) Get(id string) (*Notification, bool) {
 func (m *Manager) MarkRead(id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	notif, ok := m.notifications[id]
 	if !ok {
 		return fmt.Errorf("notification not found")
 	}
-	
+
 	notif.Read = true
 	return m.save()
 }
@@ -384,11 +385,11 @@ func (m *Manager) MarkRead(id string) error {
 func (m *Manager) MarkAllRead() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	for _, n := range m.notifications {
 		n.Read = true
 	}
-	
+
 	return m.save()
 }
 
@@ -396,7 +397,7 @@ func (m *Manager) MarkAllRead() error {
 func (m *Manager) Delete(id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	delete(m.notifications, id)
 	return m.save()
 }
@@ -405,10 +406,10 @@ func (m *Manager) Delete(id string) error {
 func (m *Manager) Subscribe(clientID string) chan *Notification {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	ch := make(chan *Notification, 10)
 	m.subscribers[clientID] = append(m.subscribers[clientID], ch)
-	
+
 	return ch
 }
 
@@ -416,7 +417,7 @@ func (m *Manager) Subscribe(clientID string) chan *Notification {
 func (m *Manager) Unsubscribe(clientID string, ch chan *Notification) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	subs := m.subscribers[clientID]
 	for i, sub := range subs {
 		if sub == ch {
@@ -425,7 +426,7 @@ func (m *Manager) Unsubscribe(clientID string, ch chan *Notification) {
 			break
 		}
 	}
-	
+
 	if len(m.subscribers[clientID]) == 0 {
 		delete(m.subscribers, clientID)
 	}
@@ -435,7 +436,7 @@ func (m *Manager) Unsubscribe(clientID string, ch chan *Notification) {
 func (m *Manager) ListChannels() []*Channel {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	list := make([]*Channel, 0, len(m.channels))
 	for _, c := range m.channels {
 		list = append(list, c)
@@ -446,7 +447,7 @@ func (m *Manager) ListChannels() []*Channel {
 func (m *Manager) GetChannel(id string) (*Channel, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	channel, ok := m.channels[id]
 	return channel, ok
 }
@@ -455,10 +456,10 @@ func (m *Manager) CreateChannel(channel *Channel) error {
 	if channel.ID == "" {
 		channel.ID = uuid.New().String()
 	}
-	
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	m.channels[channel.ID] = channel
 	return m.save()
 }
@@ -466,12 +467,12 @@ func (m *Manager) CreateChannel(channel *Channel) error {
 func (m *Manager) UpdateChannel(id string, updates *Channel) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	channel, ok := m.channels[id]
 	if !ok {
 		return fmt.Errorf("channel not found")
 	}
-	
+
 	// Update fields
 	if updates.Name != "" {
 		channel.Name = updates.Name
@@ -483,14 +484,14 @@ func (m *Manager) UpdateChannel(id string, updates *Channel) error {
 	if updates.Filters != nil {
 		channel.Filters = updates.Filters
 	}
-	
+
 	return m.save()
 }
 
 func (m *Manager) DeleteChannel(id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	delete(m.channels, id)
 	return m.save()
 }
@@ -501,7 +502,7 @@ func (m *Manager) TestChannel(id string) error {
 	if !ok {
 		return fmt.Errorf("channel not found")
 	}
-	
+
 	// Send test notification
 	testNotif := &Notification{
 		Type:     "info",
@@ -514,7 +515,7 @@ func (m *Manager) TestChannel(id string) error {
 			"test":         true,
 		},
 	}
-	
+
 	switch channel.Type {
 	case "email":
 		m.sendEmail(channel, testNotif)
@@ -525,7 +526,7 @@ func (m *Manager) TestChannel(id string) error {
 	default:
 		return fmt.Errorf("unknown channel type: %s", channel.Type)
 	}
-	
+
 	return nil
 }
 
@@ -533,10 +534,10 @@ func (m *Manager) TestChannel(id string) error {
 func (m *Manager) cleanupOldNotifications() {
 	ticker := time.NewTicker(24 * time.Hour)
 	defer ticker.Stop()
-	
+
 	for range ticker.C {
 		m.mu.Lock()
-		
+
 		// Remove notifications older than 30 days
 		cutoff := time.Now().Add(-30 * 24 * time.Hour)
 		for id, n := range m.notifications {
@@ -544,7 +545,7 @@ func (m *Manager) cleanupOldNotifications() {
 				delete(m.notifications, id)
 			}
 		}
-		
+
 		_ = m.save()
 		m.mu.Unlock()
 	}
@@ -566,7 +567,7 @@ func (m *Manager) SendBackupNotification(jobName string, status string, details 
 	if status == "failed" {
 		notifType = "error"
 	}
-	
+
 	_ = m.Send(&Notification{
 		Type:     notifType,
 		Category: "backup",

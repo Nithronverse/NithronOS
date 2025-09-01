@@ -5,9 +5,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"nithronos/backend/nosd/internal/notifications"
 	"nithronos/backend/nosd/pkg/httpx"
+
+	"github.com/go-chi/chi/v5"
 )
 
 // NotificationHandler handles notification API endpoints
@@ -25,7 +26,7 @@ func NewNotificationHandler(manager *notifications.Manager) *NotificationHandler
 // Routes registers notification routes
 func (h *NotificationHandler) Routes() chi.Router {
 	r := chi.NewRouter()
-	
+
 	// Notifications
 	r.Get("/", h.ListNotifications)
 	r.Get("/{id}", h.GetNotification)
@@ -33,7 +34,7 @@ func (h *NotificationHandler) Routes() chi.Router {
 	r.Put("/read-all", h.MarkAllRead)
 	r.Delete("/{id}", h.DeleteNotification)
 	r.Get("/subscribe", h.Subscribe)
-	
+
 	// Channels
 	r.Get("/channels", h.ListChannels)
 	r.Post("/channels", h.CreateChannel)
@@ -41,7 +42,7 @@ func (h *NotificationHandler) Routes() chi.Router {
 	r.Put("/channels/{id}", h.UpdateChannel)
 	r.Delete("/channels/{id}", h.DeleteChannel)
 	r.Post("/channels/{id}/test", h.TestChannel)
-	
+
 	return r
 }
 
@@ -55,25 +56,25 @@ func (h *NotificationHandler) ListNotifications(w http.ResponseWriter, r *http.R
 // GetNotification returns a specific notification
 func (h *NotificationHandler) GetNotification(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	
+
 	notif, ok := h.manager.Get(id)
 	if !ok {
 		httpx.WriteError(w, http.StatusNotFound, "Notification not found")
 		return
 	}
-	
+
 	writeJSON(w, notif)
 }
 
 // MarkRead marks a notification as read
 func (h *NotificationHandler) MarkRead(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	
+
 	if err := h.manager.MarkRead(id); err != nil {
 		httpx.WriteError(w, http.StatusNotFound, "Notification not found")
 		return
 	}
-	
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -83,19 +84,19 @@ func (h *NotificationHandler) MarkAllRead(w http.ResponseWriter, r *http.Request
 		httpx.WriteError(w, http.StatusInternalServerError, "Failed to mark notifications as read")
 		return
 	}
-	
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
 // DeleteNotification deletes a notification
 func (h *NotificationHandler) DeleteNotification(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	
+
 	if err := h.manager.Delete(id); err != nil {
 		httpx.WriteError(w, http.StatusInternalServerError, "Failed to delete notification")
 		return
 	}
-	
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -106,25 +107,25 @@ func (h *NotificationHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
-	
+
 	// Get client ID from session
 	clientID := r.Header.Get("X-UID")
 	if clientID == "" {
 		clientID = "anonymous"
 	}
-	
+
 	// Create subscription
 	ch := h.manager.Subscribe(clientID)
 	defer h.manager.Unsubscribe(clientID, ch)
-	
+
 	// Send initial ping
 	_, _ = w.Write([]byte("event: ping\ndata: {}\n\n"))
 	w.(http.Flusher).Flush()
-	
+
 	// Listen for notifications
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case notif := <-ch:
@@ -133,12 +134,12 @@ func (h *NotificationHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 			_, _ = w.Write(data)
 			_, _ = w.Write([]byte("\n\n"))
 			w.(http.Flusher).Flush()
-			
+
 		case <-ticker.C:
 			// Send keepalive
 			_, _ = w.Write([]byte("event: ping\ndata: {}\n\n"))
 			w.(http.Flusher).Flush()
-			
+
 		case <-r.Context().Done():
 			return
 		}
@@ -148,25 +149,25 @@ func (h *NotificationHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 // ListChannels returns all notification channels
 func (h *NotificationHandler) ListChannels(w http.ResponseWriter, r *http.Request) {
 	channels := h.manager.ListChannels()
-	
+
 	// Hide sensitive config
 	for _, ch := range channels {
 		ch.Config = h.sanitizeConfig(ch.Config, ch.Type)
 	}
-	
+
 	writeJSON(w, channels)
 }
 
 // GetChannel returns a specific channel
 func (h *NotificationHandler) GetChannel(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	
+
 	channel, ok := h.manager.GetChannel(id)
 	if !ok {
 		httpx.WriteError(w, http.StatusNotFound, "Channel not found")
 		return
 	}
-	
+
 	// Hide sensitive config
 	channel.Config = h.sanitizeConfig(channel.Config, channel.Type)
 	writeJSON(w, channel)
@@ -179,12 +180,12 @@ func (h *NotificationHandler) CreateChannel(w http.ResponseWriter, r *http.Reque
 		httpx.WriteError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-	
+
 	if err := h.manager.CreateChannel(&channel); err != nil {
 		httpx.WriteError(w, http.StatusInternalServerError, "Failed to create channel")
 		return
 	}
-	
+
 	// Hide sensitive config
 	channel.Config = h.sanitizeConfig(channel.Config, channel.Type)
 	w.WriteHeader(http.StatusCreated)
@@ -194,18 +195,18 @@ func (h *NotificationHandler) CreateChannel(w http.ResponseWriter, r *http.Reque
 // UpdateChannel updates a notification channel
 func (h *NotificationHandler) UpdateChannel(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	
+
 	var updates notifications.Channel
 	if err := json.NewDecoder(r.Body).Decode(&updates); err != nil {
 		httpx.WriteError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-	
+
 	if err := h.manager.UpdateChannel(id, &updates); err != nil {
 		httpx.WriteError(w, http.StatusInternalServerError, "Failed to update channel")
 		return
 	}
-	
+
 	channel, _ := h.manager.GetChannel(id)
 	channel.Config = h.sanitizeConfig(channel.Config, channel.Type)
 	writeJSON(w, channel)
@@ -214,24 +215,24 @@ func (h *NotificationHandler) UpdateChannel(w http.ResponseWriter, r *http.Reque
 // DeleteChannel deletes a notification channel
 func (h *NotificationHandler) DeleteChannel(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	
+
 	if err := h.manager.DeleteChannel(id); err != nil {
 		httpx.WriteError(w, http.StatusInternalServerError, "Failed to delete channel")
 		return
 	}
-	
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
 // TestChannel tests a notification channel
 func (h *NotificationHandler) TestChannel(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	
+
 	if err := h.manager.TestChannel(id); err != nil {
 		httpx.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	
+
 	writeJSON(w, map[string]interface{}{
 		"success": true,
 		"message": "Test notification sent successfully",
