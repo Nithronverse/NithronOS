@@ -586,7 +586,8 @@ func NewRouter(cfg config.Config) http.Handler {
 			_ = os.Remove("/tmp/nos-otp")
 			_ = os.Remove("/etc/nos/otp")
 			_ = os.Remove("/run/nos/firstboot-otp")
-
+			// Clear setup cookie now that setup is complete
+			clearSetupCookie(w)
 			w.WriteHeader(http.StatusNoContent)
 		})
 	})
