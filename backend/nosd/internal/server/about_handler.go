@@ -8,8 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"nithronos/backend/nosd/internal/config"
+
+	"github.com/go-chi/chi/v5"
 
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/disk"

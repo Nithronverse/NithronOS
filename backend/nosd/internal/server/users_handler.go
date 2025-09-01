@@ -429,24 +429,24 @@ func contains(slice []string, item string) bool {
 // Routes returns the routes for the users handler
 func (h *UsersHandler) Routes() chi.Router {
 	r := chi.NewRouter()
-	
+
 	// User CRUD operations
 	r.Get("/", h.ListUsers)
 	r.Post("/", h.CreateUser)
 	r.Get("/{id}", h.GetUser)
 	r.Put("/{id}", h.UpdateUser)
 	r.Delete("/{id}", h.DeleteUser)
-	
+
 	// Password management
 	r.Post("/{id}/password", h.ChangePassword)
-	
+
 	// Role management
 	r.Post("/{id}/roles", h.SetUserRoles)
-	
+
 	// 2FA management
 	r.Post("/{id}/2fa/toggle", h.ToggleUser2FA)
 	r.Post("/{id}/recovery-codes", h.GenerateRecoveryCodes)
-	
+
 	return r
 }
 

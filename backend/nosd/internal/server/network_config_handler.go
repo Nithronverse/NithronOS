@@ -743,23 +743,23 @@ func (h *NetworkConfigHandler) applyHTTPSConfig(config HTTPSConfig) error {
 // Routes returns the routes for the network config handler
 func (h *NetworkConfigHandler) Routes() chi.Router {
 	r := chi.NewRouter()
-	
+
 	// Network overview
 	r.Get("/overview", h.GetNetworkOverview)
-	
+
 	// Firewall management
 	r.Get("/firewall/rules", h.GetFirewallRules)
 	r.Post("/firewall/rules", h.CreateFirewallRule)
 	r.Put("/firewall/rules/{id}", h.UpdateFirewallRule)
 	r.Delete("/firewall/rules/{id}", h.DeleteFirewallRule)
-	
+
 	// WireGuard VPN
 	r.Get("/wireguard/config", h.GetWireGuardConfig)
 	r.Post("/wireguard/peers", h.CreateWireGuardPeer)
-	
+
 	// HTTPS/TLS configuration
 	r.Get("/https/config", h.GetHTTPSConfig)
 	r.Put("/https/config", h.UpdateHTTPSConfig)
-	
+
 	return r
 }
