@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 
 interface BadgeProps {
   children: ReactNode
-  variant?: 'default' | 'outline' | 'secondary' | 'destructive'
+  variant?: 'default' | 'outline' | 'secondary' | 'destructive' | 'success'
   className?: string
 }
 
@@ -13,6 +13,7 @@ export function Badge({ children, variant = 'default', className }: BadgeProps) 
     outline: 'border border-muted-foreground/40 text-foreground',
     secondary: 'bg-secondary text-secondary-foreground',
     destructive: 'bg-destructive text-destructive-foreground',
+    success: 'bg-green-500 text-white',
   }
   
   return (

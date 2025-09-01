@@ -205,6 +205,7 @@ export function openWS(path: string): WebSocket {
 // Extended API client with nested structure for backward compatibility
 export const http = {
   ...httpCore,
+  delete: httpCore.del,  // Add delete method alias
   
   // Setup endpoints
   setup: {

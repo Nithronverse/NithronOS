@@ -28,6 +28,7 @@ import {
   Download,
   Upload,
   Zap,
+  UserPlus,
 } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card-enhanced'
@@ -944,7 +945,7 @@ function WireGuardTab() {
           
           {peers.length === 0 ? (
             <div className="text-center py-8">
-              <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <UserPlus className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">No peers configured</p>
               <p className="text-sm text-muted-foreground mt-1">
                 Add peers to allow VPN connections
