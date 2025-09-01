@@ -421,28 +421,28 @@ func (h *NetworkConfigHandler) getInterfaceStats(ni *NetworkInterfaceInfo) {
 	basePath := fmt.Sprintf("/sys/class/net/%s/statistics", ni.Name)
 
 	if data, err := os.ReadFile(filepath.Join(basePath, "rx_bytes")); err == nil {
-		fmt.Sscanf(string(data), "%d", &ni.RxBytes)
+		_, _ = fmt.Sscanf(string(data), "%d", &ni.RxBytes)
 	}
 	if data, err := os.ReadFile(filepath.Join(basePath, "tx_bytes")); err == nil {
-		fmt.Sscanf(string(data), "%d", &ni.TxBytes)
+		_, _ = fmt.Sscanf(string(data), "%d", &ni.TxBytes)
 	}
 	if data, err := os.ReadFile(filepath.Join(basePath, "rx_packets")); err == nil {
-		fmt.Sscanf(string(data), "%d", &ni.RxPackets)
+		_, _ = fmt.Sscanf(string(data), "%d", &ni.RxPackets)
 	}
 	if data, err := os.ReadFile(filepath.Join(basePath, "tx_packets")); err == nil {
-		fmt.Sscanf(string(data), "%d", &ni.TxPackets)
+		_, _ = fmt.Sscanf(string(data), "%d", &ni.TxPackets)
 	}
 	if data, err := os.ReadFile(filepath.Join(basePath, "rx_errors")); err == nil {
-		fmt.Sscanf(string(data), "%d", &ni.RxErrors)
+		_, _ = fmt.Sscanf(string(data), "%d", &ni.RxErrors)
 	}
 	if data, err := os.ReadFile(filepath.Join(basePath, "tx_errors")); err == nil {
-		fmt.Sscanf(string(data), "%d", &ni.TxErrors)
+		_, _ = fmt.Sscanf(string(data), "%d", &ni.TxErrors)
 	}
 
 	// Get speed
 	speedPath := fmt.Sprintf("/sys/class/net/%s/speed", ni.Name)
 	if data, err := os.ReadFile(speedPath); err == nil {
-		fmt.Sscanf(string(data), "%d", &ni.Speed)
+		_, _ = fmt.Sscanf(string(data), "%d", &ni.Speed)
 	}
 }
 
@@ -483,7 +483,7 @@ func (h *NetworkConfigHandler) getRoutes() []Route {
 		}
 
 		// Parse metric
-		fmt.Sscanf(fields[6], "%d", &route.Metric)
+		_, _ = fmt.Sscanf(fields[6], "%d", &route.Metric)
 
 		routes = append(routes, route)
 	}
@@ -499,7 +499,7 @@ func hexToIP(hex string) (string, error) {
 	var ip net.IP = make([]byte, 4)
 	for i := 0; i < 4; i++ {
 		var b byte
-		fmt.Sscanf(hex[i*2:i*2+2], "%02x", &b)
+		_, _ = fmt.Sscanf(hex[i*2:i*2+2], "%02x", &b)
 		ip[3-i] = b // Little-endian
 	}
 
