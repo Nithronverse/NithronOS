@@ -3,144 +3,304 @@ package server
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
+	"os"
+	"path/filepath"
+	"runtime"
+	"sort"
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/rs/zerolog/log"
+	"nithronos/backend/nosd/internal/config"
+	"nithronos/backend/nosd/pkg/httpx"
 )
 
-// Job represents a background job or task
+// Job represents a background job
 type Job struct {
-	ID          string     `json:"id"`
-	Type        string     `json:"type"`
-	Status      string     `json:"status"` // pending, running, completed, failed
-	Progress    *int       `json:"progress,omitempty"`
-	Message     string     `json:"message,omitempty"`
-	StartedAt   string     `json:"startedAt"`
-	CompletedAt *string    `json:"completedAt,omitempty"`
-	Error       *string    `json:"error,omitempty"`
+	ID          string    `json:"id"`
+	Type        string    `json:"type"` // scrub, balance, snapshot, backup, etc.
+	Status      string    `json:"status"` // pending, running, completed, failed, cancelled
+	Progress    float64   `json:"progress,omitempty"` // 0-100
+	StartTime   time.Time `json:"start_time"`
+	EndTime     *time.Time `json:"end_time,omitempty"`
+	Duration    int64     `json:"duration_seconds,omitempty"`
+	Message     string    `json:"message,omitempty"`
+	Error       string    `json:"error,omitempty"`
+	Details     map[string]any `json:"details,omitempty"`
 }
 
-// JobsHandler handles job-related endpoints
-type JobsHandler struct {
-	// In a real implementation, this would have a job queue/store
+// JobsStore manages job history
+type JobsStore struct {
+	path string
+	jobs []Job
 }
 
-// NewJobsHandler creates a new jobs handler
-func NewJobsHandler() *JobsHandler {
-	return &JobsHandler{}
+var jobsStore *JobsStore
+
+// InitJobsStore initializes the jobs store
+func InitJobsStore(cfg config.Config) {
+	jobsPath := filepath.Join("/var/lib/nos", "jobs.json")
+	if runtime.GOOS == "windows" {
+		jobsPath = filepath.Join(`C:\ProgramData\NithronOS`, "jobs.json")
+	}
+	
+	jobsStore = &JobsStore{
+		path: jobsPath,
+		jobs: []Job{},
+	}
+	
+	// Load existing jobs
+	if data, err := os.ReadFile(jobsPath); err == nil {
+		json.Unmarshal(data, &jobsStore.jobs)
+	}
 }
 
-// Routes registers the jobs routes
-func (h *JobsHandler) Routes() chi.Router {
-	r := chi.NewRouter()
+// AddJob adds a new job to the store
+func (s *JobsStore) AddJob(job Job) {
+	if s == nil {
+		return
+	}
 	
-	r.Get("/recent", h.GetRecentJobs)
-	r.Get("/{id}", h.GetJob)
+	s.jobs = append(s.jobs, job)
 	
-	return r
+	// Keep only the last 100 jobs
+	if len(s.jobs) > 100 {
+		s.jobs = s.jobs[len(s.jobs)-100:]
+	}
+	
+	// Save to disk (best effort)
+	if data, err := json.MarshalIndent(s.jobs, "", "  "); err == nil {
+		os.WriteFile(s.path, data, 0644)
+	}
 }
 
-// GetRecentJobs returns recent jobs
-// GET /api/v1/jobs/recent?limit=10
-func (h *JobsHandler) GetRecentJobs(w http.ResponseWriter, r *http.Request) {
-	limitStr := r.URL.Query().Get("limit")
-	limit := 10
-	if limitStr != "" {
-		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
-			limit = l
-		}
+// GetRecentJobs returns the most recent jobs
+func (s *JobsStore) GetRecentJobs(limit int) []Job {
+	if s == nil || len(s.jobs) == 0 {
+		return []Job{}
 	}
 	
-	// In a real implementation, this would query the job store
-	// For now, return sample jobs
+	// Sort by start time descending
+	sorted := make([]Job, len(s.jobs))
+	copy(sorted, s.jobs)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].StartTime.After(sorted[j].StartTime)
+	})
 	
-	now := time.Now()
-	jobs := []Job{
-		{
-			ID:        "job-1",
-			Type:      "pool.scrub",
-			Status:    "completed",
-			Message:   "Scrub completed on pool 'main'",
-			StartedAt: now.Add(-2 * time.Hour).Format(time.RFC3339),
-			CompletedAt: strPtr(now.Add(-1 * time.Hour).Format(time.RFC3339)),
-		},
-		{
-			ID:        "job-2",
-			Type:      "smart.scan",
-			Status:    "completed",
-			Message:   "SMART scan completed on 4 devices",
-			StartedAt: now.Add(-3 * time.Hour).Format(time.RFC3339),
-			CompletedAt: strPtr(now.Add(-2*time.Hour - 30*time.Minute).Format(time.RFC3339)),
-		},
-		{
-			ID:        "job-3",
-			Type:      "app.install",
-			Status:    "completed",
-			Message:   "Installed app: Nextcloud",
-			StartedAt: now.Add(-5 * time.Hour).Format(time.RFC3339),
-			CompletedAt: strPtr(now.Add(-4*time.Hour - 45*time.Minute).Format(time.RFC3339)),
-		},
-		{
-			ID:        "job-4",
-			Type:      "share.create",
-			Status:    "completed",
-			Message:   "Created share: Documents",
-			StartedAt: now.Add(-24 * time.Hour).Format(time.RFC3339),
-			CompletedAt: strPtr(now.Add(-23*time.Hour - 55*time.Minute).Format(time.RFC3339)),
-		},
-		{
-			ID:        "job-5",
-			Type:      "backup.snapshot",
-			Status:    "running",
-			Progress:  intPtr(67),
-			Message:   "Creating snapshot for backup",
-			StartedAt: now.Add(-10 * time.Minute).Format(time.RFC3339),
-		},
+	if limit > 0 && limit < len(sorted) {
+		return sorted[:limit]
 	}
-	
-	// Limit the results
-	if len(jobs) > limit {
-		jobs = jobs[:limit]
-	}
-	
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(jobs); err != nil {
-		log.Error().Err(err).Msg("Failed to encode jobs")
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-	}
+	return sorted
 }
 
 // GetJob returns a specific job by ID
-// GET /api/v1/jobs/{id}
-func (h *JobsHandler) GetJob(w http.ResponseWriter, r *http.Request) {
-	jobID := chi.URLParam(r, "id")
+func (s *JobsStore) GetJob(id string) (*Job, bool) {
+	if s == nil {
+		return nil, false
+	}
 	
-	// In a real implementation, this would query the job store
-	// For now, return a sample job
+	for _, job := range s.jobs {
+		if job.ID == id {
+			return &job, true
+		}
+	}
+	return nil, false
+}
+
+// UpdateJob updates an existing job
+func (s *JobsStore) UpdateJob(id string, updates func(*Job)) {
+	if s == nil {
+		return
+	}
 	
+	for i := range s.jobs {
+		if s.jobs[i].ID == id {
+			updates(&s.jobs[i])
+			
+			// Save to disk (best effort)
+			if data, err := json.MarshalIndent(s.jobs, "", "  "); err == nil {
+				os.WriteFile(s.path, data, 0644)
+			}
+			break
+		}
+	}
+}
+
+// handleJobsRecent returns recent jobs
+func handleJobsRecent(cfg config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		limit := 20
+		if l := r.URL.Query().Get("limit"); l != "" {
+			if parsed, err := parseInt(l); err == nil && parsed > 0 && parsed <= 100 {
+				limit = parsed
+			}
+		}
+		
+		jobs := []Job{}
+		
+		if jobsStore != nil {
+			jobs = jobsStore.GetRecentJobs(limit)
+		}
+		
+		// If no jobs in store, return some example jobs
+		if len(jobs) == 0 {
+			now := time.Now()
+			jobs = []Job{
+				{
+					ID:        generateUUID(),
+					Type:      "pool.create",
+					Status:    "completed",
+					Progress:  100,
+					StartTime: now.Add(-2 * time.Hour),
+					EndTime:   &[]time.Time{now.Add(-1 * time.Hour)}[0],
+					Duration:  3600,
+					Message:   "Pool created successfully",
+					Details: map[string]any{
+						"pool_name": "main",
+						"devices":   []string{"/dev/sda", "/dev/sdb"},
+						"raid":      "raid1",
+					},
+				},
+				{
+					ID:        generateUUID(),
+					Type:      "scrub",
+					Status:    "running",
+					Progress:  45.5,
+					StartTime: now.Add(-30 * time.Minute),
+					Message:   "Scrubbing pool 'main'",
+					Details: map[string]any{
+						"pool_id":       "pool-123",
+						"data_scrubbed": "45.2 GiB",
+						"errors_found":  0,
+					},
+				},
+				{
+					ID:        generateUUID(),
+					Type:      "snapshot",
+					Status:    "completed",
+					Progress:  100,
+					StartTime: now.Add(-1 * time.Hour),
+					EndTime:   &[]time.Time{now.Add(-59 * time.Minute)}[0],
+					Duration:  60,
+					Message:   "Snapshot created",
+					Details: map[string]any{
+						"snapshot_id": "snap-20240101-120000",
+						"pool_id":     "pool-123",
+					},
+				},
+			}
+		}
+		
+		writeJSON(w, jobs)
+	}
+}
+
+// handleJobGet returns a specific job by ID
+func handleJobGet(cfg config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		jobID := chi.URLParam(r, "id")
+		if jobID == "" {
+			httpx.WriteTypedError(w, http.StatusBadRequest, "job.id.required", "Job ID is required", 0)
+			return
+		}
+		
+		if jobsStore != nil {
+			if job, found := jobsStore.GetJob(jobID); found {
+				writeJSON(w, job)
+				return
+			}
+		}
+		
+		// If not found, return a mock job for demo
+		if jobID == "example" {
+			now := time.Now()
+			job := Job{
+				ID:        jobID,
+				Type:      "balance",
+				Status:    "running",
+				Progress:  67.8,
+				StartTime: now.Add(-45 * time.Minute),
+				Message:   "Balancing pool 'main'",
+				Details: map[string]any{
+					"pool_id":    "pool-123",
+					"left":       "12.3 GiB",
+					"total":      "38.1 GiB",
+					"mount_path": "/mnt/pool",
+				},
+			}
+			writeJSON(w, job)
+			return
+		}
+		
+		httpx.WriteTypedError(w, http.StatusNotFound, "job.not_found", "Job not found", 0)
+	}
+}
+
+// CreateJob creates a new job and adds it to the store
+func CreateJob(jobType, message string, details map[string]any) *Job {
 	job := Job{
-		ID:        jobID,
-		Type:      "pool.scrub",
-		Status:    "completed",
-		Message:   "Scrub completed on pool 'main'",
-		StartedAt: time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
-		CompletedAt: strPtr(time.Now().Add(-1 * time.Hour).Format(time.RFC3339)),
+		ID:        generateUUID(),
+		Type:      jobType,
+		Status:    "pending",
+		StartTime: time.Now(),
+		Message:   message,
+		Details:   details,
 	}
 	
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(job); err != nil {
-		log.Error().Err(err).Msg("Failed to encode job")
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	if jobsStore != nil {
+		jobsStore.AddJob(job)
+	}
+	
+	return &job
+}
+
+// StartJob marks a job as running
+func StartJob(jobID string) {
+	if jobsStore != nil {
+		jobsStore.UpdateJob(jobID, func(j *Job) {
+			j.Status = "running"
+			j.StartTime = time.Now()
+		})
 	}
 }
 
-// Helper functions
-func strPtr(s string) *string {
-	return &s
+// UpdateJobProgress updates job progress
+func UpdateJobProgress(jobID string, progress float64, message string) {
+	if jobsStore != nil {
+		jobsStore.UpdateJob(jobID, func(j *Job) {
+			j.Progress = progress
+			if message != "" {
+				j.Message = message
+			}
+		})
+	}
 }
 
-func intPtr(i int) *int {
-	return &i
+// CompleteJob marks a job as completed
+func CompleteJob(jobID string, message string) {
+	if jobsStore != nil {
+		now := time.Now()
+		jobsStore.UpdateJob(jobID, func(j *Job) {
+			j.Status = "completed"
+			j.Progress = 100
+			j.EndTime = &now
+			j.Duration = int64(now.Sub(j.StartTime).Seconds())
+			if message != "" {
+				j.Message = message
+			}
+		})
+	}
 }
+
+// FailJob marks a job as failed
+func FailJob(jobID string, errorMsg string) {
+	if jobsStore != nil {
+		now := time.Now()
+		jobsStore.UpdateJob(jobID, func(j *Job) {
+			j.Status = "failed"
+			j.EndTime = &now
+			j.Duration = int64(now.Sub(j.StartTime).Seconds())
+			j.Error = errorMsg
+		})
+	}
+}
+

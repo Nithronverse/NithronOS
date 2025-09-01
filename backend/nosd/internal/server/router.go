@@ -178,6 +178,7 @@ func NewRouter(cfg config.Config) http.Handler {
 	store, _ := auth.NewStore(cfg.UsersPath)
 	users, _ := userstore.New(cfg.UsersPath)
 	codec := auth.NewSessionCodec(cfg.SessionHashKey, cfg.SessionBlockKey)
+	InitJobsStore(cfg)
 
 	// Initialize shares handler
 	// sharesManager := shares.NewManager("")
@@ -646,7 +647,7 @@ func NewRouter(cfg config.Config) http.Handler {
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		uname := strings.TrimSpace(body.Username)
 		pass := body.Password
-		
+
 		// Apply rate limiting first (before any other checks)
 		ip := clientIP(r, cfg)
 		loginWin := time.Duration(cfg.RateLoginWindowSec) * time.Second
@@ -665,7 +666,7 @@ func NewRouter(cfg config.Config) http.Handler {
 			httpx.WriteError(w, http.StatusTooManyRequests, `{"error":{"code":"rate.limited","retryAfterSec":`+strconv.Itoa(int(time.Until(retry).Seconds()))+`}}`)
 			return
 		}
-		
+
 		// During setup, allow login if admin exists (needed for steps 4-7)
 		// Only block login if no admin exists yet
 		us, _ := userstore.New(cfg.UsersPath)
@@ -1104,99 +1105,43 @@ func NewRouter(cfg config.Config) http.Handler {
 		// Health: alerts and manual SMART scan
 		pr.Get("/api/v1/alerts", handleAlertsGet(cfg))
 
-		// Monitoring endpoints expected by frontend
-		pr.Get("/api/v1/monitoring/logs", func(w http.ResponseWriter, r *http.Request) {
-			// TODO: Implement log retrieval
-			writeJSON(w, map[string]any{"logs": []any{}, "total": 0})
-		})
-		pr.Get("/api/v1/monitoring/events", func(w http.ResponseWriter, r *http.Request) {
-			// TODO: Implement event retrieval
-			writeJSON(w, map[string]any{"events": []any{}, "total": 0})
-		})
-		pr.Get("/api/v1/monitoring/alerts", func(w http.ResponseWriter, r *http.Request) {
-			// Delegate to existing alerts handler
-			handleAlertsGet(cfg)(w, r)
-		})
-		pr.Get("/api/v1/monitoring/services", func(w http.ResponseWriter, r *http.Request) {
-			// TODO: Implement service status
-			writeJSON(w, map[string]any{
-				"services": []map[string]any{
-					{"name": "nosd", "status": "running", "uptime": 3600},
-					{"name": "nos-agent", "status": "running", "uptime": 3600},
-				},
-			})
-		})
+		// Monitoring endpoints
+		pr.Get("/api/v1/monitoring/logs", handleMonitoringLogs(cfg))
+		pr.Get("/api/v1/monitoring/events", handleMonitoringEvents(cfg))
+		pr.Get("/api/v1/monitoring/alerts", handleMonitoringAlerts(cfg))
+		pr.Get("/api/v1/monitoring/services", handleMonitoringServices(cfg))
+		pr.Get("/api/v1/monitoring/system", handleMonitoringSystem(cfg))
 
 		// Scrub endpoints expected by frontend
 		pr.Get("/api/v1/scrub/status", func(w http.ResponseWriter, r *http.Request) {
-			// TODO: Implement scrub status
-			writeJSON(w, map[string]any{"status": "idle", "last_run": nil})
+			// Delegate to pools scrub status
+			handleScrubStatus(w, r)
 		})
 		pr.With(adminRequired).Post("/api/v1/scrub/start", func(w http.ResponseWriter, r *http.Request) {
-			// TODO: Implement scrub start
-			writeJSON(w, map[string]any{"ok": true, "message": "Scrub started"})
+			// Delegate to pools scrub start
+			handleScrubStart(w, r)
 		})
 		pr.With(adminRequired).Post("/api/v1/scrub/cancel", func(w http.ResponseWriter, r *http.Request) {
 			// TODO: Implement scrub cancel
 			writeJSON(w, map[string]any{"ok": true, "message": "Scrub cancelled"})
 		})
 
-		// Balance endpoints expected by frontend
-		pr.Get("/api/v1/balance/status", func(w http.ResponseWriter, r *http.Request) {
-			// TODO: Implement balance status
-			writeJSON(w, map[string]any{"status": "idle", "last_run": nil})
-		})
-		pr.With(adminRequired).Post("/api/v1/balance/start", func(w http.ResponseWriter, r *http.Request) {
-			// TODO: Implement balance start
-			writeJSON(w, map[string]any{"ok": true, "message": "Balance started"})
-		})
-		pr.With(adminRequired).Post("/api/v1/balance/cancel", func(w http.ResponseWriter, r *http.Request) {
-			// TODO: Implement balance cancel
-			writeJSON(w, map[string]any{"ok": true, "message": "Balance cancelled"})
-		})
+		// Balance endpoints
+		pr.Get("/api/v1/balance/status", handleBalanceStatus(cfg))
+		pr.With(adminRequired).Post("/api/v1/balance/start", handleBalanceStart(cfg))
+		pr.With(adminRequired).Post("/api/v1/balance/cancel", handleBalanceCancel(cfg))
 
-		// SMART endpoints expected by frontend
-		pr.Get("/api/v1/smart/summary", func(w http.ResponseWriter, r *http.Request) {
-			// TODO: Implement SMART summary
-			writeJSON(w, map[string]any{"devices": []any{}, "healthy": 0, "warning": 0, "critical": 0})
-		})
-		pr.Get("/api/v1/smart/devices", func(w http.ResponseWriter, r *http.Request) {
-			// TODO: Implement SMART devices list
-			writeJSON(w, map[string]any{"devices": []any{}})
-		})
-		pr.Get("/api/v1/smart/device/{device}", func(w http.ResponseWriter, r *http.Request) {
-			device := chi.URLParam(r, "device")
-			// TODO: Implement SMART device details
-			writeJSON(w, map[string]any{"device": device, "status": "healthy", "attributes": []any{}})
-		})
-		pr.Get("/api/v1/smart/test/{device}", func(w http.ResponseWriter, r *http.Request) {
-			device := chi.URLParam(r, "device")
-			// TODO: Implement SMART test status
-			writeJSON(w, map[string]any{"device": device, "test_status": "not_running"})
-		})
-		pr.With(adminRequired).Post("/api/v1/smart/scan", func(w http.ResponseWriter, r *http.Request) {
-			// TODO: Implement SMART scan
-			writeJSON(w, map[string]any{"ok": true, "message": "SMART scan initiated"})
-		})
-		pr.With(adminRequired).Post("/api/v1/smart/test/{device}", func(w http.ResponseWriter, r *http.Request) {
-			device := chi.URLParam(r, "device")
-			var body struct {
-				Type string `json:"type"`
-			}
-			_ = json.NewDecoder(r.Body).Decode(&body)
-			// TODO: Implement SMART test
-			writeJSON(w, map[string]any{"ok": true, "device": device, "test_type": body.Type, "message": "SMART test started"})
-		})
+		// SMART endpoints
+		pr.Get("/api/v1/smart/summary", handleSmartSummary(cfg))
+		pr.Get("/api/v1/smart/devices", handleSmartDevices(cfg))
+		pr.Get("/api/v1/smart/device/{device}", handleSmartDevice(cfg))
+		pr.Get("/api/v1/smart/test/{device}", handleSmartTestDevice(cfg))
+		pr.With(adminRequired).Post("/api/v1/smart/scan", handleSmartScan(cfg))
+		pr.With(adminRequired).Post("/api/v1/smart/test/{device}", handleSmartTestDevice(cfg))
 
-		// Jobs endpoints expected by frontend
-		pr.Get("/api/v1/jobs/recent", func(w http.ResponseWriter, r *http.Request) {
-			limit := r.URL.Query().Get("limit")
-			if limit == "" {
-				limit = "10"
-			}
-			// TODO: Implement recent jobs
-			writeJSON(w, map[string]any{"jobs": []any{}, "limit": limit})
-		})
+		// Jobs endpoints
+		pr.Get("/api/v1/jobs/recent", handleJobsRecent(cfg))
+		pr.Get("/api/v1/jobs/{id}", handleJobGet(cfg))
 
 		// Devices endpoint expected by frontend
 		pr.Get("/api/v1/devices", func(w http.ResponseWriter, r *http.Request) {
@@ -1431,9 +1376,7 @@ func NewRouter(cfg config.Config) http.Handler {
 		sharesHandlerV1 := NewSharesHandlerV1()
 		pr.Mount("/api/v1/shares", sharesHandlerV1.Routes())
 
-		// Jobs endpoints
-		jobsHandler := NewJobsHandler()
-		pr.Mount("/api/v1/jobs", jobsHandler.Routes())
+		// Jobs endpoints are already defined above
 
 		// Network endpoints (M4)
 		netLogger := Logger(cfg)

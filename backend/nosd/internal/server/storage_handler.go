@@ -9,6 +9,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// strPtr returns a pointer to a string
+func strPtr(s string) *string {
+	return &s
+}
+
 // Pool represents a storage pool
 type Pool struct {
 	ID         string       `json:"id"`
