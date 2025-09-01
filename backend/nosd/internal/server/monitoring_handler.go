@@ -28,25 +28,25 @@ type Event struct {
 
 // Alert represents a system alert
 type Alert struct {
-	ID          string    `json:"id"`
-	Timestamp   time.Time `json:"timestamp"`
-	Severity    string    `json:"severity"` // low, medium, high, critical
-	Category    string    `json:"category"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	Resolved    bool      `json:"resolved"`
+	ID          string     `json:"id"`
+	Timestamp   time.Time  `json:"timestamp"`
+	Severity    string     `json:"severity"` // low, medium, high, critical
+	Category    string     `json:"category"`
+	Title       string     `json:"title"`
+	Description string     `json:"description"`
+	Resolved    bool       `json:"resolved"`
 	ResolvedAt  *time.Time `json:"resolved_at,omitempty"`
 }
 
 // Service represents a system service status
 type Service struct {
-	Name        string `json:"name"`
-	DisplayName string `json:"display_name"`
-	Status      string `json:"status"` // running, stopped, failed, unknown
-	Enabled     bool   `json:"enabled"`
-	Memory      int64  `json:"memory_bytes,omitempty"`
+	Name        string  `json:"name"`
+	DisplayName string  `json:"display_name"`
+	Status      string  `json:"status"` // running, stopped, failed, unknown
+	Enabled     bool    `json:"enabled"`
+	Memory      int64   `json:"memory_bytes,omitempty"`
 	CPU         float64 `json:"cpu_percent,omitempty"`
-	Uptime      int64  `json:"uptime_seconds,omitempty"`
+	Uptime      int64   `json:"uptime_seconds,omitempty"`
 }
 
 // SystemMetrics represents system resource usage
@@ -75,7 +75,7 @@ func handleMonitoringLogs(cfg config.Config) http.HandlerFunc {
 		}
 
 		logs := []map[string]any{}
-		
+
 		// On Linux, use journalctl
 		if runtime.GOOS == "linux" {
 			args := []string{"-o", "json", "-n", strconv.Itoa(limit)}
@@ -124,7 +124,7 @@ func handleMonitoringLogs(cfg config.Config) http.HandlerFunc {
 			if runtime.GOOS == "windows" {
 				logDir = `C:\ProgramData\NithronOS\logs`
 			}
-			
+
 			// Read nosd.log if it exists
 			logFile := filepath.Join(logDir, "nosd.log")
 			if data, err := os.ReadFile(logFile); err == nil {
@@ -154,17 +154,17 @@ func handleMonitoringLogs(cfg config.Config) http.HandlerFunc {
 func handleMonitoringEvents(cfg config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		events := []Event{}
-		
+
 		// Read events from event log file
 		eventFile := filepath.Join("/var/lib/nos/events.jsonl")
 		if runtime.GOOS == "windows" {
 			eventFile = filepath.Join(`C:\ProgramData\NithronOS\events.jsonl`)
 		}
-		
+
 		if file, err := os.Open(eventFile); err == nil {
 			defer file.Close()
 			scanner := bufio.NewScanner(file)
-			
+
 			// Read all events into memory to get the most recent ones
 			allEvents := []Event{}
 			for scanner.Scan() {
@@ -173,7 +173,7 @@ func handleMonitoringEvents(cfg config.Config) http.HandlerFunc {
 					allEvents = append(allEvents, event)
 				}
 			}
-			
+
 			// Return the last 100 events
 			start := 0
 			if len(allEvents) > 100 {
@@ -181,7 +181,7 @@ func handleMonitoringEvents(cfg config.Config) http.HandlerFunc {
 			}
 			events = allEvents[start:]
 		}
-		
+
 		// If no persisted events, generate some recent ones
 		if len(events) == 0 {
 			now := time.Now()
@@ -202,7 +202,7 @@ func handleMonitoringEvents(cfg config.Config) http.HandlerFunc {
 				},
 			}
 		}
-		
+
 		writeJSON(w, events)
 	}
 }
@@ -211,9 +211,9 @@ func handleMonitoringEvents(cfg config.Config) http.HandlerFunc {
 func handleMonitoringAlerts(cfg config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		alerts := []Alert{}
-		
+
 		// Check for real system issues
-		
+
 		// Check disk space
 		if usage, err := getDiskUsage("/"); err == nil && usage > 90 {
 			alerts = append(alerts, Alert{
@@ -226,7 +226,7 @@ func handleMonitoringAlerts(cfg config.Config) http.HandlerFunc {
 				Resolved:    false,
 			})
 		}
-		
+
 		// Check failed services
 		if runtime.GOOS == "linux" {
 			if output, err := exec.Command("systemctl", "list-units", "--failed", "--no-legend").Output(); err == nil {
@@ -249,7 +249,7 @@ func handleMonitoringAlerts(cfg config.Config) http.HandlerFunc {
 				}
 			}
 		}
-		
+
 		writeJSON(w, alerts)
 	}
 }
@@ -258,7 +258,7 @@ func handleMonitoringAlerts(cfg config.Config) http.HandlerFunc {
 func handleMonitoringServices(cfg config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		services := []Service{}
-		
+
 		// List of important services to monitor
 		serviceNames := []string{
 			"nosd",
@@ -268,7 +268,7 @@ func handleMonitoringServices(cfg config.Config) http.HandlerFunc {
 			"nfs-server",
 			"docker",
 		}
-		
+
 		if runtime.GOOS == "linux" {
 			for _, name := range serviceNames {
 				service := Service{
@@ -277,11 +277,11 @@ func handleMonitoringServices(cfg config.Config) http.HandlerFunc {
 					Status:      "unknown",
 					Enabled:     false,
 				}
-				
+
 				// Check if service exists and get status
 				if output, err := exec.Command("systemctl", "show", name, "--no-page").Output(); err == nil {
 					props := parseSystemdShow(string(output))
-					
+
 					if state, ok := props["ActiveState"]; ok {
 						switch state {
 						case "active":
@@ -292,11 +292,11 @@ func handleMonitoringServices(cfg config.Config) http.HandlerFunc {
 							service.Status = "failed"
 						}
 					}
-					
+
 					if enabled, ok := props["UnitFileState"]; ok {
 						service.Enabled = enabled == "enabled"
 					}
-					
+
 					// Get memory usage if running
 					if service.Status == "running" {
 						if mem, ok := props["MemoryCurrent"]; ok {
@@ -305,7 +305,7 @@ func handleMonitoringServices(cfg config.Config) http.HandlerFunc {
 							}
 						}
 					}
-					
+
 					// Get uptime if running
 					if service.Status == "running" {
 						if timestamp, ok := props["ActiveEnterTimestamp"]; ok {
@@ -315,7 +315,7 @@ func handleMonitoringServices(cfg config.Config) http.HandlerFunc {
 						}
 					}
 				}
-				
+
 				services = append(services, service)
 			}
 		} else {
@@ -329,7 +329,7 @@ func handleMonitoringServices(cfg config.Config) http.HandlerFunc {
 				})
 			}
 		}
-		
+
 		writeJSON(w, services)
 	}
 }
@@ -340,7 +340,7 @@ func handleMonitoringSystem(cfg config.Config) http.HandlerFunc {
 		metrics := SystemMetrics{
 			Timestamp: time.Now(),
 		}
-		
+
 		// Get CPU usage
 		if runtime.GOOS == "linux" {
 			if output, err := exec.Command("top", "-bn1").Output(); err == nil {
@@ -362,7 +362,7 @@ func handleMonitoringSystem(cfg config.Config) http.HandlerFunc {
 					}
 				}
 			}
-			
+
 			// Get memory info
 			if data, err := os.ReadFile("/proc/meminfo"); err == nil {
 				lines := strings.Split(string(data), "\n")
@@ -382,7 +382,7 @@ func handleMonitoringSystem(cfg config.Config) http.HandlerFunc {
 					}
 				}
 			}
-			
+
 			// Get load average
 			if data, err := os.ReadFile("/proc/loadavg"); err == nil {
 				fields := strings.Fields(string(data))
@@ -396,7 +396,7 @@ func handleMonitoringSystem(cfg config.Config) http.HandlerFunc {
 					metrics.LoadAverage = loads
 				}
 			}
-			
+
 			// Get uptime
 			if data, err := os.ReadFile("/proc/uptime"); err == nil {
 				fields := strings.Fields(string(data))
@@ -407,13 +407,13 @@ func handleMonitoringSystem(cfg config.Config) http.HandlerFunc {
 				}
 			}
 		}
-		
+
 		// Get disk usage for root filesystem
 		if usage, total, err := getDiskUsageBytes("/"); err == nil {
 			metrics.DiskUsed = usage
 			metrics.DiskTotal = total
 		}
-		
+
 		writeJSON(w, metrics)
 	}
 }

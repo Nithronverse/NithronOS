@@ -70,7 +70,7 @@ func handleSmartDevices(cfg config.Config) http.HandlerFunc {
 				req, _ := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("http://unix/v1/smart?device=%s", devPath), nil)
 				if resp, err := agent.HTTP.Do(req); err == nil && resp.StatusCode == 200 {
 					defer resp.Body.Close()
-					json.NewDecoder(resp.Body).Decode(&smartData)
+					_ = json.NewDecoder(resp.Body).Decode(&smartData)
 					
 					device := SMARTDevice{
 						Device:      devPath,
@@ -156,7 +156,7 @@ func handleSmartSummary(cfg config.Config) http.HandlerFunc {
 				req, _ := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("http://unix/v1/smart?device=%s", devPath), nil)
 				if resp, err := agent.HTTP.Do(req); err == nil && resp.StatusCode == 200 {
 					defer resp.Body.Close()
-					json.NewDecoder(resp.Body).Decode(&smartData)
+					_ = json.NewDecoder(resp.Body).Decode(&smartData)
 					
 					health := "unknown"
 					if passed, ok := smartData["passed"].(bool); ok {
@@ -243,7 +243,7 @@ func handleSmartDevice(cfg config.Config) http.HandlerFunc {
 			req, _ := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("http://unix/v1/smart?device=%s", devicePath), nil)
 			if resp, err := agent.HTTP.Do(req); err == nil && resp.StatusCode == 200 {
 				defer resp.Body.Close()
-				json.NewDecoder(resp.Body).Decode(&smartData)
+				_ = json.NewDecoder(resp.Body).Decode(&smartData)
 				
 				device.Attributes = smartData
 				

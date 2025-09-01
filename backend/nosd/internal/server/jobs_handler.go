@@ -50,7 +50,7 @@ func InitJobsStore(cfg config.Config) {
 	
 	// Load existing jobs
 	if data, err := os.ReadFile(jobsPath); err == nil {
-		json.Unmarshal(data, &jobsStore.jobs)
+		_ = json.Unmarshal(data, &jobsStore.jobs)
 	}
 }
 
@@ -69,7 +69,7 @@ func (s *JobsStore) AddJob(job Job) {
 	
 	// Save to disk (best effort)
 	if data, err := json.MarshalIndent(s.jobs, "", "  "); err == nil {
-		os.WriteFile(s.path, data, 0644)
+		_ = os.WriteFile(s.path, data, 0644)
 	}
 }
 
@@ -118,7 +118,7 @@ func (s *JobsStore) UpdateJob(id string, updates func(*Job)) {
 			
 			// Save to disk (best effort)
 			if data, err := json.MarshalIndent(s.jobs, "", "  "); err == nil {
-				os.WriteFile(s.path, data, 0644)
+				_ = os.WriteFile(s.path, data, 0644)
 			}
 			break
 		}
