@@ -18,13 +18,13 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"nithronos/backend/nosd/internal/api"
 	"nithronos/backend/nosd/internal/apps"
 	pwhash "nithronos/backend/nosd/internal/auth/hash"
 	"nithronos/backend/nosd/internal/auth/session"
 	userstore "nithronos/backend/nosd/internal/auth/store"
-	"nithronos/backend/nosd/internal/backup"
 	"nithronos/backend/nosd/internal/config"
 	"nithronos/backend/nosd/internal/disks"
 	"nithronos/backend/nosd/internal/notifications"
@@ -189,14 +189,14 @@ func NewRouter(cfg config.Config) http.Handler {
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to initialize shares handler")
 	}
-	
+
 	// Initialize backup handler
 	backupStorePath := filepath.Join(filepath.Dir(cfg.UsersPath), "backup")
 	backupHandler, err := NewBackupHandler(backupStorePath)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to initialize backup handler")
 	}
-	
+
 	// Initialize notifications manager
 	notificationsPath := filepath.Join(filepath.Dir(cfg.UsersPath), "notifications")
 	notificationManager, err := notifications.NewManager(notificationsPath)
@@ -1401,12 +1401,12 @@ func NewRouter(cfg config.Config) http.Handler {
 		}
 
 		// Jobs endpoints are already defined above
-		
+
 		// Backup endpoints
 		if backupHandler != nil {
 			pr.Mount("/api/v1/backup", backupHandler.Routes())
 		}
-		
+
 		// Notification endpoints
 		if notificationManager != nil {
 			pr.Mount("/api/v1/notifications", NewNotificationHandler(notificationManager).Routes())
