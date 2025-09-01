@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/go-chi/chi/v5"
 	"nithronos/backend/nosd/internal/config"
 	"nithronos/backend/nosd/pkg/httpx"
 )
@@ -37,6 +38,14 @@ func NewAppearanceHandler(cfg config.Config) *AppearanceHandler {
 		config:       cfg,
 		settingsPath: filepath.Join(cfg.EtcDir, "nos", "appearance.json"),
 	}
+}
+
+// Routes returns the routes for the appearance handler
+func (h *AppearanceHandler) Routes() chi.Router {
+	r := chi.NewRouter()
+	r.Get("/", h.GetAppearanceSettings)
+	r.Put("/", h.UpdateAppearanceSettings)
+	return r
 }
 
 // GetAppearanceSettings returns current appearance settings

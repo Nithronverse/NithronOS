@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"nithronos/backend/nosd/internal/config"
 
 	"github.com/shirou/gopsutil/v3/cpu"
@@ -140,6 +141,13 @@ func NewAboutHandler(cfg config.Config) *AboutHandler {
 	return &AboutHandler{
 		config: cfg,
 	}
+}
+
+// Routes returns the routes for the about handler
+func (h *AboutHandler) Routes() chi.Router {
+	r := chi.NewRouter()
+	r.Get("/", h.GetAboutInfo)
+	return r
 }
 
 // GetAboutInfo returns comprehensive system information

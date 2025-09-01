@@ -1399,6 +1399,22 @@ func NewRouter(cfg config.Config) http.Handler {
 		updatesHandler := NewUpdatesHandler(cfg)
 		pr.Mount("/api/v1/updates", updatesHandler.Routes())
 
+		// Users management endpoints
+		usersHandler := NewUsersHandler(users, cfg)
+		pr.With(adminRequired).Mount("/api/v1/users", usersHandler.Routes())
+
+		// Network configuration endpoints
+		networkConfigHandler := NewNetworkConfigHandler(cfg)
+		pr.With(adminRequired).Mount("/api/v1/network/config", networkConfigHandler.Routes())
+
+		// Appearance settings endpoints
+		appearanceHandler := NewAppearanceHandler(cfg)
+		pr.Mount("/api/v1/settings/appearance", appearanceHandler.Routes())
+
+		// About/System info endpoints
+		aboutHandler := NewAboutHandler(cfg)
+		pr.Mount("/api/v1/about", aboutHandler.Routes())
+
 		// Apps catalog
 		pr.Get("/api/v1/apps", func(w http.ResponseWriter, r *http.Request) {
 			if appsManager != nil {
