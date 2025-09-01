@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
@@ -9,21 +8,22 @@ import (
 	"strings"
 	"time"
 
+	"nithronos/backend/nosd/internal/config"
+
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/mem"
-	"nithronos/backend/nosd/internal/config"
 )
 
 // AboutInfo represents system information for the About page
 type AboutInfo struct {
-	System      SystemInfo      `json:"system"`
-	Hardware    HardwareInfo    `json:"hardware"`
-	Software    SoftwareInfo    `json:"software"`
-	License     LicenseInfo     `json:"license"`
-	Support     SupportInfo     `json:"support"`
-	BuildInfo   BuildInfo       `json:"build_info"`
+	System    SystemInfo   `json:"system"`
+	Hardware  HardwareInfo `json:"hardware"`
+	Software  SoftwareInfo `json:"software"`
+	License   LicenseInfo  `json:"license"`
+	Support   SupportInfo  `json:"support"`
+	BuildInfo BuildInfo    `json:"build_info"`
 }
 
 // SystemInfo represents basic system information
@@ -40,45 +40,45 @@ type SystemInfo struct {
 
 // HardwareInfo represents hardware information
 type HardwareInfo struct {
-	CPU         CPUInfo      `json:"cpu"`
-	Memory      MemoryInfo   `json:"memory"`
-	Storage     []DiskInfo   `json:"storage"`
-	Network     []NICInfo    `json:"network"`
-	Motherboard string       `json:"motherboard"`
-	BIOS        BIOSInfo     `json:"bios"`
+	CPU         CPUInfo    `json:"cpu"`
+	Memory      MemoryInfo `json:"memory"`
+	Storage     []DiskInfo `json:"storage"`
+	Network     []NICInfo  `json:"network"`
+	Motherboard string     `json:"motherboard"`
+	BIOS        BIOSInfo   `json:"bios"`
 }
 
 // CPUInfo represents CPU information
 type CPUInfo struct {
-	Model      string  `json:"model"`
-	Cores      int     `json:"cores"`
-	Threads    int     `json:"threads"`
-	Speed      float64 `json:"speed_mhz"`
-	Cache      int     `json:"cache_kb"`
-	VendorID   string  `json:"vendor_id"`
-	Family     string  `json:"family"`
+	Model    string  `json:"model"`
+	Cores    int     `json:"cores"`
+	Threads  int     `json:"threads"`
+	Speed    float64 `json:"speed_mhz"`
+	Cache    int     `json:"cache_kb"`
+	VendorID string  `json:"vendor_id"`
+	Family   string  `json:"family"`
 }
 
 // DiskInfo represents disk information
 type DiskInfo struct {
-	Device     string  `json:"device"`
-	Model      string  `json:"model"`
-	Size       uint64  `json:"size"`
-	Type       string  `json:"type"` // SSD, HDD
-	Filesystem string  `json:"filesystem"`
-	MountPoint string  `json:"mount_point"`
-	Used       uint64  `json:"used"`
-	Free       uint64  `json:"free"`
+	Device       string  `json:"device"`
+	Model        string  `json:"model"`
+	Size         uint64  `json:"size"`
+	Type         string  `json:"type"` // SSD, HDD
+	Filesystem   string  `json:"filesystem"`
+	MountPoint   string  `json:"mount_point"`
+	Used         uint64  `json:"used"`
+	Free         uint64  `json:"free"`
 	UsagePercent float64 `json:"usage_percent"`
 }
 
 // NICInfo represents network interface information
 type NICInfo struct {
-	Name       string   `json:"name"`
-	MAC        string   `json:"mac"`
-	Speed      int      `json:"speed_mbps"`
-	Addresses  []string `json:"addresses"`
-	Type       string   `json:"type"` // ethernet, wifi, virtual
+	Name      string   `json:"name"`
+	MAC       string   `json:"mac"`
+	Speed     int      `json:"speed_mbps"`
+	Addresses []string `json:"addresses"`
+	Type      string   `json:"type"` // ethernet, wifi, virtual
 }
 
 // BIOSInfo represents BIOS/UEFI information
@@ -90,44 +90,44 @@ type BIOSInfo struct {
 
 // SoftwareInfo represents software version information
 type SoftwareInfo struct {
-	NithronOS   string            `json:"nithronos_version"`
-	APIVersion  string            `json:"api_version"`
-	WebUIVersion string           `json:"webui_version"`
-	AgentVersion string           `json:"agent_version"`
-	GoVersion   string            `json:"go_version"`
-	NodeVersion string            `json:"node_version"`
-	DockerVersion string          `json:"docker_version"`
-	Components  map[string]string `json:"components"`
+	NithronOS     string            `json:"nithronos_version"`
+	APIVersion    string            `json:"api_version"`
+	WebUIVersion  string            `json:"webui_version"`
+	AgentVersion  string            `json:"agent_version"`
+	GoVersion     string            `json:"go_version"`
+	NodeVersion   string            `json:"node_version"`
+	DockerVersion string            `json:"docker_version"`
+	Components    map[string]string `json:"components"`
 }
 
 // LicenseInfo represents license information
 type LicenseInfo struct {
-	Type        string    `json:"type"`
-	Status      string    `json:"status"`
-	ExpiryDate  time.Time `json:"expiry_date,omitempty"`
-	Features    []string  `json:"features"`
-	MaxUsers    int       `json:"max_users"`
-	MaxStorage  int64     `json:"max_storage_gb"`
+	Type       string    `json:"type"`
+	Status     string    `json:"status"`
+	ExpiryDate time.Time `json:"expiry_date,omitempty"`
+	Features   []string  `json:"features"`
+	MaxUsers   int       `json:"max_users"`
+	MaxStorage int64     `json:"max_storage_gb"`
 }
 
 // SupportInfo represents support information
 type SupportInfo struct {
-	Email       string `json:"email"`
-	Website     string `json:"website"`
+	Email         string `json:"email"`
+	Website       string `json:"website"`
 	Documentation string `json:"documentation"`
-	Forum       string `json:"forum"`
-	Discord     string `json:"discord"`
-	GitHub      string `json:"github"`
+	Forum         string `json:"forum"`
+	Discord       string `json:"discord"`
+	GitHub        string `json:"github"`
 }
 
 // BuildInfo represents build information
 type BuildInfo struct {
-	Version     string    `json:"version"`
-	Commit      string    `json:"commit"`
-	Branch      string    `json:"branch"`
-	BuildDate   time.Time `json:"build_date"`
-	BuildHost   string    `json:"build_host"`
-	Compiler    string    `json:"compiler"`
+	Version   string    `json:"version"`
+	Commit    string    `json:"commit"`
+	Branch    string    `json:"branch"`
+	BuildDate time.Time `json:"build_date"`
+	BuildHost string    `json:"build_host"`
+	Compiler  string    `json:"compiler"`
 }
 
 // AboutHandler handles about/system information endpoints
@@ -307,12 +307,12 @@ func (h *AboutHandler) getMotherboardInfo() string {
 
 func (h *AboutHandler) getSoftwareInfo() SoftwareInfo {
 	info := SoftwareInfo{
-		NithronOS:   "0.9.5-pre-alpha",
-		APIVersion:  "1.0.0",
+		NithronOS:    "0.9.5-pre-alpha",
+		APIVersion:   "1.0.0",
 		WebUIVersion: "1.0.0",
 		AgentVersion: "1.0.0",
-		GoVersion:   runtime.Version(),
-		Components:  make(map[string]string),
+		GoVersion:    runtime.Version(),
+		Components:   make(map[string]string),
 	}
 
 	// Get Node.js version
@@ -366,8 +366,8 @@ func (h *AboutHandler) getComponentVersion(component string) string {
 
 func (h *AboutHandler) getLicenseInfo() LicenseInfo {
 	return LicenseInfo{
-		Type:       "Open Source",
-		Status:     "Active",
+		Type:   "Open Source",
+		Status: "Active",
 		Features: []string{
 			"Unlimited Users",
 			"Unlimited Storage",

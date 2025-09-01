@@ -2,24 +2,23 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"nithronos/backend/nosd/internal/auth/hash"
-	"nithronos/backend/nosd/internal/auth/store"
+	userstore "nithronos/backend/nosd/internal/auth/store"
 	"nithronos/backend/nosd/internal/config"
 	"nithronos/backend/nosd/pkg/httpx"
 )
 
-// User represents a user account
-type User struct {
+// UserAccount represents a user account in the API
+type UserAccount struct {
 	ID           string    `json:"id"`
 	Username     string    `json:"username"`
 	Email        string    `json:"email"`
-	DisplayName  string    `json:"display_name"`
+	DisplayName  string    `json:"display_name,omitempty"`
 	Roles        []string  `json:"roles"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
@@ -53,12 +52,12 @@ type ChangePasswordRequest struct {
 
 // UsersHandler handles user management endpoints
 type UsersHandler struct {
-	store  *store.UserStore
+	store  *userstore.Store
 	config config.Config
 }
 
 // NewUsersHandler creates a new users handler
-func NewUsersHandler(store *store.UserStore, cfg config.Config) *UsersHandler {
+func NewUsersHandler(store *userstore.Store, cfg config.Config) *UsersHandler {
 	return &UsersHandler{
 		store:  store,
 		config: cfg,
@@ -74,18 +73,18 @@ func (h *UsersHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert to API response format
-	apiUsers := make([]User, 0, len(users))
+	apiUsers := make([]UserAccount, 0, len(users))
 	for _, u := range users {
-		apiUser := User{
+		apiUser := UserAccount{
 			ID:          u.ID,
 			Username:    u.Username,
 			Email:       u.Username, // Username is email in current implementation
-			DisplayName: u.DisplayName,
+			DisplayName: "", // Not in current store
 			Roles:       u.Roles,
 			CreatedAt:   parseTime(u.CreatedAt),
 			UpdatedAt:   parseTime(u.UpdatedAt),
-			Enabled:     !u.Disabled,
-			TwoFactorEnabled: u.TOTPSecret != "",
+			Enabled:     true, // Not in current store
+			TwoFactorEnabled: u.TOTPEnc != "",
 		}
 		if u.LastLoginAt != "" {
 			apiUser.LastLoginAt = parseTime(u.LastLoginAt)
@@ -106,7 +105,7 @@ func (h *UsersHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.store.FindByID(userID)
 	if err != nil {
-		if err == store.ErrUserNotFound {
+		if err == userstore.ErrUserNotFound {
 			httpx.WriteTypedError(w, http.StatusNotFound, "user.not_found", "User not found", 0)
 		} else {
 			httpx.WriteTypedError(w, http.StatusInternalServerError, "user.get_failed", "Failed to get user", 0)
@@ -114,16 +113,16 @@ func (h *UsersHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	apiUser := User{
+	apiUser := UserAccount{
 		ID:          user.ID,
 		Username:    user.Username,
 		Email:       user.Username,
-		DisplayName: user.DisplayName,
+		DisplayName: "", // Not in current store
 		Roles:       user.Roles,
 		CreatedAt:   parseTime(user.CreatedAt),
 		UpdatedAt:   parseTime(user.UpdatedAt),
-		Enabled:     !user.Disabled,
-		TwoFactorEnabled: user.TOTPSecret != "",
+		Enabled:     true, // Not in current store
+		TwoFactorEnabled: user.TOTPEnc != "",
 	}
 	if user.LastLoginAt != "" {
 		apiUser.LastLoginAt = parseTime(user.LastLoginAt)
@@ -166,19 +165,13 @@ func (h *UsersHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	// Create user
 	now := time.Now().UTC().Format(time.RFC3339)
-	newUser := store.User{
+	newUser := userstore.User{
 		ID:           generateUUID(),
 		Username:     req.Email,
 		PasswordHash: hashedPassword,
-		DisplayName:  req.DisplayName,
 		Roles:        req.Roles,
 		CreatedAt:    now,
 		UpdatedAt:    now,
-		Disabled:     false,
-	}
-
-	if newUser.DisplayName == "" {
-		newUser.DisplayName = req.Username
 	}
 
 	if len(newUser.Roles) == 0 {
@@ -192,11 +185,11 @@ func (h *UsersHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return created user
-	apiUser := User{
+	apiUser := UserAccount{
 		ID:          newUser.ID,
 		Username:    newUser.Username,
 		Email:       newUser.Username,
-		DisplayName: newUser.DisplayName,
+		DisplayName: req.DisplayName,
 		Roles:       newUser.Roles,
 		CreatedAt:   parseTime(newUser.CreatedAt),
 		UpdatedAt:   parseTime(newUser.UpdatedAt),

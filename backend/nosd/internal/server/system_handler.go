@@ -14,8 +14,8 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
-// SystemInfo represents system information
-type SystemInfo struct {
+// SystemInfoBasic represents basic system information
+type SystemInfoBasic struct {
 	Hostname     string  `json:"hostname"`
 	Uptime       uint64  `json:"uptime"`
 	Kernel       string  `json:"kernel"`

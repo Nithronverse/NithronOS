@@ -33,23 +33,23 @@ type UpdateInfo struct {
 
 // UpdateSettings represents update configuration
 type UpdateSettings struct {
-	AutoUpdate      bool   `json:"auto_update"`
-	Channel         string `json:"channel"`
-	CheckInterval   int    `json:"check_interval_hours"`
-	LastCheck       time.Time `json:"last_check"`
-	NotifyOnUpdate  bool   `json:"notify_on_update"`
+	AutoUpdate     bool      `json:"auto_update"`
+	Channel        string    `json:"channel"`
+	CheckInterval  int       `json:"check_interval_hours"`
+	LastCheck      time.Time `json:"last_check"`
+	NotifyOnUpdate bool      `json:"notify_on_update"`
 }
 
 // UpdatesHandler handles system update endpoints
 type UpdatesHandler struct {
-	config config.Config
+	config       config.Config
 	settingsPath string
 }
 
 // NewUpdatesHandler creates a new updates handler
 func NewUpdatesHandler(cfg config.Config) *UpdatesHandler {
 	return &UpdatesHandler{
-		config: cfg,
+		config:       cfg,
 		settingsPath: filepath.Join(cfg.EtcDir, "nos", "update-settings.json"),
 	}
 }
@@ -58,7 +58,7 @@ func NewUpdatesHandler(cfg config.Config) *UpdatesHandler {
 func (h *UpdatesHandler) CheckForUpdates(w http.ResponseWriter, r *http.Request) {
 	// Get current version
 	currentVersion := h.getCurrentVersion()
-	
+
 	// Check for updates based on OS
 	updateInfo := UpdateInfo{
 		CurrentVersion: currentVersion,
@@ -149,7 +149,7 @@ func (h *UpdatesHandler) getCurrentVersion() string {
 	if data, err := os.ReadFile(versionFile); err == nil {
 		return strings.TrimSpace(string(data))
 	}
-	
+
 	// Fallback to hardcoded version
 	return "0.9.5-pre-alpha"
 }
@@ -213,7 +213,7 @@ func (h *UpdatesHandler) checkGitHubReleases(info *UpdateInfo) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, "GET", 
+	req, err := http.NewRequestWithContext(ctx, "GET",
 		"https://api.github.com/repos/nithronos/nithronos/releases/latest", nil)
 	if err != nil {
 		return err
@@ -272,9 +272,9 @@ func (h *UpdatesHandler) checkGitHubReleases(info *UpdateInfo) error {
 
 func (h *UpdatesHandler) loadSettings() UpdateSettings {
 	settings := UpdateSettings{
-		AutoUpdate:    false,
-		Channel:       "stable",
-		CheckInterval: 24,
+		AutoUpdate:     false,
+		Channel:        "stable",
+		CheckInterval:  24,
 		NotifyOnUpdate: true,
 	}
 
@@ -338,7 +338,7 @@ func (h *UpdatesHandler) performUpdate(info UpdateInfo) {
 		}
 
 		h.logUpdate("Update completed successfully")
-		
+
 		// Restart service
 		_ = exec.Command("systemctl", "restart", "nosd").Run()
 	} else if info.DownloadURL != "" {

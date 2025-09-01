@@ -20,8 +20,8 @@ import (
 
 // NetworkOverview represents network system overview
 type NetworkOverview struct {
-	Hostname    string              `json:"hostname"`
-	Interfaces  []NetworkInterface  `json:"interfaces"`
+	Hostname    string                   `json:"hostname"`
+	Interfaces  []NetworkInterfaceInfo   `json:"interfaces"`
 	Routes      []Route             `json:"routes"`
 	DNS         DNSConfig           `json:"dns"`
 	Firewall    FirewallStatus      `json:"firewall"`
@@ -29,8 +29,8 @@ type NetworkOverview struct {
 	HTTPS       HTTPSStatus         `json:"https"`
 }
 
-// NetworkInterface represents a network interface
-type NetworkInterface struct {
+// NetworkInterfaceInfo represents a network interface
+type NetworkInterfaceInfo struct {
 	Name        string   `json:"name"`
 	Type        string   `json:"type"` // ethernet, wifi, bridge, virtual
 	Status      string   `json:"status"` // up, down
@@ -357,8 +357,8 @@ func (h *NetworkConfigHandler) getHostname() string {
 	return hostname
 }
 
-func (h *NetworkConfigHandler) getInterfaces() []NetworkInterface {
-	interfaces := []NetworkInterface{}
+func (h *NetworkConfigHandler) getInterfaces() []NetworkInterfaceInfo {
+	interfaces := []NetworkInterfaceInfo{}
 	
 	ifaces, err := net.Interfaces()
 	if err != nil {
@@ -366,7 +366,7 @@ func (h *NetworkConfigHandler) getInterfaces() []NetworkInterface {
 	}
 
 	for _, iface := range ifaces {
-		ni := NetworkInterface{
+		ni := NetworkInterfaceInfo{
 			Name: iface.Name,
 			MAC:  iface.HardwareAddr.String(),
 			MTU:  iface.MTU,
@@ -415,7 +415,7 @@ func (h *NetworkConfigHandler) getInterfaces() []NetworkInterface {
 	return interfaces
 }
 
-func (h *NetworkConfigHandler) getInterfaceStats(ni *NetworkInterface) {
+func (h *NetworkConfigHandler) getInterfaceStats(ni *NetworkInterfaceInfo) {
 	// Read from /sys/class/net/<interface>/statistics/
 	basePath := fmt.Sprintf("/sys/class/net/%s/statistics", ni.Name)
 	
