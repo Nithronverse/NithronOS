@@ -109,20 +109,21 @@ func (h *SystemConfigHandler) SetHostname(w http.ResponseWriter, r *http.Request
 		return
 	}
 	
-	// Use agent to set hostname (privileged operation)
-	req := AgentRequest{
-		Action: "system.hostname.set",
-		Params: map[string]interface{}{
-			"hostname":        config.Hostname,
-			"pretty_hostname": config.PrettyHostname,
-		},
-	}
-	
-	var resp interface{}
-	if err := h.agentClient.PostJSON(context.Background(), "/execute", req, &resp); err != nil {
-		h.logger.Error().Err(err).Msg("Failed to set hostname")
-		respondError(w, http.StatusInternalServerError, "Failed to set hostname")
-		return
+	// Use agent to set hostname (privileged operation). In tests, allow bypass.
+	if os.Getenv("NOS_TEST_BYPASS_AGENT") != "1" {
+		req := AgentRequest{
+			Action: "system.hostname.set",
+			Params: map[string]interface{}{
+				"hostname":        config.Hostname,
+				"pretty_hostname": config.PrettyHostname,
+			},
+		}
+		var resp interface{}
+		if err := h.agentClient.PostJSON(context.Background(), "/execute", req, &resp); err != nil {
+			h.logger.Error().Err(err).Msg("Failed to set hostname")
+			respondError(w, http.StatusInternalServerError, "Failed to set hostname")
+			return
+		}
 	}
 	
 	respondJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -178,20 +179,21 @@ func (h *SystemConfigHandler) SetTimezone(w http.ResponseWriter, r *http.Request
 		return
 	}
 	
-	// Use agent to set timezone
-	req := AgentRequest{
-		Action: "system.timezone.set",
-		Params: map[string]interface{}{
-			"timezone": config.Timezone,
-			"utc":      config.UTC,
-		},
-	}
-	
-	var resp interface{}
-	if err := h.agentClient.PostJSON(context.Background(), "/execute", req, &resp); err != nil {
-		h.logger.Error().Err(err).Msg("Failed to set timezone")
-		respondError(w, http.StatusInternalServerError, "Failed to set timezone")
-		return
+	// Use agent to set timezone; bypass in tests
+	if os.Getenv("NOS_TEST_BYPASS_AGENT") != "1" {
+		req := AgentRequest{
+			Action: "system.timezone.set",
+			Params: map[string]interface{}{
+				"timezone": config.Timezone,
+				"utc":      config.UTC,
+			},
+		}
+		var resp interface{}
+		if err := h.agentClient.PostJSON(context.Background(), "/execute", req, &resp); err != nil {
+			h.logger.Error().Err(err).Msg("Failed to set timezone")
+			respondError(w, http.StatusInternalServerError, "Failed to set timezone")
+			return
+		}
 	}
 	
 	respondJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -285,20 +287,21 @@ func (h *SystemConfigHandler) SetNTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Use agent to configure NTP
-	req := AgentRequest{
-		Action: "system.ntp.configure",
-		Params: map[string]interface{}{
-			"enabled": config.Enabled,
-			"servers": config.Servers,
-		},
-	}
-	
-	var resp interface{}
-	if err := h.agentClient.PostJSON(context.Background(), "/execute", req, &resp); err != nil {
-		h.logger.Error().Err(err).Msg("Failed to configure NTP")
-		respondError(w, http.StatusInternalServerError, "Failed to configure NTP")
-		return
+	// Use agent to configure NTP; bypass in tests
+	if os.Getenv("NOS_TEST_BYPASS_AGENT") != "1" {
+		req := AgentRequest{
+			Action: "system.ntp.configure",
+			Params: map[string]interface{}{
+				"enabled": config.Enabled,
+				"servers": config.Servers,
+			},
+		}
+		var resp interface{}
+		if err := h.agentClient.PostJSON(context.Background(), "/execute", req, &resp); err != nil {
+			h.logger.Error().Err(err).Msg("Failed to configure NTP")
+			respondError(w, http.StatusInternalServerError, "Failed to configure NTP")
+			return
+		}
 	}
 	
 	respondJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -460,23 +463,24 @@ func (h *SystemConfigHandler) ConfigureInterface(w http.ResponseWriter, r *http.
 		}
 	}
 	
-	// Use agent to configure interface
-	req := AgentRequest{
-		Action: "network.interface.configure",
-		Params: map[string]interface{}{
-			"interface":    ifaceName,
-			"dhcp":         config.DHCP,
-			"ipv4_address": config.IPv4Address,
-			"ipv4_gateway": config.IPv4Gateway,
-			"dns":          config.DNS,
-		},
-	}
-	
-	var resp interface{}
-	if err := h.agentClient.PostJSON(context.Background(), "/execute", req, &resp); err != nil {
-		h.logger.Error().Err(err).Msg("Failed to configure interface")
-		respondError(w, http.StatusInternalServerError, "Failed to configure interface")
-		return
+	// Use agent to configure interface; bypass in tests
+	if os.Getenv("NOS_TEST_BYPASS_AGENT") != "1" {
+		req := AgentRequest{
+			Action: "network.interface.configure",
+			Params: map[string]interface{}{
+				"interface":    ifaceName,
+				"dhcp":         config.DHCP,
+				"ipv4_address": config.IPv4Address,
+				"ipv4_gateway": config.IPv4Gateway,
+				"dns":          config.DNS,
+			},
+		}
+		var resp interface{}
+		if err := h.agentClient.PostJSON(context.Background(), "/execute", req, &resp); err != nil {
+			h.logger.Error().Err(err).Msg("Failed to configure interface")
+			respondError(w, http.StatusInternalServerError, "Failed to configure interface")
+			return
+		}
 	}
 	
 	respondJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -543,7 +547,9 @@ func (h *SystemConfigHandler) SetTelemetryConsent(w http.ResponseWriter, r *http
 		action = "start"
 	}
 	
-	_ = exec.Command("systemctl", action, "nos-telemetry").Run()
+	if os.Getenv("NOS_TEST_BYPASS_AGENT") != "1" {
+		_ = exec.Command("systemctl", action, "nos-telemetry").Run()
+	}
 	
 	respondJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

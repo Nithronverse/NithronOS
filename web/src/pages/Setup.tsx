@@ -210,6 +210,12 @@ export default function Setup() {
                     } catch (err) {
                       console.error('Failed to mark setup complete:', err)
                     }
+                    // Attempt to login so subsequent steps use nos-client session
+                    try {
+                      if (adminCreds) {
+                        await api.auth.login({ username: adminCreds.username, password: adminCreds.password })
+                      }
+                    } catch {}
                     setStep('done')
                   }
                 }}
@@ -833,6 +839,14 @@ function StepTOTPEnroll({
               {loading ? 'Verifying...' : 'Verify and Enable 2FA'}
             </button>
           </form>
+          <button
+            type="button"
+            className="btn bg-secondary w-full"
+            onClick={onSuccess}
+            disabled={loading}
+          >
+            Skip for now
+          </button>
         </>
       )}
     </div>

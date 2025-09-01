@@ -1655,41 +1655,34 @@ func NewRouter(cfg config.Config) http.Handler {
 		// Allow setup token authentication for system config during setup
 		sr.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				// Check if setup is ACTUALLY complete (not just if admin exists)
+				// During first-boot, always allow authenticated users; also allow setup token.
+				// Only require normal auth after setup is complete.
 				setupCompleteFile := filepath.Join(cfg.EtcDir, "nos", "setup-complete")
 				if _, err := os.Stat(setupCompleteFile); err == nil {
-					// Setup is complete, require normal auth
 					if _, ok := codec.DecodeFromRequest(r); !ok {
 						httpx.WriteTypedError(w, http.StatusUnauthorized, "auth.required", "Authentication required. Please sign in.", 0)
 						return
 					}
-				} else {
-					// During setup, allow with setup token OR if no admin exists
-					authz := r.Header.Get("Authorization")
-					if strings.HasPrefix(authz, "Bearer ") {
-						tok := strings.TrimSpace(authz[7:])
-						claims, err := setupDecodeToken(cfg, tok)
-						if err == nil && claims["purpose"] == "setup" {
-							// Valid setup token
-							next.ServeHTTP(w, r)
-							return
-						}
-					}
-
-					// Check if we're still in first-boot (no admin yet)
-					us, _ := userstore.New(cfg.UsersPath)
-					if us == nil || !us.HasAdmin() {
-						// No admin yet, this might be recovery mode or initial setup
-						// Allow the request to proceed
+					// proceed
+					next.ServeHTTP(w, r)
+					return
+				}
+				// Setup not complete: allow if session exists
+				if _, ok := codec.DecodeFromRequest(r); ok {
+					next.ServeHTTP(w, r)
+					return
+				}
+				// Or allow with setup token for CLI/tools
+				authz := r.Header.Get("Authorization")
+				if strings.HasPrefix(authz, "Bearer ") {
+					tok := strings.TrimSpace(authz[7:])
+					if claims, err := setupDecodeToken(cfg, tok); err == nil && claims["purpose"] == "setup" {
 						next.ServeHTTP(w, r)
 						return
 					}
-
-					// Has admin but no valid setup token
-					httpx.WriteTypedError(w, http.StatusUnauthorized, "auth.required", "Setup authentication required.", 0)
-					return
 				}
-				next.ServeHTTP(w, r)
+				// Otherwise unauthorized
+				httpx.WriteTypedError(w, http.StatusUnauthorized, "auth.required", "Authentication required.", 0)
 			})
 		})
 		// Mount system info/services
