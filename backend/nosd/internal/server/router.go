@@ -24,8 +24,10 @@ import (
 	pwhash "nithronos/backend/nosd/internal/auth/hash"
 	"nithronos/backend/nosd/internal/auth/session"
 	userstore "nithronos/backend/nosd/internal/auth/store"
+	"nithronos/backend/nosd/internal/backup"
 	"nithronos/backend/nosd/internal/config"
 	"nithronos/backend/nosd/internal/disks"
+	"nithronos/backend/nosd/internal/notifications"
 	"nithronos/backend/nosd/internal/pools"
 	"nithronos/backend/nosd/internal/ratelimit"
 	"nithronos/backend/nosd/internal/sessions"
@@ -181,15 +183,26 @@ func NewRouter(cfg config.Config) http.Handler {
 	InitJobsStore(cfg)
 
 	// Initialize shares handler
-	// sharesManager := shares.NewManager("")
-	// agentClient := agentclient.New(cfg.AgentSocket())
-	// logger := Logger(cfg)
-	// TODO: Integrate old shares handler with new v1 API
-	// sharesHandler := &SharesHandler{
-	// 	manager: sharesManager,
-	// 	agent:   agentClient,
-	// 	logger:  logger,
-	// }
+	agentClient := agentclient.New(cfg.AgentSocket())
+	sharesStorePath := filepath.Join(filepath.Dir(cfg.UsersPath), "shares.json")
+	sharesHandler, err := NewSharesHandlerV2(sharesStorePath, agentClient)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to initialize shares handler")
+	}
+	
+	// Initialize backup handler
+	backupStorePath := filepath.Join(filepath.Dir(cfg.UsersPath), "backup")
+	backupHandler, err := NewBackupHandler(backupStorePath)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to initialize backup handler")
+	}
+	
+	// Initialize notifications manager
+	notificationsPath := filepath.Join(filepath.Dir(cfg.UsersPath), "notifications")
+	notificationManager, err := notifications.NewManager(notificationsPath)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to initialize notifications manager")
+	}
 
 	// Initialize apps manager
 	appManagerConfig := &apps.Config{
@@ -1378,11 +1391,26 @@ func NewRouter(cfg config.Config) http.Handler {
 		schedulesHandler := NewSchedulesHandler()
 		pr.Mount("/api/v1/schedules", schedulesHandler.Routes())
 
-		// Share endpoints (v1 API)
-		sharesHandlerV1 := NewSharesHandlerV1()
-		pr.Mount("/api/v1/shares", sharesHandlerV1.Routes())
+		// Share endpoints (v1 API) - use real implementation
+		if sharesHandler != nil {
+			pr.Mount("/api/v1/shares", sharesHandler.Routes())
+		} else {
+			// Fallback to mock handler if real one failed to initialize
+			sharesHandlerV1 := NewSharesHandlerV1()
+			pr.Mount("/api/v1/shares", sharesHandlerV1.Routes())
+		}
 
 		// Jobs endpoints are already defined above
+		
+		// Backup endpoints
+		if backupHandler != nil {
+			pr.Mount("/api/v1/backup", backupHandler.Routes())
+		}
+		
+		// Notification endpoints
+		if notificationManager != nil {
+			pr.Mount("/api/v1/notifications", NewNotificationHandler(notificationManager).Routes())
+		}
 
 		// Network endpoints (M4)
 		netLogger := Logger(cfg)
