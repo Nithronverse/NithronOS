@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
+import { useState } from 'react'
 import { 
   Activity, AlertCircle, AlertTriangle, CheckCircle, Clock, 
   Cpu, Database, FolderOpen, HardDrive, Info,
@@ -48,18 +49,35 @@ const itemVariants: any = {
 }
 
 // Widget components
-function SystemHealthWidget() {
-  const { vitals, isLoading, error, isSSE } = useSystemVitals()
-  const data = vitals ? {
-    system: {
-      status: vitals.cpuPct > 80 ? 'critical' : vitals.cpuPct > 60 ? 'degraded' : 'ok',
-      cpuPct: vitals.cpuPct,
-      mem: { used: vitals.memUsed, total: vitals.memTotal },
-      swap: { used: vitals.swapUsed, total: vitals.swapTotal },
-      load1: vitals.load1,
-      uptimeSec: vitals.uptime,
-    }
+function SystemHealthWidget({ data: dashboardData, isLoading: dashboardLoading }: any) {
+  // Use system vitals for real-time updates, fall back to dashboard data
+  const { vitals, isLoading: vitalsLoading, error, isSSE } = useSystemVitals()
+  
+  // Prefer vitals if available, otherwise use dashboard data
+  const systemData = vitals ? {
+    status: vitals.cpuPct > 80 ? 'critical' : vitals.cpuPct > 60 ? 'degraded' : 'ok',
+    cpuPct: vitals.cpuPct || 0,
+    mem: { 
+      used: vitals.memUsed || 0, 
+      total: vitals.memTotal || 1 
+    },
+    swap: { 
+      used: vitals.swapUsed || 0, 
+      total: vitals.swapTotal || 0 
+    },
+    load1: vitals.load1 || 0,
+    uptimeSec: vitals.uptime || 0,
+  } : dashboardData?.system ? {
+    status: dashboardData.system.status || 'ok',
+    cpuPct: dashboardData.system.cpuPct || 0,
+    mem: dashboardData.system.mem || { used: 0, total: 1 },
+    swap: dashboardData.system.swap || { used: 0, total: 0 },
+    load1: dashboardData.system.load1 || 0,
+    uptimeSec: dashboardData.system.uptimeSec || 0,
   } : null
+  
+  const isLoading = vitalsLoading && dashboardLoading
+  const data = systemData ? { system: systemData } : null
   if (isLoading && !data) {
     return (
       <Card>
@@ -664,8 +682,16 @@ function MaintenanceWidget({ data, isLoading }: any) {
 }
 
 export function Dashboard() {
-  const { data, isLoading, error } = useDashboard()
+  const { data, isLoading, error, isFetching, refetch } = useDashboard()
   const refreshDashboard = useRefreshDashboard()
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    await refetch()
+    refreshDashboard()
+    setTimeout(() => setIsRefreshing(false), 500) // Show refresh state briefly
+  }
 
   return (
     <div className="space-y-6 p-6">
@@ -687,10 +713,11 @@ export function Dashboard() {
         <Button
           variant="outline"
           size="sm"
-          onClick={refreshDashboard}
+          onClick={handleRefresh}
+          disabled={isRefreshing || isFetching}
         >
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
+          <RefreshCw className={cn("h-4 w-4 mr-2", (isRefreshing || isFetching) && "animate-spin")} />
+          {isRefreshing ? 'Refreshing...' : 'Refresh'}
         </Button>
       </div>
 
@@ -703,7 +730,7 @@ export function Dashboard() {
       >
         {/* System Health - spans 2 columns on large screens */}
         <motion.div variants={itemVariants} className="lg:col-span-2">
-          <SystemHealthWidget />
+          <SystemHealthWidget data={data} isLoading={isLoading} />
         </motion.div>
 
         {/* Storage */}

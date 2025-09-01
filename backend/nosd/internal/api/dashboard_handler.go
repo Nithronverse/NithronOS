@@ -105,7 +105,8 @@ func HandleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 100*time.Millisecond)
+	// Use 300ms timeout to allow for proper CPU measurement
+	ctx, cancel := context.WithTimeout(r.Context(), 300*time.Millisecond)
 	defer cancel()
 
 	response := DashboardResponse{
@@ -132,10 +133,11 @@ func getSystemSummary(ctx context.Context) SystemSummary {
 		Swap:   MemInfo{},
 	}
 
-	// CPU usage (with timeout)
+	// CPU usage (with proper interval for accurate measurement)
 	cpuChan := make(chan float64, 1)
 	go func() {
-		if percents, err := cpu.Percent(50*time.Millisecond, false); err == nil && len(percents) > 0 {
+		// Use 200ms interval for more accurate CPU measurement
+		if percents, err := cpu.Percent(200*time.Millisecond, false); err == nil && len(percents) > 0 {
 			cpuChan <- percents[0]
 		} else {
 			cpuChan <- 0
@@ -145,7 +147,12 @@ func getSystemSummary(ctx context.Context) SystemSummary {
 	select {
 	case summary.CPUPct = <-cpuChan:
 	case <-ctx.Done():
-		summary.CPUPct = 0
+		// If context times out, try to get instant reading
+		if percents, err := cpu.Percent(0, false); err == nil && len(percents) > 0 {
+			summary.CPUPct = percents[0]
+		} else {
+			summary.CPUPct = 0
+		}
 	}
 
 	// Load average

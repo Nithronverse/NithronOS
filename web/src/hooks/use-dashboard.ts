@@ -12,14 +12,14 @@ import {
   type EventInfo
 } from '@/lib/api-dashboard'
 
-// Main dashboard hook - aggregated data
+// Main dashboard hook - aggregated data with auto-refresh
 export function useDashboard() {
   return useQuery<DashboardData>({
     queryKey: ['dashboard'],
     queryFn: dashboardApi.getDashboard,
-    refetchInterval: 1000, // 1Hz refresh
+    refetchInterval: 5000, // Refresh every 5 seconds for dashboard (less aggressive than monitoring)
     refetchIntervalInBackground: true,
-    staleTime: 500, // Consider data stale after 500ms
+    staleTime: 2000, // Consider data stale after 2 seconds
     gcTime: 60000, // Keep in cache for 1 minute
     retry: 1,
     retryDelay: 1000,
