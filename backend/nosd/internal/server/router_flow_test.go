@@ -92,8 +92,8 @@ func TestSetupFullFlowAnd410(t *testing.T) {
 		req.Header.Set("Authorization", "Bearer "+token)
 		res := httptest.NewRecorder()
 		r.ServeHTTP(res, req)
-		if res.Code != http.StatusNoContent {
-			t.Fatalf("create-admin: expected 204, got %d %s", res.Code, res.Body.String())
+		if res.Code != http.StatusOK {
+			t.Fatalf("create-admin: expected 200, got %d %s", res.Code, res.Body.String())
 		}
 	}
 
@@ -286,6 +286,87 @@ func TestSetupFullFlowAnd410(t *testing.T) {
 	}
 }
 
+func TestSetupCookiePathAndCookieAuth(t *testing.T) {
+	// temp state
+	dir := t.TempDir()
+	secretPath := filepath.Join(dir, "secret.key")
+	firstbootPath := filepath.Join(dir, "firstboot.json")
+	usersPath := filepath.Join(dir, "users.json")
+	// seed secret
+	key := make([]byte, 32)
+	for i := range key {
+		key[i] = byte(i)
+	}
+	_ = os.WriteFile(secretPath, key, 0o600)
+	_ = os.WriteFile(usersPath, []byte("{}"), 0o600)
+	_ = os.WriteFile(firstbootPath, []byte(`{"otp":"222222","issued_at":"`+time.Now().UTC().Format(time.RFC3339)+`","expires_at":"`+time.Now().UTC().Add(15*time.Minute).Format(time.RFC3339)+`"}`), 0o600)
+	// Point config/env to temp files
+	t.Setenv("NOS_SECRET_PATH", secretPath)
+	t.Setenv("NOS_USERS_PATH", usersPath)
+	t.Setenv("NOS_FIRSTBOOT_PATH", firstbootPath)
+	t.Setenv("NOS_RL_PATH", filepath.Join(dir, "ratelimit.json"))
+	t.Setenv("NOS_ETC_DIR", dir)
+	t.Setenv("NOS_APPS_STATE", filepath.Join(dir, "apps.json"))
+	t.Setenv("NOS_DISABLE_APP_EVENTS", "1")
+	cfg := config.FromEnv()
+	r := NewRouter(cfg)
+
+	// verify-otp: should set Set-Cookie with Path=/api/v1/setup and HttpOnly
+	var setupCookie *http.Cookie
+	{
+		body := bytes.NewBuffer(mustJSON(map[string]string{"otp": "222222"}))
+		res := httptest.NewRecorder()
+		r.ServeHTTP(res, httptest.NewRequest(http.MethodPost, "/api/v1/setup/otp/verify", body))
+		if res.Code != 200 {
+			t.Fatalf("verify-otp: %d", res.Code)
+		}
+		for _, c := range res.Result().Cookies() {
+			if c.Name == "nos_setup" {
+				setupCookie = c
+			}
+		}
+		if setupCookie == nil {
+			t.Fatalf("missing nos_setup cookie; headers=%v", res.Result().Header.Values("Set-Cookie"))
+		}
+		if setupCookie.Path != "/api/v1/setup" {
+			t.Fatalf("expected nos_setup Path=/api/v1/setup, got %q", setupCookie.Path)
+		}
+		if !setupCookie.HttpOnly {
+			t.Fatalf("expected nos_setup HttpOnly=true")
+		}
+	}
+
+	// first-admin without any token should be 401
+	{
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/setup/first-admin", bytes.NewBuffer(mustJSON(map[string]any{"username": "charlie", "password": "StrongPassw0rd!"})))
+		res := httptest.NewRecorder()
+		r.ServeHTTP(res, req)
+		if res.Code != http.StatusUnauthorized {
+			t.Fatalf("first-admin without token expected 401, got %d", res.Code)
+		}
+	}
+
+	// first-admin with cookie should be 200
+	{
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/setup/first-admin", bytes.NewBuffer(mustJSON(map[string]any{"username": "charlie", "password": "StrongPassw0rd!"})))
+		req.AddCookie(setupCookie)
+		res := httptest.NewRecorder()
+		r.ServeHTTP(res, req)
+		if res.Code != http.StatusOK {
+			t.Fatalf("first-admin with cookie expected 200, got %d (%s)", res.Code, res.Body.String())
+		}
+	}
+
+	// state should now be 410
+	{
+		res := httptest.NewRecorder()
+		r.ServeHTTP(res, httptest.NewRequest(http.MethodGet, "/api/v1/setup/state", nil))
+		if res.Code != http.StatusGone {
+			t.Fatalf("state after setup: expected 410, got %d", res.Code)
+		}
+	}
+}
+
 func TestSetupVerifyOTP_TypedErrors(t *testing.T) {
 	cfg := config.Defaults()
 	// disable app events file in tests
@@ -357,8 +438,8 @@ func TestCreateAdmin_WriteFailThenRetrySameToken(t *testing.T) {
 	req2.Header.Set("Authorization", "Bearer "+tok)
 	res2 := httptest.NewRecorder()
 	r.ServeHTTP(res2, req2)
-	if res2.Code != http.StatusNoContent {
-		t.Fatalf("retry expected 204, got %d (%s)", res2.Code, res2.Body.String())
+	if res2.Code != http.StatusOK {
+		t.Fatalf("retry expected 200, got %d (%s)", res2.Code, res2.Body.String())
 	}
 }
 
@@ -502,8 +583,8 @@ func TestSetupTransition_DeleteUsersRestoresFirstBoot(t *testing.T) {
 		req.Header.Set("Authorization", "Bearer "+token)
 		res := httptest.NewRecorder()
 		r.ServeHTTP(res, req)
-		if res.Code != http.StatusNoContent {
-			t.Fatalf("create-admin: %d %s", res.Code, res.Body.String())
+		if res.Code != http.StatusOK {
+			t.Fatalf("create-admin: expected 200, got %d %s", res.Code, res.Body.String())
 		}
 	}
 

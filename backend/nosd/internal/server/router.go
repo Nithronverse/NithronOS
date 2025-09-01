@@ -491,38 +491,16 @@ func NewRouter(cfg config.Config) http.Handler {
 			}
 			// Announce/update OTP in runtime file for systemd announcer (best-effort)
 			_ = writeFirstBootOTPFile(st.OTP)
+			// Set setup session cookie under /api/v1/setup
+			secure := isSecureRequest(r, cfg)
+			writeSetupCookie(w, val, 10*time.Minute, secure)
 			writeJSON(w, map[string]any{"ok": true, "token": val})
 		})
 
 		// First admin creation (consumes setup token)
-		sr.Post("/first-admin", func(w http.ResponseWriter, r *http.Request) {
+		sr.With(requireSetupAuth(cfg)).Post("/first-admin", func(w http.ResponseWriter, r *http.Request) {
 			if users == nil {
 				httpx.WriteTypedError(w, http.StatusInternalServerError, "store.lock", "User store unavailable", 0)
-				return
-			}
-			authz := r.Header.Get("Authorization")
-			const prefix = "Bearer "
-			if !strings.HasPrefix(authz, prefix) {
-				httpx.WriteTypedError(w, http.StatusUnauthorized, "setup.session.invalid", "Missing setup bearer token", 0)
-				return
-			}
-			tok := strings.TrimSpace(authz[len(prefix):])
-			claims, err := setupDecodeToken(cfg, tok)
-			if err != nil {
-				httpx.WriteTypedError(w, http.StatusUnauthorized, "setup.session.invalid", "Invalid setup token", 0)
-				return
-			}
-			if claims["purpose"] != "setup" {
-				httpx.WriteTypedError(w, http.StatusUnauthorized, "setup.session.invalid", "Invalid setup token", 0)
-				return
-			}
-			if expStr, ok := claims["exp"].(string); ok {
-				if t, err := time.Parse(time.RFC3339, expStr); err != nil || time.Now().After(t) {
-					httpx.WriteTypedError(w, http.StatusBadRequest, "setup.otp.expired", "Setup token expired", 0)
-					return
-				}
-			} else {
-				httpx.WriteTypedError(w, http.StatusUnauthorized, "setup.session.invalid", "Invalid setup token", 0)
 				return
 			}
 			var body struct {
@@ -576,33 +554,17 @@ func NewRouter(cfg config.Config) http.Handler {
 			_ = os.Remove("/run/nos/firstboot-otp")
 			// Remove MOTD hint if present (best-effort)
 			_ = os.Remove("/etc/motd.d/10-nithronos-otp")
-			w.WriteHeader(http.StatusNoContent)
+			// success; return 200 to advance UI reliably
+			w.WriteHeader(http.StatusOK)
 		})
 
 		// Mark setup as complete - called after all setup steps are done
-		sr.Post("/complete", func(w http.ResponseWriter, r *http.Request) {
+		sr.With(requireSetupAuth(cfg)).Post("/complete", func(w http.ResponseWriter, r *http.Request) {
 			// Check if already complete
 			setupCompleteFile := filepath.Join(cfg.EtcDir, "nos", "setup-complete")
 			if _, err := os.Stat(setupCompleteFile); err == nil {
 				// Already marked complete, just return success
 				w.WriteHeader(http.StatusNoContent)
-				return
-			}
-
-			authz := r.Header.Get("Authorization")
-			const prefix = "Bearer "
-			if !strings.HasPrefix(authz, prefix) {
-				httpx.WriteTypedError(w, http.StatusUnauthorized, "setup.session.invalid", "Missing setup bearer token", 0)
-				return
-			}
-			tok := strings.TrimSpace(authz[len(prefix):])
-			claims, err := setupDecodeToken(cfg, tok)
-			if err != nil {
-				httpx.WriteTypedError(w, http.StatusUnauthorized, "setup.session.invalid", "Invalid setup token", 0)
-				return
-			}
-			if claims["purpose"] != "setup" {
-				httpx.WriteTypedError(w, http.StatusUnauthorized, "setup.session.invalid", "Invalid setup token", 0)
 				return
 			}
 
