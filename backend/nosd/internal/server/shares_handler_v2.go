@@ -1,11 +1,9 @@
 package server
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -422,7 +420,7 @@ func (h *SharesHandlerV2) Routes() chi.Router {
 // ListShares returns all shares
 func (h *SharesHandlerV2) ListShares(w http.ResponseWriter, r *http.Request) {
 	shares := h.store.List()
-	httpx.WriteJSON(w, shares, http.StatusOK)
+	writeJSON(w, shares)
 }
 
 // GetShare returns a specific share
@@ -431,47 +429,47 @@ func (h *SharesHandlerV2) GetShare(w http.ResponseWriter, r *http.Request) {
 	
 	share, ok := h.store.Get(id)
 	if !ok {
-		httpx.WriteError(w, "SHARE_NOT_FOUND", "Share not found", http.StatusNotFound)
+		httpx.WriteError(w, http.StatusNotFound, "Share not found")
 		return
 	}
 	
-	httpx.WriteJSON(w, share, http.StatusOK)
+	writeJSON(w, share)
 }
 
 // CreateShare creates a new share
 func (h *SharesHandlerV2) CreateShare(w http.ResponseWriter, r *http.Request) {
 	var share ShareConfig
 	if err := json.NewDecoder(r.Body).Decode(&share); err != nil {
-		httpx.WriteError(w, "INVALID_REQUEST", "Invalid request body", http.StatusBadRequest)
+		httpx.WriteError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 	
 	// Validate
 	if share.Name == "" {
-		httpx.WriteError(w, "INVALID_NAME", "Share name is required", http.StatusBadRequest)
+		httpx.WriteError(w, http.StatusBadRequest, "Share name is required")
 		return
 	}
 	
 	if share.Path == "" {
-		httpx.WriteError(w, "INVALID_PATH", "Share path is required", http.StatusBadRequest)
+		httpx.WriteError(w, http.StatusBadRequest, "Share path is required")
 		return
 	}
 	
 	if share.Protocol != "smb" && share.Protocol != "nfs" {
-		httpx.WriteError(w, "INVALID_PROTOCOL", "Protocol must be 'smb' or 'nfs'", http.StatusBadRequest)
+		httpx.WriteError(w, http.StatusBadRequest, "Protocol must be 'smb' or 'nfs'")
 		return
 	}
 	
 	// Check if path exists
 	if _, err := os.Stat(share.Path); err != nil {
-		httpx.WriteError(w, "PATH_NOT_FOUND", "Share path does not exist", http.StatusBadRequest)
+		httpx.WriteError(w, http.StatusBadRequest, "Share path does not exist")
 		return
 	}
 	
 	// Create share in store
 	if err := h.store.Create(&share); err != nil {
 		log.Error().Err(err).Msg("Failed to create share")
-		httpx.WriteError(w, "CREATE_FAILED", "Failed to create share", http.StatusInternalServerError)
+		httpx.WriteError(w, http.StatusInternalServerError, "Failed to create share")
 		return
 	}
 	
@@ -483,7 +481,8 @@ func (h *SharesHandlerV2) CreateShare(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	
-	httpx.WriteJSON(w, share, http.StatusCreated)
+	w.WriteHeader(http.StatusCreated)
+	writeJSON(w, share)
 }
 
 // UpdateShare updates an existing share
@@ -492,21 +491,21 @@ func (h *SharesHandlerV2) UpdateShare(w http.ResponseWriter, r *http.Request) {
 	
 	var updates ShareConfig
 	if err := json.NewDecoder(r.Body).Decode(&updates); err != nil {
-		httpx.WriteError(w, "INVALID_REQUEST", "Invalid request body", http.StatusBadRequest)
+		httpx.WriteError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 	
 	// Get existing share
 	existing, ok := h.store.Get(id)
 	if !ok {
-		httpx.WriteError(w, "SHARE_NOT_FOUND", "Share not found", http.StatusNotFound)
+		httpx.WriteError(w, http.StatusNotFound, "Share not found")
 		return
 	}
 	
 	// Update in store
 	if err := h.store.Update(id, &updates); err != nil {
 		log.Error().Err(err).Str("id", id).Msg("Failed to update share")
-		httpx.WriteError(w, "UPDATE_FAILED", "Failed to update share", http.StatusInternalServerError)
+		httpx.WriteError(w, http.StatusInternalServerError, "Failed to update share")
 		return
 	}
 	
@@ -521,7 +520,7 @@ func (h *SharesHandlerV2) UpdateShare(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	
-	httpx.WriteJSON(w, updated, http.StatusOK)
+	writeJSON(w, updated)
 }
 
 // DeleteShare deletes a share
@@ -530,7 +529,7 @@ func (h *SharesHandlerV2) DeleteShare(w http.ResponseWriter, r *http.Request) {
 	
 	share, ok := h.store.Get(id)
 	if !ok {
-		httpx.WriteError(w, "SHARE_NOT_FOUND", "Share not found", http.StatusNotFound)
+		httpx.WriteError(w, http.StatusNotFound, "Share not found")
 		return
 	}
 	
@@ -542,7 +541,7 @@ func (h *SharesHandlerV2) DeleteShare(w http.ResponseWriter, r *http.Request) {
 	// Delete from store
 	if err := h.store.Delete(id); err != nil {
 		log.Error().Err(err).Str("id", id).Msg("Failed to delete share")
-		httpx.WriteError(w, "DELETE_FAILED", "Failed to delete share", http.StatusInternalServerError)
+		httpx.WriteError(w, http.StatusInternalServerError, "Failed to delete share")
 		return
 	}
 	
@@ -555,7 +554,7 @@ func (h *SharesHandlerV2) TestShare(w http.ResponseWriter, r *http.Request) {
 	
 	share, ok := h.store.Get(id)
 	if !ok {
-		httpx.WriteError(w, "SHARE_NOT_FOUND", "Share not found", http.StatusNotFound)
+		httpx.WriteError(w, http.StatusNotFound, "Share not found")
 		return
 	}
 	
@@ -569,7 +568,7 @@ func (h *SharesHandlerV2) TestShare(w http.ResponseWriter, r *http.Request) {
 	case "nfs":
 		manager = h.nfs
 	default:
-		httpx.WriteError(w, "INVALID_PROTOCOL", "Unknown protocol", http.StatusBadRequest)
+		httpx.WriteError(w, http.StatusBadRequest, "Unknown protocol")
 		return
 	}
 	
@@ -597,7 +596,7 @@ func (h *SharesHandlerV2) TestShare(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	
-	httpx.WriteJSON(w, result, http.StatusOK)
+	writeJSON(w, result)
 }
 
 // EnableShare enables a share
@@ -606,24 +605,24 @@ func (h *SharesHandlerV2) EnableShare(w http.ResponseWriter, r *http.Request) {
 	
 	share, ok := h.store.Get(id)
 	if !ok {
-		httpx.WriteError(w, "SHARE_NOT_FOUND", "Share not found", http.StatusNotFound)
+		httpx.WriteError(w, http.StatusNotFound, "Share not found")
 		return
 	}
 	
 	share.Enabled = true
 	if err := h.store.Update(id, share); err != nil {
-		httpx.WriteError(w, "UPDATE_FAILED", "Failed to enable share", http.StatusInternalServerError)
+		httpx.WriteError(w, http.StatusInternalServerError, "Failed to enable share")
 		return
 	}
 	
 	// Apply to system
 	if err := h.applyShare(share); err != nil {
 		log.Error().Err(err).Str("id", id).Msg("Failed to apply share")
-		httpx.WriteError(w, "APPLY_FAILED", "Failed to apply share configuration", http.StatusInternalServerError)
+		httpx.WriteError(w, http.StatusInternalServerError, "Failed to apply share configuration")
 		return
 	}
 	
-	httpx.WriteJSON(w, share, http.StatusOK)
+	writeJSON(w, share)
 }
 
 // DisableShare disables a share
@@ -632,13 +631,13 @@ func (h *SharesHandlerV2) DisableShare(w http.ResponseWriter, r *http.Request) {
 	
 	share, ok := h.store.Get(id)
 	if !ok {
-		httpx.WriteError(w, "SHARE_NOT_FOUND", "Share not found", http.StatusNotFound)
+		httpx.WriteError(w, http.StatusNotFound, "Share not found")
 		return
 	}
 	
 	share.Enabled = false
 	if err := h.store.Update(id, share); err != nil {
-		httpx.WriteError(w, "UPDATE_FAILED", "Failed to disable share", http.StatusInternalServerError)
+		httpx.WriteError(w, http.StatusInternalServerError, "Failed to disable share")
 		return
 	}
 	
@@ -647,7 +646,7 @@ func (h *SharesHandlerV2) DisableShare(w http.ResponseWriter, r *http.Request) {
 		log.Error().Err(err).Str("id", id).Msg("Failed to remove share from system")
 	}
 	
-	httpx.WriteJSON(w, share, http.StatusOK)
+	writeJSON(w, share)
 }
 
 func (h *SharesHandlerV2) applyShare(share *ShareConfig) error {

@@ -49,7 +49,7 @@ func (h *NotificationHandler) Routes() chi.Router {
 func (h *NotificationHandler) ListNotifications(w http.ResponseWriter, r *http.Request) {
 	unreadOnly := r.URL.Query().Get("unread") == "true"
 	notifications := h.manager.List(unreadOnly)
-	httpx.WriteJSON(w, notifications, http.StatusOK)
+	writeJSON(w, notifications)
 }
 
 // GetNotification returns a specific notification
@@ -58,11 +58,11 @@ func (h *NotificationHandler) GetNotification(w http.ResponseWriter, r *http.Req
 	
 	notif, ok := h.manager.Get(id)
 	if !ok {
-		httpx.WriteError(w, "NOT_FOUND", "Notification not found", http.StatusNotFound)
+		httpx.WriteError(w, http.StatusNotFound, "Notification not found")
 		return
 	}
 	
-	httpx.WriteJSON(w, notif, http.StatusOK)
+	writeJSON(w, notif)
 }
 
 // MarkRead marks a notification as read
@@ -70,7 +70,7 @@ func (h *NotificationHandler) MarkRead(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	
 	if err := h.manager.MarkRead(id); err != nil {
-		httpx.WriteError(w, "NOT_FOUND", "Notification not found", http.StatusNotFound)
+		httpx.WriteError(w, http.StatusNotFound, "Notification not found")
 		return
 	}
 	
@@ -80,7 +80,7 @@ func (h *NotificationHandler) MarkRead(w http.ResponseWriter, r *http.Request) {
 // MarkAllRead marks all notifications as read
 func (h *NotificationHandler) MarkAllRead(w http.ResponseWriter, r *http.Request) {
 	if err := h.manager.MarkAllRead(); err != nil {
-		httpx.WriteError(w, "UPDATE_FAILED", "Failed to mark notifications as read", http.StatusInternalServerError)
+		httpx.WriteError(w, http.StatusInternalServerError, "Failed to mark notifications as read")
 		return
 	}
 	
@@ -92,7 +92,7 @@ func (h *NotificationHandler) DeleteNotification(w http.ResponseWriter, r *http.
 	id := chi.URLParam(r, "id")
 	
 	if err := h.manager.Delete(id); err != nil {
-		httpx.WriteError(w, "DELETE_FAILED", "Failed to delete notification", http.StatusInternalServerError)
+		httpx.WriteError(w, http.StatusInternalServerError, "Failed to delete notification")
 		return
 	}
 	
@@ -154,7 +154,7 @@ func (h *NotificationHandler) ListChannels(w http.ResponseWriter, r *http.Reques
 		ch.Config = h.sanitizeConfig(ch.Config, ch.Type)
 	}
 	
-	httpx.WriteJSON(w, channels, http.StatusOK)
+	writeJSON(w, channels)
 }
 
 // GetChannel returns a specific channel
@@ -163,31 +163,32 @@ func (h *NotificationHandler) GetChannel(w http.ResponseWriter, r *http.Request)
 	
 	channel, ok := h.manager.GetChannel(id)
 	if !ok {
-		httpx.WriteError(w, "NOT_FOUND", "Channel not found", http.StatusNotFound)
+		httpx.WriteError(w, http.StatusNotFound, "Channel not found")
 		return
 	}
 	
 	// Hide sensitive config
 	channel.Config = h.sanitizeConfig(channel.Config, channel.Type)
-	httpx.WriteJSON(w, channel, http.StatusOK)
+	writeJSON(w, channel)
 }
 
 // CreateChannel creates a new notification channel
 func (h *NotificationHandler) CreateChannel(w http.ResponseWriter, r *http.Request) {
 	var channel notifications.Channel
 	if err := json.NewDecoder(r.Body).Decode(&channel); err != nil {
-		httpx.WriteError(w, "INVALID_REQUEST", "Invalid request body", http.StatusBadRequest)
+		httpx.WriteError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 	
 	if err := h.manager.CreateChannel(&channel); err != nil {
-		httpx.WriteError(w, "CREATE_FAILED", "Failed to create channel", http.StatusInternalServerError)
+		httpx.WriteError(w, http.StatusInternalServerError, "Failed to create channel")
 		return
 	}
 	
 	// Hide sensitive config
 	channel.Config = h.sanitizeConfig(channel.Config, channel.Type)
-	httpx.WriteJSON(w, channel, http.StatusCreated)
+	w.WriteHeader(http.StatusCreated)
+	writeJSON(w, channel)
 }
 
 // UpdateChannel updates a notification channel
@@ -196,18 +197,18 @@ func (h *NotificationHandler) UpdateChannel(w http.ResponseWriter, r *http.Reque
 	
 	var updates notifications.Channel
 	if err := json.NewDecoder(r.Body).Decode(&updates); err != nil {
-		httpx.WriteError(w, "INVALID_REQUEST", "Invalid request body", http.StatusBadRequest)
+		httpx.WriteError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 	
 	if err := h.manager.UpdateChannel(id, &updates); err != nil {
-		httpx.WriteError(w, "UPDATE_FAILED", "Failed to update channel", http.StatusInternalServerError)
+		httpx.WriteError(w, http.StatusInternalServerError, "Failed to update channel")
 		return
 	}
 	
 	channel, _ := h.manager.GetChannel(id)
 	channel.Config = h.sanitizeConfig(channel.Config, channel.Type)
-	httpx.WriteJSON(w, channel, http.StatusOK)
+	writeJSON(w, channel)
 }
 
 // DeleteChannel deletes a notification channel
@@ -215,7 +216,7 @@ func (h *NotificationHandler) DeleteChannel(w http.ResponseWriter, r *http.Reque
 	id := chi.URLParam(r, "id")
 	
 	if err := h.manager.DeleteChannel(id); err != nil {
-		httpx.WriteError(w, "DELETE_FAILED", "Failed to delete channel", http.StatusInternalServerError)
+		httpx.WriteError(w, http.StatusInternalServerError, "Failed to delete channel")
 		return
 	}
 	
@@ -227,14 +228,14 @@ func (h *NotificationHandler) TestChannel(w http.ResponseWriter, r *http.Request
 	id := chi.URLParam(r, "id")
 	
 	if err := h.manager.TestChannel(id); err != nil {
-		httpx.WriteError(w, "TEST_FAILED", err.Error(), http.StatusInternalServerError)
+		httpx.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	
-	httpx.WriteJSON(w, map[string]interface{}{
+	writeJSON(w, map[string]interface{}{
 		"success": true,
 		"message": "Test notification sent successfully",
-	}, http.StatusOK)
+	})
 }
 
 // sanitizeConfig removes sensitive information from config
