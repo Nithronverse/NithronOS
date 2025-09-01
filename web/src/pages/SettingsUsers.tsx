@@ -1,20 +1,19 @@
 import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { useNavigate } from 'react-router-dom'
+
+
 import { 
   Users,
-  Plus,
+
   Edit,
   Trash2,
   Shield,
   Key,
   Mail,
-  Calendar,
-  Clock,
+
   CheckCircle,
   XCircle,
   AlertCircle,
-  ChevronRight,
+
   UserPlus,
   UserCheck,
   UserX,
@@ -35,10 +34,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+
 import { DataTable } from '@/components/ui/data-table'
 import { ColumnDef } from '@tanstack/react-table'
-import { cn } from '@/lib/utils'
+
 import { toast } from '@/components/ui/toast'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/nos-client'
@@ -427,7 +426,7 @@ function ResetPasswordDialog({
 }
 
 export function SettingsUsers() {
-  const navigate = useNavigate()
+
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [showUserDialog, setShowUserDialog] = useState(false)

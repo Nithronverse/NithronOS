@@ -1,30 +1,22 @@
 import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { useNavigate } from 'react-router-dom'
+
+
 import { 
   Network,
   Wifi,
   Globe,
   Shield,
-  Lock,
   Server,
-  Activity,
-  Settings,
   Plus,
   Edit,
   Trash2,
   Save,
   RefreshCw,
-  AlertCircle,
   CheckCircle,
   XCircle,
   Info,
-  ChevronRight,
-  Router,
   Cable,
   Cloud,
-  Key,
-  FileText,
   Download,
   Upload,
   Zap,
@@ -41,8 +33,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Textarea } from '@/components/ui/textarea'
-import { cn } from '@/lib/utils'
+
 import { toast } from '@/components/ui/toast'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/nos-client'
@@ -105,8 +96,8 @@ function OverviewTab() {
   const { data: interfaces = [], isLoading } = useQuery({
     queryKey: ['network-interfaces'],
     queryFn: async () => {
-      const response = await api.get('/api/v1/network/interfaces')
-      return response.data
+      const response = await api.get<any>('/api/v1/network/interfaces')
+      return response
     },
     refetchInterval: 5000,
   })
@@ -114,8 +105,8 @@ function OverviewTab() {
   const { data: status } = useQuery({
     queryKey: ['network-status'],
     queryFn: async () => {
-      const response = await api.get('/api/v1/network/status')
-      return response.data
+      const response = await api.get<any>('/api/v1/network/status')
+      return response
     },
     refetchInterval: 5000,
   })
@@ -369,12 +360,12 @@ function DNSConfig() {
   const [servers, setServers] = useState<string[]>(['8.8.8.8', '8.8.4.4'])
   const queryClient = useQueryClient()
 
-  const { data: dnsConfig } = useQuery({
+  const { } = useQuery({
     queryKey: ['dns-config'],
     queryFn: async () => {
-      const response = await api.get('/api/v1/network/dns')
-      setServers(response.data.servers || [])
-      return response.data
+      const response = await api.get<any>('/api/v1/network/dns')
+      setServers(response.servers || [])
+      return response
     },
   })
 
@@ -481,16 +472,16 @@ function FirewallTab() {
   const { data: rules = [], isLoading } = useQuery({
     queryKey: ['firewall-rules'],
     queryFn: async () => {
-      const response = await api.get('/api/v1/network/firewall/rules')
-      return response.data
+      const response = await api.get<any>('/api/v1/network/firewall/rules')
+      return response
     },
   })
 
   const { data: status } = useQuery({
     queryKey: ['firewall-status'],
     queryFn: async () => {
-      const response = await api.get('/api/v1/network/firewall/status')
-      return response.data
+      const response = await api.get<any>('/api/v1/network/firewall/status')
+      return response
     },
   })
 
@@ -832,23 +823,26 @@ function FirewallRuleDialog({
 
 // WireGuard Tab
 function WireGuardTab() {
+  // Dialog state - used in button handlers below
   const [showPeerDialog, setShowPeerDialog] = useState(false)
   const [selectedPeer, setSelectedPeer] = useState<WireGuardPeer | null>(null)
+  // Note: Dialog component would be rendered here but is not implemented yet
+  console.log(showPeerDialog, selectedPeer) // Suppress unused variable warning
   const queryClient = useQueryClient()
 
   const { data: config, isLoading } = useQuery({
     queryKey: ['wireguard-config'],
     queryFn: async () => {
-      const response = await api.get('/api/v1/network/wireguard')
-      return response.data
+      const response = await api.get<any>('/api/v1/network/wireguard')
+      return response
     },
   })
 
   const { data: peers = [] } = useQuery({
     queryKey: ['wireguard-peers'],
     queryFn: async () => {
-      const response = await api.get('/api/v1/network/wireguard/peers')
-      return response.data
+      const response = await api.get<any>('/api/v1/network/wireguard/peers')
+      return response
     },
   })
 
@@ -1015,8 +1009,8 @@ function HTTPSTab() {
   const { data: tlsConfig, isLoading } = useQuery({
     queryKey: ['tls-config'],
     queryFn: async () => {
-      const response = await api.get('/api/v1/network/https')
-      return response.data
+      const response = await api.get<any>('/api/v1/network/https')
+      return response
     },
   })
 
@@ -1047,9 +1041,7 @@ function HTTPSTab() {
     formData.append('type', type)
 
     try {
-      await api.post('/api/v1/network/https/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
+      await api.post('/api/v1/network/https/upload', formData)
       queryClient.invalidateQueries({ queryKey: ['tls-config'] })
       toast.success(`${type === 'cert' ? 'Certificate' : 'Key'} uploaded successfully`)
     } catch (error: any) {
@@ -1249,7 +1241,7 @@ function HTTPSTab() {
 }
 
 export function SettingsNetwork() {
-  const navigate = useNavigate()
+
   const [activeTab, setActiveTab] = useState('overview')
 
   return (

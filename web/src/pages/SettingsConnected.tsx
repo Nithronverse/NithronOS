@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { 
@@ -14,19 +14,10 @@ import {
   Moon,
   Sun,
   Monitor,
-  Globe,
-  Server,
   Shield,
-  Database,
-  Volume2,
-  Eye,
   Palette,
   Terminal,
-  FileText,
-  Activity,
-  Zap,
   Lock,
-  Cloud,
   RefreshCw,
   AlertCircle,
 } from 'lucide-react'
@@ -79,10 +70,15 @@ function GeneralSettings() {
   const { data: systemConfig } = useQuery({
     queryKey: ['system-config'],
     queryFn: async () => {
-      const response = await api.get('/api/v1/system/config')
-      return response.data
-    },
-    onSuccess: (data) => {
+      const response = await api.get<any>('/api/v1/system/config')
+      return response
+    }
+  })
+  
+  // Update settings when data loads
+  useState(() => {
+    if (systemConfig) {
+      const data = systemConfig
       setSettings(prev => ({
         ...prev,
         hostname: data.hostname || '',
@@ -262,10 +258,15 @@ function AppearanceSettings() {
   const { data: appearanceConfig } = useQuery({
     queryKey: ['appearance-config'],
     queryFn: async () => {
-      const response = await api.get('/api/v1/settings/appearance')
-      return response.data
-    },
-    onSuccess: (data) => {
+      const response = await api.get<any>('/api/v1/settings/appearance')
+      return response
+    }
+  })
+  
+  // Update appearance when data loads
+  useState(() => {
+    if (appearanceConfig) {
+      const data = appearanceConfig
       setSettings(data)
     }
   })
@@ -425,8 +426,8 @@ function AboutSection() {
   const { data: systemInfo, isLoading } = useQuery({
     queryKey: ['system-info'],
     queryFn: async () => {
-      const response = await api.get('/api/v1/about')
-      return response.data
+      const response = await api.get<any>('/api/v1/about')
+      return response
     },
   })
 

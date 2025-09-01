@@ -1,20 +1,14 @@
-import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { useState } from 'react'
 import { 
   Shield,
   Smartphone,
-  Key,
   Lock,
   Unlock,
-  CheckCircle,
-  XCircle,
   AlertCircle,
   Copy,
   Download,
   RefreshCw,
-  Plus,
   Trash2,
-  QrCode,
   Info,
 } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
@@ -25,8 +19,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+
 import { cn } from '@/lib/utils'
 import { toast } from '@/components/ui/toast'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -52,11 +45,7 @@ interface AuthDevice {
 }
 
 // Recovery Code type
-interface RecoveryCode {
-  code: string
-  used: boolean
-  usedAt?: string
-}
+
 
 export function Settings2FA() {
   const [showEnableDialog, setShowEnableDialog] = useState(false)
@@ -73,8 +62,8 @@ export function Settings2FA() {
   const { data: status, isLoading } = useQuery({
     queryKey: ['2fa-status'],
     queryFn: async () => {
-      const response = await api.get('/api/v1/auth/2fa/status')
-      return response.data as TwoFactorStatus
+      const response = await api.get<any>('/api/v1/auth/2fa/status')
+      return response as TwoFactorStatus
     },
   })
 
@@ -82,8 +71,8 @@ export function Settings2FA() {
   const enableMutation = useMutation({
     mutationFn: async () => {
       // Step 1: Initialize 2FA
-      const initResponse = await api.post('/api/v1/auth/2fa/enable', { password })
-      const { secret, qrcode, recoveryCodes } = initResponse.data
+      const initResponse = await api.post<any>('/api/v1/auth/2fa/enable', { password })
+      const { secret, qrcode, recoveryCodes } = initResponse
       
       setSecret(secret)
       setRecoveryCodes(recoveryCodes)
@@ -92,7 +81,7 @@ export function Settings2FA() {
       const qrDataUrl = await QRCode.toDataURL(qrcode)
       setQrCodeUrl(qrDataUrl)
       
-      return initResponse.data
+      return initResponse
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Failed to enable 2FA')
@@ -102,11 +91,11 @@ export function Settings2FA() {
   // Verify 2FA mutation
   const verifyMutation = useMutation({
     mutationFn: async () => {
-      const response = await api.post('/api/v1/auth/2fa/verify', {
+      const response = await api.post<any>('/api/v1/auth/2fa/verify', {
         code: verificationCode,
         secret,
       })
-      return response.data
+      return response
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['2fa-status'] })
@@ -122,11 +111,11 @@ export function Settings2FA() {
   // Disable 2FA mutation
   const disableMutation = useMutation({
     mutationFn: async () => {
-      const response = await api.post('/api/v1/auth/2fa/disable', {
+      const response = await api.post<any>('/api/v1/auth/2fa/disable', {
         password,
         code: verificationCode,
       })
-      return response.data
+      return response
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['2fa-status'] })
@@ -142,8 +131,8 @@ export function Settings2FA() {
   // Generate recovery codes mutation
   const generateRecoveryMutation = useMutation({
     mutationFn: async () => {
-      const response = await api.post('/api/v1/auth/2fa/recovery/generate', { password })
-      return response.data.codes
+      const response = await api.post<any>('/api/v1/auth/2fa/recovery/generate', { password })
+      return response.codes
     },
     onSuccess: (codes) => {
       setRecoveryCodes(codes)
