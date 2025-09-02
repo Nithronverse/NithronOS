@@ -251,6 +251,13 @@ jobs:
           chmod +x scripts/systemd-sandbox-smoke.sh
           sudo -E bash scripts/systemd-sandbox-smoke.sh
 
+      - name: Generate checksums for DEBs
+        run: |
+          mkdir -p dist/deb
+          if ls dist/deb/*.deb 1> /dev/null 2>&1; then
+            (cd dist/deb && sha256sum *.deb > SHA256SUMS)
+          fi
+
       - name: Upload .deb artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -259,6 +266,7 @@ jobs:
             dist/deb/*.deb
             dist/deb/*.changes
             dist/deb/*.buildinfo
+            dist/deb/SHA256SUMS*
 
   iso:
     name: Build ISO (amd64)
@@ -427,8 +435,7 @@ jobs:
 
       # QEMU ISO smoke test removed per request
 
-      - name: Upload ISO artifact (non-release)
-        if: ${{ github.event_name != 'release' }}
+      - name: Upload ISO artifact
         uses: actions/upload-artifact@v4
         with:
           name: NithronOS - ISO - amd64 - ${{ github.event.release.tag_name || github.ref_name }}
@@ -441,44 +448,7 @@ jobs:
       # DEB artifacts are already uploaded in the 'debs' job for non-release runs.
       # Avoid re-upload here to prevent 409 conflicts on the same workflow run.
 
-      - name: Rename checksum files for uniqueness (avoid asset name collision)
-        if: ${{ github.event_name == 'release' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -f dist/iso/SHA256SUMS ]; then mv -v dist/iso/SHA256SUMS dist/iso/SHA256SUMS-iso.txt; fi
-          if [ -f dist/deb/SHA256SUMS ]; then mv -v dist/deb/SHA256SUMS dist/deb/SHA256SUMS-deb.txt; fi
-
-      - name: Debug - List files before upload
-        if: ${{ github.event_name == 'release' }}
-        shell: bash
-        run: |
-          echo "=== Listing files to be uploaded ==="
-          echo "ISO files:"
-          ls -la dist/iso/*.iso 2>/dev/null || echo "No ISO files found"
-          echo "DEB files:"
-          ls -la dist/deb/*.deb 2>/dev/null || echo "No DEB files found"
-          echo "Checksum files:"
-          ls -la dist/*/SHA256SUMS* 2>/dev/null || echo "No checksum files found"
-          echo "==================================="
-
-      - name: Upload release assets (ISO + DEBs + checksums)
-        if: ${{ github.event_name == 'release' && github.event.action == 'published' }}
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/iso/*.iso
-            dist/iso/SHA256SUMS*
-            dist/deb/*.deb
-            dist/deb/*.changes
-            dist/deb/*.buildinfo
-            dist/deb/SHA256SUMS*
-          fail_on_unmatched_files: false
-          draft: false
-          prerelease: false
-          generate_release_notes: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Release upload moved to dedicated 'upload-release-assets' job
 
   # smoke job removed per request
 
@@ -806,21 +776,34 @@ jobs:
       - name: Download Debian packages
         uses: actions/download-artifact@v4
         with:
-          name: NithronOS - Debian Packages - ${{ github.event.release.tag_name }}
+          name: NithronOS - Debian Packages - ${{ github.event.release.tag_name || github.ref_name }}
           path: release-assets/deb
+        continue-on-error: true
           
       - name: Download ISO
         uses: actions/download-artifact@v4
         with:
-          name: NithronOS - ISO - amd64 - ${{ github.event.release.tag_name }}
+          name: NithronOS - ISO - amd64 - ${{ github.event.release.tag_name || github.ref_name }}
           path: release-assets/iso
+        continue-on-error: true
           
       - name: List all assets
         shell: bash
         run: |
           echo "=== Release Assets to Upload ==="
-          find release-assets -type f -ls
+          find release-assets -type f -ls 2>/dev/null || echo "No assets found"
           echo "================================="
+          
+      - name: Prepare checksums with unique names
+        shell: bash
+        run: |
+          # Rename checksum files to avoid conflicts
+          if [ -f release-assets/iso/SHA256SUMS ]; then
+            mv release-assets/iso/SHA256SUMS release-assets/iso/SHA256SUMS-iso.txt
+          fi
+          if [ -f release-assets/deb/SHA256SUMS ]; then
+            mv release-assets/deb/SHA256SUMS release-assets/deb/SHA256SUMS-deb.txt
+          fi
           
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
