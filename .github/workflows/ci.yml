@@ -251,22 +251,12 @@ jobs:
           chmod +x scripts/systemd-sandbox-smoke.sh
           sudo -E bash scripts/systemd-sandbox-smoke.sh
 
-      - name: Generate checksums for DEBs
-        run: |
-          mkdir -p dist/deb
-          if ls dist/deb/*.deb 1> /dev/null 2>&1; then
-            (cd dist/deb && sha256sum *.deb > SHA256SUMS)
-          fi
-
       - name: Upload .deb artifacts
         uses: actions/upload-artifact@v4
         with:
           name: NithronOS - Debian Packages - ${{ github.event.release.tag_name || github.ref_name }}
           path: |
             dist/deb/*.deb
-            dist/deb/*.changes
-            dist/deb/*.buildinfo
-            dist/deb/SHA256SUMS*
 
   iso:
     name: Build ISO (amd64)
@@ -441,7 +431,6 @@ jobs:
           name: NithronOS - ISO - amd64 - ${{ github.event.release.tag_name || github.ref_name }}
           path: |
             dist/iso/*.iso
-            dist/iso/SHA256SUMS*
           if-no-files-found: error
           retention-days: 7
 
@@ -768,18 +757,11 @@ jobs:
   upload-release-assets:
     name: Upload Release Assets
     runs-on: ubuntu-latest
-    needs: [debs, iso, v1-release-gate]
+    needs: [build, debs, iso, v1-release-gate]
     if: github.event_name == 'release' && github.event.action == 'published'
     permissions:
       contents: write
     steps:
-      - name: Download Debian packages
-        uses: actions/download-artifact@v4
-        with:
-          name: NithronOS - Debian Packages - ${{ github.event.release.tag_name || github.ref_name }}
-          path: release-assets/deb
-        continue-on-error: true
-          
       - name: Download ISO
         uses: actions/download-artifact@v4
         with:
@@ -787,33 +769,51 @@ jobs:
           path: release-assets/iso
         continue-on-error: true
           
-      - name: List all assets
+      - name: Download Debian packages
+        uses: actions/download-artifact@v4
+        with:
+          name: NithronOS - Debian Packages - ${{ github.event.release.tag_name || github.ref_name }}
+          path: release-assets/deb
+        continue-on-error: true
+        
+      - name: Download Web UI
+        uses: actions/download-artifact@v4
+        with:
+          name: NithronOS - Web UI - ${{ github.event.release.tag_name || github.ref_name }}
+          path: release-assets/web-ui
+        continue-on-error: true
+          
+      - name: Create Web UI archive
+        shell: bash
+        run: |
+          if [ -d "release-assets/web-ui" ]; then
+            cd release-assets
+            tar -czf nithronos-web-ui-${{ github.event.release.tag_name }}.tar.gz -C web-ui .
+            rm -rf web-ui
+            cd ..
+          fi
+          
+      - name: List release assets
         shell: bash
         run: |
           echo "=== Release Assets to Upload ==="
-          find release-assets -type f -ls 2>/dev/null || echo "No assets found"
+          echo "ISO files:"
+          ls -la release-assets/iso/*.iso 2>/dev/null || echo "No ISO files"
+          echo ""
+          echo "DEB packages:"
+          ls -la release-assets/deb/*.deb 2>/dev/null || echo "No DEB files"
+          echo ""
+          echo "Web UI:"
+          ls -la release-assets/*.tar.gz 2>/dev/null || echo "No Web UI archive"
           echo "================================="
-          
-      - name: Prepare checksums with unique names
-        shell: bash
-        run: |
-          # Rename checksum files to avoid conflicts
-          if [ -f release-assets/iso/SHA256SUMS ]; then
-            mv release-assets/iso/SHA256SUMS release-assets/iso/SHA256SUMS-iso.txt
-          fi
-          if [ -f release-assets/deb/SHA256SUMS ]; then
-            mv release-assets/deb/SHA256SUMS release-assets/deb/SHA256SUMS-deb.txt
-          fi
           
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release-assets/**/*.iso
-            release-assets/**/*.deb
-            release-assets/**/*.changes
-            release-assets/**/*.buildinfo
-            release-assets/**/SHA256SUMS*
+            release-assets/iso/*.iso
+            release-assets/deb/*.deb
+            release-assets/*.tar.gz
           fail_on_unmatched_files: false
           draft: false
           prerelease: false
