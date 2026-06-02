@@ -4,8 +4,6 @@
 [![CI](https://github.com/Nithronverse/NithronOS/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Nithronverse/NithronOS/actions/workflows/ci.yml)
 [![Snapshots On Update](https://img.shields.io/badge/Snapshots%20On%20Update-Enabled%20by%20default-2D7FF9)](docs/updates.md)
 [![Release](https://img.shields.io/badge/NithronOS-v0.9.5--pre--alpha-yellow)](https://github.com/Nithronverse/NithronOS/releases/tag/v0.9.5-pre-alpha)
-[![Discord](https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/qzB37WS5AT)
-[![Patreon](https://img.shields.io/badge/Support%20on-Patreon-F96854?logo=patreon&logoColor=white)](https://patreon.com/Nithron)
 
 **Open-source Linux-based OS for NAS & homelabs.**  
 Local-first storage management (Btrfs/ZFS*), snapshots, shares, backups, and a modern web dashboard with an optional app catalog — all without cloud lock-in.
